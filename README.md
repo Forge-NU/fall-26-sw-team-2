@@ -1,26 +1,26 @@
-# [Project Name]
+# Pinly 📍
 
-One-line description of what this is and who it's for.
+Share your journey, log your experiences, and discover inspiration from around the globe.
 
 ## Team
-- **Project Lead:**
-- **Members:**
-- **Semester:**
+- **Project Lead:** Christian Garcia
+- **Members:** Aditya Vij, Angela You, Atul Phadke, Duke Diamond, Grace Kim, Lucy Shah, Richie Nguyen, Ruoxi Wang
+- **Semester:** Fall 2026
 
 ## Why This Exists
-A couple sentences on the problem and the "purpose" behind building it — who has this problem, and why it matters.
+Today, travel apps tend to serve one of two purposes: plan the details of a trip you've already decided on, or act as a diary to share with only your friends. Neither of these allow you to discover **where** to go, and **what** to do once you're there. Pinly is built for those who want real, rated itineraries and experiences from people outside their immediate connections, surfaced by their personal taste and community rather than who they already follow.
 
 ## Tech Stack
-- Frontend:
-- Backend:
-- Database:
-- Infra/Deploy:
+- Frontend: Expo (React Native)
+- Backend: NestJS
+- Database: AWS RDS, S3
+- Infra/Deploy: Expo Application Services, GitHub Actions, AWS ECS Fargate
 
 ## Getting Started
 ```
 # clone
-git clone <repo-url>
-cd <repo-name>
+git clone https://github.com/Forge-NU/fall-26-sw-team-2.git
+cd fall-26-sw-team-2
 
 # install
 <install command>
