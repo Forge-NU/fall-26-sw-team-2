@@ -17,23 +17,53 @@ Today, travel apps tend to serve one of two purposes: plan the details of a trip
 - Infra/Deploy: Expo Application Services, GitHub Actions, AWS ECS Fargate
 
 ## Getting Started
+**Prerequisite:** Node 24 (pinned in `.nvmrc`). With [nvm](https://github.com/nvm-sh/nvm), run `nvm install && nvm use` from the repo root.
+
+Each app reads env vars from a `.env` file. Copy `apps/api/.env.example` and `apps/mobile/.env.example` to `.env` in the same folder and fill in values.
+
 ```
 # clone
 git clone https://github.com/Forge-NU/fall-26-sw-team-2.git
 cd fall-26-sw-team-2
+nvm use
 
-# install
-<install command>
+# install (each app has its own dependencies)
+cd apps/api && npm install && cp .env.example .env && cd ../..
+cd apps/mobile && npm install && cp .env.example .env && cd ../..
+```
 
-# run locally
-<run command>
+Run the API and the mobile app in separate terminals:
+
+```
+# terminal 1: API on http://localhost:3000 (restarts on file changes)
+cd apps/api
+npm run start:dev
+
+# terminal 2: Expo dev server
+cd apps/mobile
+npm start
+```
+
+In the Expo terminal, press `i` for the iOS simulator, `a` for the Android emulator, or `w` for web, or scan the QR code with Expo Go on your phone. On a physical phone, set `EXPO_PUBLIC_API_URL` in `apps/mobile/.env` to your computer's LAN IP (e.g. `http://192.168.1.20:3000`) instead of `localhost`.
+
+### Checks (same as CI)
+```
+# API
+cd apps/api
+npm run lint && npm test && npm run build
+
+# Mobile
+cd apps/mobile
+npm run lint && npm run typecheck
 ```
 
 ## Repo Structure
 ```
-/src        - application code
-/docs       - design docs, architecture decisions
-/.github    - issue templates, PR template
+/apps/api       - NestJS backend
+/apps/mobile    - Expo (React Native) app
+/shared         - shared code across apps
+/docs           - design docs, architecture decisions
+/.github        - CI workflows, issue templates, PR template
 ```
 
 ## Design Docs
