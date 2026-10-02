@@ -1,0 +1,15 @@
+// Generator and datasource config only. Put models in prisma/models/, one file per model
+// (e.g. models/user.prisma). Prisma reads every .prisma file under prisma/ (see prisma.config.ts).
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  // NestJS compiles to CommonJS; extensionless imports also resolve under ts-node and Jest.
+  moduleFormat        = "cjs"
+  importFileExtension = ""
+}
+
+datasource db {
+  provider = "postgresql"
+}
