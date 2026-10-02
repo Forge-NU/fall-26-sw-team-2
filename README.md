@@ -32,6 +32,18 @@ cd apps/api && npm install && cp .env.example .env && cd ../..
 cd apps/mobile && npm install && cp .env.example .env && cd ../..
 ```
 
+### Local database
+The API uses PostgreSQL through [Prisma](https://www.prisma.io/). For development, run Postgres in Docker (requires [Docker Desktop](https://www.docker.com/products/docker-desktop/) to be running). It listens on port **5433** so it won't clash with a Postgres you may already have on 5432, and the default `DATABASE_URL` in `apps/api/.env.example` already points at it.
+
+```
+cd apps/api
+docker compose up -d        # start Postgres (data persists between restarts)
+npx prisma migrate dev      # apply migrations to your local database
+npx prisma generate         # generate the typed Prisma client (src/generated/prisma)
+```
+
+Models live in `apps/api/prisma/schema.prisma`. After changing them, run `npx prisma migrate dev --name <change>` and commit the generated migration in `prisma/migrations/`. `docker compose down` stops the database; `docker compose down -v` also deletes its data.
+
 Run the API and the mobile app in separate terminals:
 
 ```
