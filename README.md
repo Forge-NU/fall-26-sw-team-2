@@ -1,4 +1,4 @@
-# Pinly 📍
+# Yuji 📍
 
 Share your journey, log your experiences, and discover inspiration from around the globe.
 
@@ -8,7 +8,7 @@ Share your journey, log your experiences, and discover inspiration from around t
 - **Semester:** Fall 2026
 
 ## Why This Exists
-Today, travel apps tend to serve one of two purposes: plan the details of a trip you've already decided on, or act as a diary to share with only your friends. Neither of these allow you to discover **where** to go, and **what** to do once you're there. Pinly is built for those who want real, rated itineraries and experiences from people outside their immediate connections, surfaced by their personal taste and community rather than who they already follow.
+Today, travel apps tend to serve one of two purposes: plan the details of a trip you've already decided on, or act as a diary to share with only your friends. Neither of these allow you to discover **where** to go, and **what** to do once you're there. Yuji is built for those who want real, rated itineraries and experiences from people outside their immediate connections, surfaced by their personal taste and community rather than who they already follow.
 
 ## Tech Stack
 - Frontend: Expo (React Native)
@@ -42,7 +42,7 @@ npx prisma migrate dev      # apply migrations to your local database
 npx prisma generate         # generate the typed Prisma client (src/generated/prisma)
 ```
 
-Models live in `apps/api/prisma/schema.prisma`. After changing them, run `npx prisma migrate dev --name <change>` and commit the generated migration in `prisma/migrations/`. `docker compose down` stops the database; `docker compose down -v` also deletes its data.
+Put each model in its own file under `apps/api/prisma/models/` (e.g. `models/user.prisma`). Prisma reads every `.prisma` file in `apps/api/prisma/`, so models can reference each other across files without imports; model names must be unique. Keep `prisma/schema.prisma` for the `generator` and `datasource` blocks only. After changing models, run `npx prisma migrate dev --name <change>` and commit the generated migration in `prisma/migrations/`. `docker compose down` stops the database; `docker compose down -v` also deletes its data.
 
 Run the API and the mobile app in separate terminals:
 

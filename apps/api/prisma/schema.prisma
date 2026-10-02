@@ -1,7 +1,6 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
+// Generator and datasource config only. Put models in prisma/models/, one file per model
+// (e.g. models/user.prisma). Prisma reads every .prisma file under prisma/ (see prisma.config.ts).
+// Docs: https://pris.ly/d/prisma-schema
 
 generator client {
   provider            = "prisma-client"
