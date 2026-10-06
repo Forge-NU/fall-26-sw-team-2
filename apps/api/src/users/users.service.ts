@@ -10,4 +10,17 @@ export class UsersService {
       where: { id },
     });
   }
+
+  async create(data: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    username: string;
+    avatarUrl?: string;
+  }) {
+    return this.prisma.user.create({
+      data,
+    });
+  }
 }
