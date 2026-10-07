@@ -1,262 +1,271 @@
-# Authentication Architecture
+# Authentication and User Data Architecture
 
 ## Overview
 
-The proposed authentication architecture for the application. It covers the selection of an authentication provider, the data that will be managed by the provider versus stored in our database, the local user data model, authentication API contracts, middleware requirements, and the implementation plan.
+Yuji will use Clerk as the authentication provider. Clerk manages user authentication, credentials, and sessions, while the Yuji backend stores the application-specific user data needed by the product.
 
----
+The backend uses the authenticated Clerk user ID to identify the current user. Clients do not provide a user ID when accessing their own account data.
 
-## Auth Provider
+## Authentication Provider
 
-**Selected provider:** Clerk
-- Most compatible with our tech stack and it seems like it will be less complicated to implement which means it will probably be faster for implementation
-- Clerk provides managed sign-in, user profiles, server-only metadata, and lifecycle webhooks
-- Its documentation supports storing the Clerk user ID and only the extra application data we need in our own database.
-- The only drawback is that it seems harder to have an organization within it (i.e sign on to organization), so if we want like SSO or something for northeastern students, Auth0 would be a better choice, however I don't think we really need/want this so I think Clerk will work for our purposes. 
+Clerk was selected because it provides managed authentication and integrates well with the project's NestJS backend and Expo mobile application. It also reduces the amount of authentication infrastructure Yuji needs to implement and maintain.
 
+### Clerk owns
 
-### Responsibilities
-
-#### Auth Provider Manages
-
-- Passwords and authentication credentials
-- Sign-in methods
-- Recovery and password reset flows
-- Email verification
+- Sign-in and sign-up flows
+- Password and credential management
 - Authentication sessions
-- Provider-managed user identity
-- Provider user profiles
-- Provider lifecycle events
+- Authentication tokens
+- Provider-managed identity information
 
-#### Our Application Manages
+Yuji does not store passwords, password hashes, or Clerk session secrets in its database.
 
-- Internal user ID
-- Application-specific account lifecycle information
-- Product preferences
-- Application-specific profile fields
-- Billing references
-- Domain-specific relationships
+### Yuji owns
 
-### Provider-to-Application User Mapping
+The local `User` record stores data needed by the application.
 
-Clerk's stable user ID will be stored in our local 'users' table as 'auth_provider_user_id'. The local user record will have its own internal user UUID primary key. Application tables will reference the internal 'uses.id' instead of the provider ID or email address. 
-Emails used for sign in should not be used as a relational key. 
----
+| Field | Type | Nullable | Description |
+|---|---|---|---|
+| `id` | String (primary key) | No | The Clerk user ID (e.g. `user_123`). Used directly as the primary key so no mapping table is needed |
+| `email` | String | No | User email, copied from Clerk at creation |
+| `firstName` | String | No | User first name |
+| `lastName` | String | No | User last name |
+| `username` | String (unique) | No | Application username; unique |
+| `avatarUrl` | String | Yes | Optional profile image URL |
+| `createdAt` | DateTime | No | Account creation timestamp |
+| `updatedAt` | DateTime | No | Last update timestamp |
 
-## Data Model
-
-### User
-
-The application should maintain a local `users` record for associating authenticated users with application-specific data.
-
-| Field | Type | Nullable | Default | Constraints | Description |
-|---|---|---|---|---|---|
-| `id` | UUID | No | Generated | Primary key | Internal application user ID |
-| `auth_provider` | String | No | `clerk` | — | Authentication provider name |
-| `auth_provider_user_id` | String | No | — | Unique with `auth_provider` | User ID issued by the authentication provider |
-| `created_at` | Timestamp | No | Current timestamp | — | Time the local account was created |
-| `updated_at` | Timestamp | No | Current timestamp | — | Time the local account was last updated |
-| `deleted_at` | Timestamp | Yes | `NULL` | — | Used if soft deletion or audit retention is required |
-| `display_name` | String | Yes | `NULL` | — | Optional application-owned display name |
+The local database does not store authentication credentials or provider session information.
 
 ### Relationships
 
-Application tables should reference the internal `users.id`.
+`User` is the root of the application data model. Any model that belongs to a user (for example pins or posts) should reference it with a foreign key:
 
-- `users.id` is the primary key for the local user record.
-- `auth_provider_user_id` identifies the corresponding user in the authentication provider.
-- `auth_provider` and `auth_provider_user_id` should be unique together.
-- Application tables should use `users.id` as their foreign key rather than email or the provider user ID.
+| Relationship | Foreign key | Cardinality | Nullability |
+|---|---|---|---|
+| `<Resource>` belongs to `User` | `<Resource>.userId` → `User.id` | Many-to-one (one user owns many resources) | Non-null for owned content |
 
-### Data Ownership
+The `ON DELETE` behavior for these foreign keys (cascade vs. anonymize) depends on the account deletion decision described under [Open Questions](#open-questions).
 
-The local user record should contain only information required by the application.
-Passwords, password hashes, provider session secrets, and other authentication credentials should not be stored in the application database.
+## Authentication Flow
 
+1. The user signs in through Clerk.
+2. Clerk provides the authenticated session.
+3. The client sends authenticated requests to the Yuji API.
+4. The backend validates the Clerk session using the authentication guard.
+5. The backend obtains the authenticated Clerk user ID from the validated session.
+6. The backend uses that ID to retrieve the corresponding local `User` record.
+7. Application data is accessed using the local user record.
 
-| Data | System | Application |
-|---|---|---|
-| Passwords, sign-in methods, recovery, email verification | Stored with Clerk | Validate provider-issued sessions on protected backend requests |
-| User ID | Issued by Clerk | Store locally as a unique reference for associating application data with the authenticated person |
-| Profile information such as email, verified state, name, and profile picture | Managed by Clerk | Read from verified authentication context when needed; copy locally only when a specific product requirement requires it |
-| Application account and lifecycle timestamps | — | Store internal user ID and account creation/update state |
-| Product preferences, application-specific profile fields, billing references, and domain relationships | — | Store in our database with appropriate validation and access controls |
+The backend derives the current user from the authenticated session rather than trusting a user ID supplied by the client.
 
-**Principle:** Clerk metadata should remain small and related to identity or access. Queryable product data belongs in our application database.
+## Sign Up, Login, and Sign Out
 
-### Nullability
-
-Required fields:
-- `id`
-- `auth_provider`
-- `auth_provider_user_id`
-- `created_at`
-- `updated_at`
-
-Optional fields:
-- `deleted_at`
-- `display_name`
-- Other application-specific fields when product requirements are confirmed
-
----
-
-## Authentication Flows
-
-### Sign Up
-
-Clerk should handle the user's sign-up and credential management.
-
-1. The user starts the sign-up flow through Clerk.
-2. Clerk creates and manages the authenticated user.
-3. The client receives the provider-managed authenticated session.
-4. The backend validates the provider session on authenticated requests.
-5. The backend resolves the Clerk user ID to the corresponding local `users` record.
-6. If a local user does not exist, the application can create the local user record idempotently.
-
-### Login
-1. The user authenticates through Clerk.
-2. Clerk validates the user's credentials and establishes an authenticated session.
-3. The client sends authenticated requests to the backend.
-4. Authentication middleware validates the provider-issued session.
-5. The backend resolves the provider user ID to the internal `users.id`.
-6. Application handlers use the normalized authenticated principal rather than trusting user identity supplied directly by the client.
-
-### Sign Out
-
-Sign-out should be handled through the authentication provider's session management.
-
-1. The client requests sign-out through Clerk.
-2. Clerk invalidates the appropriate authentication session.
-3. Subsequent protected API requests without a valid session are rejected.
-
-
-### Session / Token Verification
-
-Authentication middleware validates the provider-issued session on protected backend requests. The backend should never trust a user ID simply because it was included in a client request.
-
-The backend should:
-
-1. Extract the provider authentication information from the request.
-2. Validate the provider-issued session.
-3. Retrieve the trusted provider user ID.
-4. Resolve the provider user ID to the local internal user ID.
-5. Pass a normalized authenticated principal to application code.
-
-### Account Creation / User Synchronization
-
-If the application maintains a local user projection:
-
-1. A user is created in Clerk.
-2. The application receives the relevant lifecycle event or encounters the authenticated user for the first time.
-3. The application creates the local user record if one does not already exist.
-4. User creation must be idempotent so repeated events or requests do not create duplicate users.
-
----
-
-## API Contracts
-Authentication itself is primarily managed by Clerk. The backend API should expose application-level endpoints for interacting with the authenticated user's application data. The backend should validate the Clerk session before allowing access to protected endpoints.
-
-Sign-up, login, and sign-out are handled through Clerk rather than through custom `/auth/signup`, `/auth/login`, or `/auth/logout` endpoints in our backend. The backend is responsible for validating the authenticated session and associating the authenticated Clerk user with the corresponding local application user.
-
-### Sign Up
-
-Sign-up is handled by Clerk. The mobile application uses Clerk's authentication flow to create the user's authentication account and establish an authenticated session. The backend does not receive or store the user's password or password hash. After authentication, the backend uses the authenticated Clerk user ID to resolve or create the corresponding local `users` record.
-
-### Login
-
-Login is handled by Clerk. The mobile application uses Clerk's authentication flow to authenticate the user and establish a session. For subsequent protected API requests, the client provides the Clerk authentication session/token. The backend validates the session through authentication middleware before processing the request.
-
-### Sign Out
-
-Sign-out is handled by Clerk's session management. The client ends the authenticated Clerk session. Subsequent requests without a valid authentication session are rejected by the backend authentication middleware.
-
-### Get Current User
-Endpoints 
-
-GET /api/me
-- Returns the authenticated user’s application profile
-
-Response:
-{
-  "id": "uuid",
-  "displayName": "Lucy",
-  "createdAt": "2026-09-29T12:00:00Z"
-}
-
-PATCH /api/me 
-- Updates explicitly user-editable, application-owned fields. displayName is a possible initial field, pending product confirmation.
-- Reject server-owned fields such as id, roles, authProviderUserId, createdAt, and billing identifiers.
-
-Request:
-{
-  "displayName": "Lucy Shah"
-}
-
-Response:
-{
-  "id": "uuid",
-  "displayName": "Lucy Shah",
-  "updatedAt": "2026-09-29T12:30:00Z"
-}
-
-DELETE /api/me
-- If account deletion is in scope, decide whether to delete the provider account immediately, mark it for deletion, or anonymize local data. 
-- Define how related application records and retention requirements are handled.
-
-{
-  "status": "deletion_pending"
-}
-
-POST /api/webhooks/clerk 
-- only if local synchronization is needed
-- If we keep a local user projection, handle provider lifecycle events such as user creation, update, and deletion. Verify webhook signatures, make event handling idempotent, and allow for retries and out-of-order delivery.
-- Webhooks handle asynchronous lifecycle updates. They should not replace request-time session validation.
-
-{
-  "received": true
-}
+Sign up, login, and sign out are handled entirely by Clerk through its client SDK in the Expo app. The Yuji backend does not need to expose endpoints for these actions. The backend only validates the resulting session on each request.
 
 ## Middleware
 
-Protected backend endpoints should use authentication middleware to validate the Clerk session before the request reaches application handlers.
+A Clerk authentication guard protects all authenticated routes. It validates the Clerk session and attaches the Clerk user ID to the request. Requests without a valid session receive `401 Unauthorized`.
 
-The middleware should:
-1. Extract authentication information from the incoming request.
-2. Validate the Clerk session.
-3. Retrieve the trusted Clerk user ID.
-4. Resolve the Clerk user ID to the local users.id.
-5. Attach a normalized authenticated principal to the request.
-6. Reject the request with 401 Unauthorized if authentication fails.
+Required configuration (environment variables) includes the Clerk secret key and, for webhooks, the Clerk webhook signing secret. These must be set for local development and tests.
 
-Application handlers should use this authenticated principal rather than accepting a user ID directly from the request body or URL when the operation concerns the currently authenticated user.
+## API Contracts
 
----
+### GET `/api/me`
+
+Returns the currently authenticated user's application profile.
+
+**Authentication:** Required. The backend derives the user ID from the authenticated Clerk session.
+
+**Success: 200**
+
+```json
+{
+  "id": "user_123",
+  "firstName": "Example",
+  "lastName": "User",
+  "username": "exampleuser",
+  "avatarUrl": "https://example.com/avatar.png"
+}
+```
+
+**Unauthorized: 401**
+
+```json
+{
+  "statusCode": 401,
+  "message": "Unauthorized"
+}
+```
+
+**Not Found: 404**
+
+```json
+{
+  "statusCode": 404,
+  "message": "User not found"
+}
+```
+
+### PATCH `/api/me`
+
+Updates fields owned by the Yuji application.
+
+**Authentication:** Required.
+
+**Allowed fields:**
+
+- `firstName`
+- `lastName`
+- `username`
+- `avatarUrl`
+
+All fields are optional; only the fields provided are updated. The client cannot modify the user's ID, authentication credentials, or authentication session information.
+
+**Example request**
+
+```json
+{
+  "firstName": "Example",
+  "lastName": "User",
+  "username": "exampleuser",
+  "avatarUrl": "https://example.com/avatar.png"
+}
+```
+
+**Success: 200**
+
+Returns the updated profile, in the same shape as `GET /api/me`.
+
+```json
+{
+  "id": "user_123",
+  "firstName": "Example",
+  "lastName": "User",
+  "username": "exampleuser",
+  "avatarUrl": "https://example.com/avatar.png"
+}
+```
+
+**Bad Request: 400**
+
+Returned when a field fails validation or an unknown field is sent.
+
+```json
+{
+  "statusCode": 400,
+  "message": ["username must be a string"],
+  "error": "Bad Request"
+}
+```
+
+**Unauthorized: 401**
+
+```json
+{
+  "statusCode": 401,
+  "message": "Unauthorized"
+}
+```
+
+**Not Found: 404**
+
+```json
+{
+  "statusCode": 404,
+  "message": "User not found"
+}
+```
+
+**Conflict: 409**
+
+Returned when the requested `username` is already taken.
+
+```json
+{
+  "statusCode": 409,
+  "message": "Username already in use"
+}
+```
+
+### DELETE `/api/me`
+
+Deletes the currently authenticated user's Yuji account.
+
+**Authentication:** Required. The backend derives the user ID from the authenticated Clerk session.
+
+The final deletion behavior must coordinate local database deletion with the Clerk account lifecycle. The implementation should define whether the Clerk account is deleted immediately or whether deletion is handled through a deferred/anonymization process.
+
+**Success: 204**
+
+No response body.
+
+**Unauthorized: 401**
+
+```json
+{
+  "statusCode": 401,
+  "message": "Unauthorized"
+}
+```
+
+**Not Found: 404**
+
+```json
+{
+  "statusCode": 404,
+  "message": "User not found"
+}
+```
+
+## Clerk Webhooks
+
+A Clerk webhook endpoint may be added if Yuji needs to synchronize provider-side user lifecycle changes with the local database.
+
+**Potential endpoint:** `POST /api/webhooks/clerk`
+
+If implemented, webhook requests must:
+
+- Verify the Clerk webhook signature.
+- Handle create, update, and delete events as needed.
+- Be idempotent.
+- Tolerate retries and out-of-order events.
+
+Webhooks are not a replacement for validating authentication on normal API requests.
+
+## Endpoint Priority
+
+| Priority | Item | Reason |
+|---|---|---|
+| P0 | Clerk authentication guard | Required by every other endpoint |
+| P0 | Local `User` model and creation of the local row | `GET /api/me` depends on it |
+| P0 | `GET /api/me` | Client needs the current user's profile |
+| P1 | `PATCH /api/me` | Profile editing 
+| P1 | `POST /api/webhooks/clerk` | Keeps local data in sync; may also create users (see Open Questions) |
+| P2 | `DELETE /api/me` | Depends on the deletion decision |
+
 ## Implementation Plan
 
-1. **Confirm authentication requirements**
-   - Confirm required sign-in methods, email verification, roles/permissions, and whether enterprise SSO or organization support is needed.
+1. Keep Clerk responsible for authentication and session management.
+2. Store the authenticated Clerk user ID and application-specific profile data in the local `User` table.
+3. Protect authenticated endpoints with a Clerk authentication guard.
+4. Derive the current user from the validated Clerk session.
+5. Implement the `/api/me` endpoints for reading and updating the current user's application profile.
+6. Define and implement account deletion behavior.
+7. Add Clerk webhooks only if local user synchronization is required.
+8. Add integration tests for authenticated and unauthenticated API requests.
 
-2. **Finalize provider and data model**
-   - Confirm Clerk as the authentication provider.
-   - Approve the local `users` table and the fields that should be stored locally versus managed by Clerk.
+## Next steps
 
-3. **Implement authentication middleware**
-   - Configure Clerk.
-   - Validate provider sessions on protected API requests.
-   - Resolve the Clerk user ID to the internal `users.id`.
-   - Attach the authenticated user to the request.
 
-4. **Implement user API endpoints**
-   - Implement `GET /api/me`.
-   - Implement `PATCH /api/me` for application-owned profile fields.
-   - Implement account deletion after the deletion/retention policy is finalized.
+1. **How is the local `User` row created?**
+   - **Webhook:** create the row on the Clerk `user.created` event.
+   - **Lazy creation:** create the row on the first authenticated request.
+   
+   Until this is decided, `GET /api/me` returns `404` for a Clerk user with no local row.
 
-5. **Implement user synchronization if needed**
-   - Add the Clerk webhook endpoint if the application needs local user records to stay synchronized with Clerk.
-   - Verify webhook signatures and make processing idempotent.
+2. **How is account deletion handled?**
+   - **Immediate hard delete:** delete the Clerk user through Clerk's backend API, then delete the local row and cascade to owned data.
+   - **Deferred/anonymization:** mark the account deleted, strip personal fields (`email`, names, `username`, `avatarUrl`), keep the row so other users' content does not break, and delete the Clerk user.
 
-6. **Test authentication flows**
-   - Test sign-up, login, sign-out, protected API requests, invalid/expired sessions, user creation, profile updates, and webhook handling.
-
-7. **Finalize security and operational requirements**
-   - Confirm secret management, roles/permissions, account deletion, data retention, and production configuration.
+3. **How do webhooks interact with `DELETE /api/me`?** Deleting the Clerk user triggers a `user.deleted` webhook. The handler must treat an already-deleted local user as success.
