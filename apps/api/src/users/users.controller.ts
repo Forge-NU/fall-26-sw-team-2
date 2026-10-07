@@ -61,6 +61,7 @@ export class UsersController {
   }
 
   @Get('users/:id')
+  @UseGuards(ClerkAuthGuard)
   async findById(@Param('id') id: string) {
     const user = await this.usersService.findById(id);
 
@@ -68,6 +69,12 @@ export class UsersController {
       throw new NotFoundException('User not found');
     }
 
-    return user;
+    return {
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      username: user.username,
+      avatarUrl: user.avatarUrl,
+    };
   }
 }
