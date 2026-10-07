@@ -13,7 +13,7 @@ Related work:
 - #8 Post creation UI, #9 Trip creation UI, #12 Feed UI: the screens these contracts need to support.
 - #6 Maps: picks the place provider that `locations` is populated from.
 
-Conventions follow the auth doc: snake_case columns, camelCase JSON, UUID primary keys, endpoints under `/api`, and every endpoint requires a valid Clerk session.
+Conventions follow the auth doc: snake_case columns, camelCase JSON, UUID primary keys, endpoints under `/api`, and every endpoint requires a valid Clerk session. The one exception is `users.id`, which is the Clerk user ID (a string like `user_123`), so every column that references a user is a string, not a UUID.
 
 ## Relationships
 
@@ -33,12 +33,13 @@ erDiagram
     posts |o--o{ trip_items : "shown in"
 
     users {
-        uuid id PK
-        string display_name
+        string id PK "Clerk user ID"
+        string username
+        string avatar_url
     }
     trips {
         uuid id PK
-        uuid owner_id FK
+        string owner_id FK
         string title
         text description
         string cover_image_key
@@ -64,7 +65,7 @@ erDiagram
     }
     posts {
         uuid id PK
-        uuid author_id FK
+        string author_id FK
         text caption
         date visited_on
         visibility visibility
@@ -90,7 +91,7 @@ erDiagram
     }
     post_tagged_users {
         uuid post_id PK, FK
-        uuid user_id PK, FK
+        string user_id PK, FK
         timestamp created_at
     }
     post_interests {
@@ -167,7 +168,7 @@ Indexes: `(provider, provider_place_id)` unique, `(latitude, longitude)` for map
 | Field | Type | Nullable | Default | Constraints | Description |
 |---|---|---|---|---|---|
 | `id` | UUID | No | Generated | Primary key | |
-| `owner_id` | UUID | No | — | FK `users.id` | Trip creator |
+| `owner_id` | String | No | — | FK `users.id` | Trip creator |
 | `title` | String(100) | No | — | | |
 | `description` | Text | Yes | `NULL` | | |
 | `cover_image_key` | String | Yes | `NULL` | | S3 key of cover image |
@@ -211,7 +212,7 @@ Indexes: `(trip_id, position)` unique, `(post_id)`.
 | Field | Type | Nullable | Default | Constraints | Description |
 |---|---|---|---|---|---|
 | `id` | UUID | No | Generated | Primary key | |
-| `author_id` | UUID | No | — | FK `users.id` | |
+| `author_id` | String | No | — | FK `users.id` | |
 | `caption` | Text | Yes | `NULL` | Max 2,200 chars | |
 | `visited_on` | Date | Yes | `NULL` | | When the experience happened, if different from `created_at` |
 | `visibility` | `visibility` | No | `public` | | |
@@ -256,7 +257,7 @@ Users tagged as having been there with the author (from #8).
 | Field | Type | Nullable | Default | Constraints | Description |
 |---|---|---|---|---|---|
 | `post_id` | UUID | No | — | FK `posts.id`, on delete cascade | |
-| `user_id` | UUID | No | — | FK `users.id`, on delete cascade | |
+| `user_id` | String | No | — | FK `users.id`, on delete cascade | |
 | `created_at` | Timestamp | No | Current timestamp | | |
 
 Primary key: `(post_id, user_id)`.
@@ -297,7 +298,7 @@ Trips and posts each have their own `visibility`. A post's visibility does not c
 | Visibility | Who can see it |
 |---|---|
 | `public` | Any signed-in user |
-| `followers` | The owner, and users who follow the owner (a row in #10's follows table with `follower_id = viewer` and `followee_id = owner`) |
+| `followers` | The owner, and users who follow the owner (a row in #10's follows table with `follower_id = viewer` and `following_id = owner`) |
 | `private` | Only the owner |
 
 Rules:
@@ -324,9 +325,9 @@ List endpoints use cursor pagination: `?cursor=<opaque>&limit=<1-50, default 20>
 
 ### Shared response shapes
 
-`UserSummary` (from #4):
+`UserSummary` (fields from #4's `User`):
 ```json
-{ "id": "uuid", "displayName": "Duke" }
+{ "id": "user_123", "username": "duke", "avatarUrl": "https://..." | null }
 ```
 
 `Location`:
@@ -347,7 +348,7 @@ List endpoints use cursor pagination: `?cursor=<opaque>&limit=<1-50, default 20>
 ```json
 {
   "id": "uuid",
-  "author": { "id": "uuid", "displayName": "Duke" },
+  "author": UserSummary,
   "caption": "Best morning bun in the city",
   "visitedOn": "2026-09-20",
   "visibility": "public",
@@ -453,7 +454,7 @@ Request:
   "media": [
     { "s3Key": "posts/uuid/uuid.jpg", "mediaType": "image", "width": 1080, "height": 1350 }
   ],
-  "taggedUserIds": ["uuid"],
+  "taggedUserIds": ["user_123"],
   "interestIds": ["uuid"],
   "tripId": "uuid"
 }
