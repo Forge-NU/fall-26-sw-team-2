@@ -103,7 +103,9 @@ Returns the currently authenticated user's application profile.
 ```json
 {
   "statusCode": 404,
-  "message": "User not found"
+  "message": "User not found",
+  "error": "Not Found"
+
 }
 ```
 
@@ -154,7 +156,10 @@ Returned when a field fails validation or an unknown field is sent.
 ```json
 {
   "statusCode": 400,
-  "message": ["username must be a string"],
+  "message": [
+    "username must be longer than or equal to 3 characters",
+    "username must be a string"
+  ],
   "error": "Bad Request"
 }
 ```
@@ -184,7 +189,8 @@ Returned when the requested `username` is already taken.
 ```json
 {
   "statusCode": 409,
-  "message": "Username already in use"
+  "message": "Username already in use",
+  "error": "Conflict"
 }
 ```
 
