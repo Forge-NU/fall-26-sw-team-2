@@ -1,82 +1,67 @@
 # Itinerary Schema: Trips, Posts, Locations
 
-Status: Draft, for review
+Status: Built (schema), endpoints in review
 Issue: #3
 
 ## Overview
 
-This doc proposes the data model and API contracts for trips, posts, and locations. Itinerary building, the feed, and maps all read from these tables.
+This doc covers the data model and API contracts for trips, posts, post media, and locations. The feed, map, search, stories, and profiles all read from these tables.
+
+The product rules come from DOC-1 (#33): [`docs/product/mvp-decisions.md`](../product/mvp-decisions.md), and the cross-feature data model is in [`docs/architecture/data-model.md`](data-model.md). If this doc disagrees with DOC-1, DOC-1 wins and this doc should be fixed.
 
 Related work:
-- #4 Auth/Users: has and defines `users`. Every table here references `users.id`.
-- #10 Follower System: defines follows. Visibility rules below depend on it.
-- #8 Post creation UI, #9 Trip creation UI, #12 Feed UI: the screens these contracts need to support.
-- #6 Maps: picks the place provider that `locations` is populated from.
+- #15 Auth/Users: defines `User`. Every user reference here is the Clerk user ID (a string like `user_123`).
+- #37 LOC-1: validates the `locations` table against Mapbox and adds the endpoint that creates location rows.
+- #38 MEDIA-1: the presigned upload endpoint that produces the S3 keys posts reference.
+- #23 STORY-1: stories link to trips and use the active-trip rule below.
+- #9 / #41 trip screens, #8 / #42 post composer, #12 / #27 feed: the screens these contracts support.
 
-Conventions follow the auth doc: snake_case columns, camelCase JSON, UUID primary keys, endpoints under `/api`, and every endpoint requires a valid Clerk session. The one exception is `users.id`, which is the Clerk user ID (a string like `user_123`), so every column that references a user is a string, not a UUID.
+Conventions:
+- Prisma models live in `apps/api/prisma/models/`, one file per model.
+- Columns are snake_case and JSON is camelCase.
+- Primary keys are UUIDs, except `users.id`.
+- Dates without a time (`start_date`, `end_date`, `visited_on`) are `DATE` columns and `YYYY-MM-DD` strings in JSON.
+- We store S3 keys, never URLs. The API turns keys into URLs when it reads a row.
+- Prisma can't express check constraints, so they're raw SQL at the end of the migration that creates the table.
 
 ## Relationships
 
 ```mermaid
 erDiagram
     users ||--o{ trips : owns
-    users ||--o{ posts : authors
-    users ||--o{ post_tagged_users : "tagged in"
-    posts ||--o{ post_tagged_users : tags
+    trips ||--o{ posts : contains
     posts ||--|{ post_media : has
-    posts ||--|{ post_locations : "tagged at"
-    locations ||--o{ post_locations : ""
-    posts ||--o{ post_interests : ""
-    interests ||--o{ post_interests : ""
-    trips ||--o{ trip_items : contains
-    locations ||--o{ trip_items : "stop at"
-    posts |o--o{ trip_items : "shown in"
+    locations |o--o{ posts : "tagged at"
 
     users {
         string id PK "Clerk user ID"
         string username
-        string avatar_url
+        string first_name
+        string last_name
+        string avatar_url "nullable"
     }
     trips {
         uuid id PK
         string owner_id FK
         string title
-        text description
-        string cover_image_key
+        string destination
+        string description "nullable"
         date start_date
         date end_date
-        trip_status status
-        smallint rating
-        visibility visibility
-        timestamp created_at
-        timestamp updated_at
-        timestamp deleted_at
-    }
-    trip_items {
-        uuid id PK
-        uuid trip_id FK
-        uuid location_id FK
-        uuid post_id FK "nullable"
-        int position
-        smallint day_number
-        text note
+        trip_status status "draft or published"
+        timestamp published_at "nullable"
         timestamp created_at
         timestamp updated_at
     }
     posts {
         uuid id PK
-        string author_id FK
-        text caption
+        uuid trip_id FK
+        uuid location_id FK "nullable"
+        string custom_location_name "nullable"
+        string caption "nullable"
         date visited_on
-        visibility visibility
         timestamp created_at
         timestamp updated_at
-        timestamp deleted_at
-    }
-    post_locations {
-        uuid post_id PK, FK
-        uuid location_id PK, FK
-        smallint position
     }
     post_media {
         uuid id PK
@@ -84,51 +69,30 @@ erDiagram
         string s3_key UK
         media_type media_type
         smallint position
-        int width
-        int height
-        int duration_ms
+        int width "nullable"
+        int height "nullable"
+        int duration_ms "nullable"
         timestamp created_at
-    }
-    post_tagged_users {
-        uuid post_id PK, FK
-        string user_id PK, FK
-        timestamp created_at
-    }
-    post_interests {
-        uuid post_id PK, FK
-        uuid interest_id PK, FK
-    }
-    interests {
-        uuid id PK
-        string slug UK
-        string name
     }
     locations {
         uuid id PK
         string provider
         string provider_place_id
         string name
-        string address
+        string address "nullable"
         decimal latitude
         decimal longitude
-        string city
-        string region
-        char country_code
+        string city "nullable"
+        string region "nullable"
+        char country_code "nullable"
         timestamp created_at
         timestamp updated_at
     }
 ```
 
-`users` is owned by #4. Only the fields this doc uses are shown.
+`users` is owned by #15. Only the fields this doc uses are shown.
 
-A post is something a user shares about one or more places: photos, a caption, and the locations it covers. A post can exist without a trip.
-
-A trip is an ordered list of trip items. Each item is a location, and may also point to a post about that location. This lets a trip contain:
-- places the owner has posted about (item has a post),
-- places the owner plans to go but hasn't posted about yet (item has no post),
-- places or posts saved from someone else's content in the feed (item points to another user's post).
-
-Because of this, trips and posts are many-to-many through `trip_items`. The same post can appear in several trips, including trips owned by other users.
+A trip is a dated itinerary made of posts. A post is media within a trip, with a caption, a date, and one location. Every post belongs to exactly one trip, and a post's author is always its trip's owner, so posts don't store an author.
 
 ## Data Model
 
@@ -136,211 +100,201 @@ Because of this, trips and posts are many-to-many through `trip_items`. The same
 
 | Enum | Values |
 |---|---|
-| `visibility` | `public`, `followers`, `private` |
-| `trip_status` | `planned`, `completed` |
+| `trip_status` | `draft`, `published` |
 | `media_type` | `image`, `video` |
-
-### locations
-
-A shared record for a real-world place. Locations are deduplicated by provider place ID, so every post about the same place points to the same row. That shared row is what lets maps and the feed group content by place.
-
-Places come from an external place search API (chosen in #6), and `provider_place_id` is that API's ID for the place. Those IDs are only unique within one provider, so we store `provider` next to them. That way, switching providers later, or using a second one, doesn't cause ID collisions or require a migration.
-
-| Field | Type | Nullable | Default | Constraints | Description |
-|---|---|---|---|---|---|
-| `id` | UUID | No | Generated | Primary key | |
-| `provider` | String | No | — | Unique with `provider_place_id` | Place data source, e.g. `google`, `mapbox` (pending #6) |
-| `provider_place_id` | String | No | — | Unique with `provider` | Provider's ID for the place |
-| `name` | String | No | — | | Display name, e.g. "Tartine Bakery" |
-| `address` | String | Yes | `NULL` | | Formatted address |
-| `latitude` | Decimal(9,6) | No | — | -90 to 90 | |
-| `longitude` | Decimal(9,6) | No | — | -180 to 180 | |
-| `city` | String | Yes | `NULL` | | |
-| `region` | String | Yes | `NULL` | | State or province |
-| `country_code` | Char(2) | Yes | `NULL` | ISO 3166-1 alpha-2 | |
-| `created_at` | Timestamp | No | Current timestamp | | |
-| `updated_at` | Timestamp | No | Current timestamp | | |
-
-Indexes: `(provider, provider_place_id)` unique, `(latitude, longitude)` for map queries. If map queries need radius search we can move to PostGIS later.
 
 ### trips
 
 | Field | Type | Nullable | Default | Constraints | Description |
 |---|---|---|---|---|---|
 | `id` | UUID | No | Generated | Primary key | |
-| `owner_id` | String | No | — | FK `users.id` | Trip creator |
-| `title` | String(100) | No | — | | |
-| `description` | Text | Yes | `NULL` | | |
-| `cover_image_key` | String | Yes | `NULL` | | S3 key of cover image |
-| `start_date` | Date | Yes | `NULL` | | |
-| `end_date` | Date | Yes | `NULL` | `end_date >= start_date` | |
-| `status` | `trip_status` | No | `planned` | | |
-| `rating` | Smallint | Yes | `NULL` | 1 to 5, only when `status = completed` | Owner's overall rating of the trip |
-| `visibility` | `visibility` | No | `public` | | |
-| `created_at` | Timestamp | No | Current timestamp | | |
-| `updated_at` | Timestamp | No | Current timestamp | | |
-| `deleted_at` | Timestamp | Yes | `NULL` | | Soft delete |
-
-Indexes: `(owner_id, created_at)`.
-
-Check constraint: `rating IS NULL OR status = 'completed'`. Moving a trip back to `planned` clears its rating.
-
-### trip_items
-
-One stop in a trip's itinerary.
-
-| Field | Type | Nullable | Default | Constraints | Description |
-|---|---|---|---|---|---|
-| `id` | UUID | No | Generated | Primary key | |
-| `trip_id` | UUID | No | — | FK `trips.id`, on delete cascade | |
-| `location_id` | UUID | No | — | FK `locations.id` | The place for this stop |
-| `post_id` | UUID | Yes | `NULL` | FK `posts.id` | Post shown for this stop, if any. Can belong to any user. |
-| `position` | Integer | No | — | Unique with `trip_id` | Order within the trip, starting at 0 |
-| `day_number` | Smallint | Yes | `NULL` | `>= 1` | Optional day grouping ("Day 2") |
-| `note` | Text | Yes | `NULL` | | Trip owner's note for this stop |
+| `owner_id` | String | No | | FK `users.id`, on delete cascade | Trip creator |
+| `title` | Varchar(100) | No | | | |
+| `destination` | Varchar(100) | No | | | Free text, e.g. "Lisbon, Portugal". Display only, the map and search don't use it. |
+| `description` | Varchar(1000) | Yes | `NULL` | | |
+| `start_date` | Date | No | | | |
+| `end_date` | Date | No | | `end_date >= start_date` | |
+| `status` | `trip_status` | No | `draft` | | |
+| `published_at` | Timestamp | Yes | `NULL` | Set exactly when `status = 'published'` | The feed sorts by it |
 | `created_at` | Timestamp | No | Current timestamp | | |
 | `updated_at` | Timestamp | No | Current timestamp | | |
 
-Constraints:
-- `(post_id, location_id)` is a composite FK to `post_locations(post_id, location_id)`. When `post_id` is set, the item's location has to be one of that post's locations. When `post_id` is null, Postgres skips the check.
-- The `(trip_id, position)` unique constraint should be `DEFERRABLE INITIALLY DEFERRED` so a reorder can swap positions in one transaction.
+Check constraints:
+- `trips_dates_check`: `end_date >= start_date`
+- `trips_published_at_check`: `(status = 'published') = (published_at IS NOT NULL)`
 
-Indexes: `(trip_id, position)` unique, `(post_id)`.
+Indexes: `(owner_id, start_date)` for profiles and the active-trip lookup, `(status, published_at)` for the feed.
+
+There's no cover image column. The trip card uses the first photo of the trip's first post.
+
+#### Active trip
+
+A trip is active when it's a draft and today falls between its start and end dates, inclusive:
+
+```
+status = 'draft' AND start_date <= today AND today <= end_date
+```
+
+"Today" is the date in the user's time zone, sent by the app (see [Active trips](#get-apimetripsactive)). Publishing a trip ends its active period, even if the end date hasn't passed. Only active trips can have stories linked to them (#23).
 
 ### posts
 
 | Field | Type | Nullable | Default | Constraints | Description |
 |---|---|---|---|---|---|
 | `id` | UUID | No | Generated | Primary key | |
-| `author_id` | String | No | — | FK `users.id` | |
-| `caption` | Text | Yes | `NULL` | Max 2,200 chars | |
-| `visited_on` | Date | Yes | `NULL` | | When the experience happened, if different from `created_at` |
-| `visibility` | `visibility` | No | `public` | | |
+| `trip_id` | UUID | No | | FK `trips.id`, on delete cascade | |
+| `location_id` | UUID | Yes | `NULL` | FK `locations.id`, on delete restrict | Set for a Mapbox place |
+| `custom_location_name` | Varchar(100) | Yes | `NULL` | | Set for a custom location the user typed |
+| `caption` | Varchar(2200) | Yes | `NULL` | | |
+| `visited_on` | Date | No | | | The day it happened. Must fall within the trip's dates (checked by the API). |
 | `created_at` | Timestamp | No | Current timestamp | | |
 | `updated_at` | Timestamp | No | Current timestamp | | |
-| `deleted_at` | Timestamp | Yes | `NULL` | | Soft delete |
 
-Indexes: `(author_id, created_at)`.
+Check constraint `posts_location_check`: exactly one of `location_id` and `custom_location_name` is set, `(location_id IS NULL) <> (custom_location_name IS NULL)`.
 
-A post must have at least one location and at least one media item. The API enforces this, since the database can't express it on its own.
+The database doesn't check that `visited_on` is within the trip's dates, because the trip's dates can change. The API checks it when a post is created or edited, and rejects a trip date change that would leave a post outside the new dates.
 
-### post_locations
+Posts in a trip are ordered by `visited_on`, then `created_at`. The app groups them into days by `visited_on`.
 
-| Field | Type | Nullable | Default | Constraints | Description |
-|---|---|---|---|---|---|
-| `post_id` | UUID | No | — | FK `posts.id`, on delete cascade | |
-| `location_id` | UUID | No | — | FK `locations.id` | |
-| `position` | Smallint | No | — | Unique with `post_id` | Display order of locations on the post |
+Indexes: `(trip_id, visited_on, created_at)` for the trip page, `(location_id)` for the map and location pages, `(created_at)` for recent posts.
 
-Primary key: `(post_id, location_id)`. Index: `(location_id)` for "all posts at this place".
+A post must have 1 to 30 media items. The API enforces the minimum, and `post_media.position` caps the maximum.
 
 ### post_media
 
 | Field | Type | Nullable | Default | Constraints | Description |
 |---|---|---|---|---|---|
 | `id` | UUID | No | Generated | Primary key | |
-| `post_id` | UUID | No | — | FK `posts.id`, on delete cascade | |
-| `s3_key` | String | No | — | Unique | Object key in the media bucket |
-| `media_type` | `media_type` | No | — | | |
-| `position` | Smallint | No | — | Unique with `post_id` | Carousel order |
+| `post_id` | UUID | No | | FK `posts.id`, on delete cascade | |
+| `s3_key` | String | No | | Unique | Object key in the media bucket |
+| `media_type` | `media_type` | No | | | Video upload is #53 MEDIA-2 |
+| `position` | Smallint | No | | Unique with `post_id`, 0 to 29 | Carousel order |
 | `width` | Integer | Yes | `NULL` | | Pixels |
 | `height` | Integer | Yes | `NULL` | | Pixels |
 | `duration_ms` | Integer | Yes | `NULL` | | Video only |
 | `created_at` | Timestamp | No | Current timestamp | | |
 
-We store S3 keys, not URLs. The API returns signed or CDN URLs when it reads a post.
+Check constraint `post_media_position_check`: `position BETWEEN 0 AND 29`, which caps a post at 30 items.
 
-### post_tagged_users
+### locations
 
-Users tagged as having been there with the author (from #8).
+A shared row for a Mapbox place. Two posts tagged at the same place share one row, which is what lets the map and place search group posts by place. Rows are deduplicated by `(provider, provider_place_id)`. We store `provider` so a second provider later doesn't cause ID collisions.
 
-| Field | Type | Nullable | Default | Constraints | Description |
-|---|---|---|---|---|---|
-| `post_id` | UUID | No | — | FK `posts.id`, on delete cascade | |
-| `user_id` | String | No | — | FK `users.id`, on delete cascade | |
-| `created_at` | Timestamp | No | Current timestamp | | |
-
-Primary key: `(post_id, user_id)`.
-
-### interests
-
-A fixed list of interest tags, like `food`, `hiking`, `nightlife`, and `museums`. The list is seeded by a migration, and users can't create new ones. We use a fixed list instead of free-text hashtags so posts can be grouped and filtered reliably, and so #5 (trip-surfacing) has a clean signal to match users to content.
+Custom locations (a name the user typed when search had no result) are stored on the post as `custom_location_name`, not as a row here. That way a location never belongs to one user and is never deleted.
 
 | Field | Type | Nullable | Default | Constraints | Description |
 |---|---|---|---|---|---|
 | `id` | UUID | No | Generated | Primary key | |
-| `slug` | String(50) | No | — | Unique | Stable identifier, e.g. `food` |
-| `name` | String(50) | No | — | | Display label, e.g. "Food & Drink" |
+| `provider` | Varchar(20) | No | | Unique with `provider_place_id` | `mapbox` for now |
+| `provider_place_id` | String | No | | Unique with `provider` | Mapbox's ID for the place |
+| `name` | String | No | | | Display name, e.g. "Pastéis de Belém" |
+| `address` | String | Yes | `NULL` | | Formatted address |
+| `latitude` | Decimal(9,6) | No | | -90 to 90 | |
+| `longitude` | Decimal(9,6) | No | | -180 to 180 | |
+| `city` | String | Yes | `NULL` | | |
+| `region` | String | Yes | `NULL` | | State or province |
+| `country_code` | Char(2) | Yes | `NULL` | | ISO 3166-1 alpha-2 |
+| `created_at` | Timestamp | No | Current timestamp | | |
+| `updated_at` | Timestamp | No | Current timestamp | | |
 
-### post_interests
+Check constraints: `locations_latitude_check` and `locations_longitude_check` for the ranges above.
 
-| Field | Type | Nullable | Default | Constraints | Description |
-|---|---|---|---|---|---|
-| `post_id` | UUID | No | — | FK `posts.id`, on delete cascade | |
-| `interest_id` | UUID | No | — | FK `interests.id` | |
+Indexes: `(provider, provider_place_id)` unique, `(latitude, longitude)` for map bounding-box queries. We can move to PostGIS later if we need radius search.
 
-Primary key: `(post_id, interest_id)`. Index: `(interest_id)`. A post can have 0 to 5 interests.
-
-### Deletion
-
-Trips and posts are soft deleted by setting `deleted_at`. Reads treat a soft-deleted row as missing:
-- A deleted trip returns 404.
-- A trip item whose post was deleted stays in the trip as a plain location, and `post` comes back as `null`.
-
-Hard deletes, for example on account deletion (see #4), cascade as described in the tables above.
+Mapbox's storage terms are still pending #37. If we can't store coordinates permanently, this table changes.
 
 ## Visibility
 
-Trips and posts each have their own `visibility`. A post's visibility does not change based on which trips it appears in, and a trip's visibility does not change its posts.
+Everything is public once published, and visibility is decided by the trip.
 
-`canView(viewer, ownerId, visibility)`:
+`canView(viewer, trip)` is true when `trip.status = 'published'` or `trip.owner_id = viewer`.
 
-| Visibility | Who can see it |
+- A post can be seen when its trip can be seen.
+- A draft trip, or a post in one, returns 404 to anyone but the owner, not 403, so we don't reveal that it exists.
+- Changing a trip or a post the viewer can see but doesn't own returns 403.
+- A user's trip list includes drafts only when the viewer is that user.
+- The feed, map, search, and location pages only include rows from published trips. The rule is in one Prisma `where` helper, `visibleTripWhere(viewerId)` in `apps/api/src/trips/trip-rules.ts`, so other services don't each rewrite it.
+
+## Deletion
+
+There are no soft deletes. Deleting a row deletes everything under it through `ON DELETE CASCADE`.
+
+| Foreign key | On delete |
 |---|---|
-| `public` | Any signed-in user |
-| `followers` | The owner, and users who follow the owner (a row in #10's follows table with `follower_id = viewer` and `following_id = owner`) |
-| `private` | Only the owner |
+| `trips.owner_id` → `users` | Cascade |
+| `posts.trip_id` → `trips` | Cascade |
+| `post_media.post_id` → `posts` | Cascade |
+| `posts.location_id` → `locations` | Restrict (locations are shared and never deleted) |
 
-Rules:
-1. `GET /api/trips/:id` returns 404 if the viewer can't see the trip. We return 404 instead of 403 so we don't reveal that the trip exists.
-2. Inside a visible trip, every item's location is returned. An item's `post` is returned only if the viewer can see that post, and is `null` otherwise. So a public trip that includes someone's followers-only post shows that stop's place but not the post.
-3. `GET /api/posts/:id` follows the same rule, based on the post's own visibility. Visibility depends only on the author. Being tagged in a post doesn't give a user access to it.
-4. Lists (a user's trips, a user's posts, posts at a location) only include rows the viewer can see.
-5. Only the owner can edit or delete a trip or its items, and only the author can edit or delete a post. A visible but not owned resource returns 403.
-6. Adding someone else's post to your trip requires that you can see the post at that moment. If the author later makes the post more restrictive, rule 2 hides it from viewers who no longer qualify.
+So deleting an account deletes the user's trips, which deletes their posts and media rows. Stories (#23), likes and saves (#49), and comments (#50) add their own cascades to `trips` and `posts`.
 
-If #10 adds follow requests or blocking, `canView` should count only accepted follows and exclude blocked users. No schema change is needed here for that.
+Cascades remove rows but not S3 objects. Trip and post deletes:
+1. Read the `post_media.s3_key` values that are about to go.
+2. Delete the rows in one transaction.
+3. After the transaction commits, delete the objects with `DeleteObjects`, in batches of up to 1,000 keys.
+
+If step 3 fails, the keys are logged and the delete stays in place. An object without a row is harmless and can be swept later. The same applies to media removed from a post when it's edited.
+
+Account deletion (`DELETE /api/me`, #15) doesn't go through these endpoints, so it has to collect the user's media keys itself (or delete the `users/{userId}/` prefix).
 
 ## API Contracts
 
-All endpoints require authentication. The current user comes from the auth middleware in #4, never from the request body.
+All endpoints are under `/api` and require a valid Clerk session (the `ClerkAuthGuard` from #15). The current user always comes from the session, never from the request body.
 
-Errors use NestJS's default shape:
+Errors use NestJS's default shape until API-1 (#28) adds the shared error filter:
 
 ```json
 { "statusCode": 404, "message": "Trip not found", "error": "Not Found" }
 ```
 
-List endpoints use cursor pagination: `?cursor=<opaque>&limit=<1-50, default 20>` returns `{ "items": [...], "nextCursor": "..." | null }`.
+Validation errors (400) return `message` as a list of strings. Unknown fields in a request body are rejected.
+
+List endpoints use cursor pagination: `?cursor=<from the last page>&limit=<1-50, default 20>` returns `{ "items": [...], "nextCursor": "..." | null }`. `nextCursor` is `null` on the last page. The helper is a stand-in until API-1 (#28) adds the shared one.
 
 ### Shared response shapes
 
-`UserSummary` (fields from #4's `User`):
+These are TypeScript types in `apps/api` for now (`trips/trip.types.ts`, `posts/post.types.ts`). They move into `shared-types` once API-1 (#28) adds it.
+
+`UserSummary` (fields from #15's `User`):
 ```json
-{ "id": "user_123", "username": "duke", "avatarUrl": "https://..." | null }
+{ "id": "user_123", "username": "mayachen", "firstName": "Maya", "lastName": "Chen", "avatarUrl": "https://..." | null }
 ```
+
+`Trip`:
+```json
+{
+  "id": "uuid",
+  "owner": UserSummary,
+  "title": "5 Days in Lisbon",
+  "destination": "Lisbon, Portugal",
+  "description": "Sunset viewpoints, custard tarts, tram rides and a day trip to Sintra." | null,
+  "startDate": "2026-09-12",
+  "endDate": "2026-09-16",
+  "status": "draft" | "published",
+  "publishedAt": "2026-09-18T15:00:00.000Z" | null,
+  "postCount": 6,
+  "coverImageUrl": "https://..." | null,
+  "createdAt": "2026-09-10T12:00:00.000Z",
+  "updatedAt": "2026-09-18T15:00:00.000Z"
+}
+```
+
+- `coverImageUrl` is the first photo of the trip's first post, or `null` if the trip has no photos yet.
+- The number of days is `endDate - startDate + 1`, so it isn't returned.
 
 `Location`:
 ```json
 {
   "id": "uuid",
-  "name": "Tartine Bakery",
-  "address": "600 Guerrero St, San Francisco, CA 94110",
-  "latitude": 37.761392,
-  "longitude": -122.424048,
-  "city": "San Francisco",
-  "region": "CA",
-  "countryCode": "US"
+  "provider": "mapbox",
+  "providerPlaceId": "dXJuOm1ieHBvaTo...",
+  "name": "Pastéis de Belém",
+  "address": "R. de Belém 84-92, 1300-085 Lisboa" | null,
+  "latitude": 38.697464,
+  "longitude": -9.203213,
+  "city": "Lisbon" | null,
+  "region": "Lisbon" | null,
+  "countryCode": "PT" | null
 }
 ```
 
@@ -348,186 +302,163 @@ List endpoints use cursor pagination: `?cursor=<opaque>&limit=<1-50, default 20>
 ```json
 {
   "id": "uuid",
+  "tripId": "uuid",
   "author": UserSummary,
-  "caption": "Best morning bun in the city",
-  "visitedOn": "2026-09-20",
-  "visibility": "public",
-  "locations": [ Location ],
+  "caption": "Six pastéis between the two of us. No regrets." | null,
+  "visitedOn": "2026-09-12",
+  "location": Location | null,
+  "customLocationName": "Tia Rosa's kitchen" | null,
   "media": [
     { "id": "uuid", "mediaType": "image", "url": "https://...", "width": 1080, "height": 1350, "durationMs": null }
   ],
-  "taggedUsers": [ UserSummary ],
-  "interests": [ Interest ],
-  "createdAt": "2026-09-29T12:00:00Z",
-  "updatedAt": "2026-09-29T12:00:00Z"
+  "createdAt": "2026-09-12T18:40:00.000Z",
+  "updatedAt": "2026-09-12T18:40:00.000Z"
 }
 ```
 
-`Interest`:
-```json
-{ "id": "uuid", "slug": "food", "name": "Food & Drink" }
-```
-
-`TripSummary` (used in lists):
-```json
-{
-  "id": "uuid",
-  "owner": UserSummary,
-  "title": "SF Weekend",
-  "coverImageUrl": "https://...",
-  "startDate": "2026-09-19",
-  "endDate": "2026-09-21",
-  "status": "completed",
-  "rating": 4,
-  "visibility": "public",
-  "itemCount": 6,
-  "createdAt": "2026-09-22T12:00:00Z"
-}
-```
-
-`Trip` (detail) has every `TripSummary` field, plus:
-```json
-{
-  "description": "Food-focused weekend in the Mission",
-  "items": [ TripItem ]
-}
-```
-
-`TripItem`:
-```json
-{
-  "id": "uuid",
-  "position": 0,
-  "dayNumber": 1,
-  "note": "Get there before 9",
-  "location": Location,
-  "post": Post | null
-}
-```
-
-### Media
-
-Media goes straight from the client to S3 through a presigned URL. The post then references the uploaded keys.
-
-`POST /api/media/uploads`
-
-Request:
-```json
-{ "mediaType": "image", "contentType": "image/jpeg", "fileSize": 2483021 }
-```
-
-Response `201`:
-```json
-{ "s3Key": "posts/uuid/uuid.jpg", "uploadUrl": "https://...", "expiresAt": "2026-09-29T12:15:00Z" }
-```
-
-### Locations
-
-`POST /api/locations`: find or create a location from a provider place. The server looks up the place details from the provider and doesn't trust client-supplied coordinates.
-
-Request:
-```json
-{ "provider": "google", "providerPlaceId": "ChIJ..." }
-```
-
-Response `200` if it already existed, `201` if created: `Location`.
-
-`GET /api/locations/:id`: returns `Location`.
-
-`GET /api/locations/:id/posts`: paginated `Post` list of visible posts tagged with this location, newest first.
-
-### Interests
-
-`GET /api/interests`: returns the full list, `{ "items": [ Interest ] }`. It isn't paginated because the list is small and fixed.
-
-### Posts
-
-`POST /api/posts`
-
-Request:
-```json
-{
-  "caption": "Best morning bun in the city",
-  "visitedOn": "2026-09-20",
-  "visibility": "public",
-  "locationIds": ["uuid"],
-  "media": [
-    { "s3Key": "posts/uuid/uuid.jpg", "mediaType": "image", "width": 1080, "height": 1350 }
-  ],
-  "taggedUserIds": ["user_123"],
-  "interestIds": ["uuid"],
-  "tripId": "uuid"
-}
-```
-
-- `locationIds`: required, 1 to 10, in display order.
-- `media`: required, 1 to 10, in display order. Each `s3Key` must come from an upload by the same user.
-- `interestIds`: optional, 0 to 5.
-- `tripId`: optional. If set, the caller must own the trip, and one trip item is appended per location. This supports the "save to trip" step in #8.
-
-Response `201`: `Post`.
-
-`GET /api/posts/:id`: returns `Post`.
-
-`PATCH /api/posts/:id`: author only. Any of `caption`, `visitedOn`, `visibility`, `locationIds`, `media`, `taggedUserIds`, `interestIds`. Arrays replace the existing list. Removing a location also removes the matching trip items that point to this post, so the composite FK stays valid. Response `200`: `Post`.
-
-`DELETE /api/posts/:id`: author only, soft delete. Response `204`.
-
-`GET /api/users/:userId/posts`: paginated `Post` list, newest first.
+- Exactly one of `location` and `customLocationName` is set.
+- `media` is in carousel order.
+- Media URLs are presigned S3 GET URLs that expire after an hour. Locally, with no `S3_BUCKET_NAME` set, they point at `https://media.invalid/<key>`, which never loads.
+- Like, comment, and save counts get added by #49 and #50.
 
 ### Trips
 
-`POST /api/trips`
+#### `POST /api/trips`
 
 Request:
 ```json
 {
-  "title": "SF Weekend",
-  "description": "Food-focused weekend in the Mission",
-  "startDate": "2026-09-19",
-  "endDate": "2026-09-21",
-  "status": "planned",
-  "visibility": "public",
-  "coverImageKey": null
+  "title": "5 Days in Lisbon",
+  "destination": "Lisbon, Portugal",
+  "description": "Sunset viewpoints, custard tarts, tram rides and a day trip to Sintra.",
+  "startDate": "2026-09-12",
+  "endDate": "2026-09-16"
 }
 ```
 
-Only `title` is required. Response `201`: `Trip` with empty `items`.
+- `title` and `destination`: required, 1 to 100 characters. Leading and trailing spaces are trimmed.
+- `description`: optional, up to 1,000 characters.
+- `startDate` and `endDate`: required. `endDate` can't be before `startDate`. Past and future dates are both allowed.
 
-`GET /api/trips/:id`: returns `Trip` with items ordered by `position`.
+Every trip starts as a draft. Response `201`: `Trip`.
 
-`PATCH /api/trips/:id`: owner only. Any of the fields from create, plus `rating` (1 to 5). Setting `rating` on a trip that isn't `completed` returns 400. Response `200`: `Trip`.
+Errors: `400` for validation, including an end date before the start date.
 
-`DELETE /api/trips/:id`: owner only, soft delete. Response `204`.
+#### `GET /api/trips/:id`
 
-`GET /api/users/:userId/trips`: paginated `TripSummary` list. Optional `?status=planned|completed`.
+Response `200`: `Trip`.
 
-### Trip items
+Errors: `404` if the trip doesn't exist, or it's a draft and the viewer isn't the owner.
 
-All trip item endpoints are owner only.
+#### `PATCH /api/trips/:id`
 
-`POST /api/trips/:id/items`
+Owner only. Any of `title`, `destination`, `description`, `startDate`, `endDate`. Send `"description": null` to clear it. Status can't be changed here (see publish).
+
+Response `200`: `Trip`.
+
+Errors:
+- `400` for validation, if the new dates would put the end before the start, or if any of the trip's posts would fall outside the new dates.
+- `403` if the viewer can see the trip but doesn't own it.
+- `404` as in `GET`.
+
+#### `DELETE /api/trips/:id`
+
+Owner only. Permanently deletes the trip, its posts, and their media, including the S3 objects. Stories, likes, saves, and comments on it go with it once those tables exist. The app shows the confirmation prompt.
+
+Response `204`. Errors: `403`, `404` as in `PATCH`.
+
+#### `POST /api/trips/:id/publish`
+
+Owner only. Sets `status` to `published` and `publishedAt` to now. From then on the trip and its posts are visible to everyone. Publishing can't be undone. Publishing an already-published trip succeeds without changing it.
+
+Response `200`: `Trip`.
+
+Errors: `400` if the trip has no posts, and `403` and `404` as in `PATCH`.
+
+#### `GET /api/users/:userId/trips`
+
+Paginated `Trip` list for a profile, newest start date first. Includes drafts only when `userId` is the current user.
+
+Errors: `404` if the user doesn't exist.
+
+#### `GET /api/me/trips/active`
+
+The current user's active trips (see [Active trip](#active-trip)), newest start date first. The story composer uses this to suggest a trip, and to list the trips a story can be linked to.
+
+Query: `?date=YYYY-MM-DD`, the user's local date. Optional, and defaults to the server's UTC date. It has to be within one day of the server's UTC date, since every time zone is.
+
+Response `200`:
+```json
+{ "items": [ Trip ] }
+```
+
+It isn't paginated, since a user only has a handful of trips whose dates include today.
+
+Errors: `400` if `date` isn't a valid date or is more than a day away from the server's date.
+
+### Posts
+
+#### `POST /api/posts`
 
 Request:
 ```json
-{ "locationId": "uuid", "postId": "uuid", "dayNumber": 1, "note": "Get there before 9", "position": 2 }
+{
+  "tripId": "uuid",
+  "visitedOn": "2026-09-12",
+  "caption": "Six pastéis between the two of us. No regrets.",
+  "locationId": "uuid",
+  "media": [
+    { "s3Key": "users/user_123/posts/uuid.jpg", "mediaType": "image", "width": 1080, "height": 1350 }
+  ]
+}
 ```
 
-- `locationId`: required.
-- `postId`: optional. It can be any post the caller can see, and `locationId` must be one of its locations.
-- `position`: optional. Defaults to the end. If given, the items at or after it shift down.
+- `tripId`: required. Only the trip's owner can add posts to it.
+- `visitedOn`: required, within the trip's dates. The app fills it in with today if today is within the trip's dates, otherwise the trip's start date.
+- `caption`: optional, up to 2,200 characters.
+- Location: exactly one of `locationId` (an existing location row, from #37's endpoint) and `customLocationName` (1 to 100 characters).
+- `media`: 1 to 30 items, in carousel order. Each `s3Key` has to be one of the current user's post uploads (it starts with `users/{userId}/posts/`, the key scheme from #38), can't appear twice, and can't already belong to another post. `width`, `height`, and `durationMs` are optional.
 
-Response `201`: `TripItem`.
+The app only calls this after every upload has succeeded.
 
-`PATCH /api/trips/:id/items/:itemId`: any of `dayNumber`, `note`, `postId`. Response `200`: `TripItem`.
+Response `201`: `Post`.
 
-`DELETE /api/trips/:id/items/:itemId`: removes the item and closes the gap in positions. Response `204`.
+Errors:
+- `400` for validation, a `visitedOn` outside the trip's dates, a location that doesn't exist, or an invalid or already-used media key.
+- `403` if the trip is published but belongs to someone else.
+- `404` if the trip doesn't exist, or it's someone else's draft.
 
-`PUT /api/trips/:id/items/order`: reorders the whole list in one call, for drag-and-drop in #9.
+#### `GET /api/posts/:id`
 
-Request:
-```json
-{ "itemIds": ["uuid", "uuid", "uuid"] }
-```
+Response `200`: `Post`.
 
-The request must include every item in the trip exactly once. Response `200`: `{ "items": [ TripItem ] }`.
+Errors: `404` if the post doesn't exist, or its trip is a draft and the viewer isn't the owner.
+
+#### `PATCH /api/posts/:id`
+
+Trip owner only. Any of:
+- `visitedOn`, `caption` (send `null` to clear it)
+- `locationId` or `customLocationName` (sending one replaces the other, and sending both is a 400)
+- `media`, which replaces the whole list. Items that are left out are deleted, including their S3 objects.
+
+A post can't be moved to another trip.
+
+Response `200`: `Post`. Errors: as in `POST`.
+
+#### `DELETE /api/posts/:id`
+
+Trip owner only. Permanently deletes the post and its media, including the S3 objects. Likes, saves, and comments on it go with it once those tables exist.
+
+Response `204`. Errors: `403`, `404` as in `PATCH`.
+
+#### `GET /api/trips/:id/posts`
+
+Paginated `Post` list for the trip page, in trip order (`visitedOn`, then `createdAt`, oldest first).
+
+Errors: `404` as in `GET /api/trips/:id`.
+
+## Not in the MVP
+
+Cut in DOC-1 (#33), and kept here so they don't get re-added by accident: trip and post visibility settings (`followers` / `private`), trip ratings, interest tags, tagging users in posts, several locations per post, posts without a trip, the `trip_items` join table, soft deletes, and unpublishing.
+
+Grace's trip wireframes (#9) also have per-day titles and notes ("Day 3 · Beach day in Cascais"). DOC-1 doesn't include them, so they aren't in the schema. If we want them, that's a change to DOC-1 first, then a `trip_days` table here.
