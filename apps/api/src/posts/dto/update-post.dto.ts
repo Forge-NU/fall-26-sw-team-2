@@ -7,14 +7,13 @@ import {
   IsOptional,
   IsString,
   IsUUID,
-  Length,
   Matches,
-  MaxLength,
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { DATE_ONLY } from '../../common/dates';
 import { Trim } from '../../common/trim';
+import { CharLength } from '../../common/char-length';
 import { MediaItemDto } from './media-item.dto';
 
 // Every field is optional. Only caption can be cleared with null. Sending
@@ -28,17 +27,17 @@ export class UpdatePostDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(2200)
+  @CharLength(0, 2200)
   caption?: string | null;
 
   @ValidateIf((_, value) => value !== undefined)
-  @IsUUID()
+  @IsUUID('all')
   locationId?: string;
 
   @ValidateIf((_, value) => value !== undefined)
   @Trim()
   @IsString()
-  @Length(1, 100)
+  @CharLength(1, 100)
   customLocationName?: string;
 
   @ValidateIf((_, value) => value !== undefined)
