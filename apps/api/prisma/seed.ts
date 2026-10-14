@@ -205,7 +205,7 @@ type SeedPost = {
 
 const posts: SeedPost[] = [
   {
-    id: '00000000-0000-4000-c000-000000000001',
+    id: '00000000-0000-4000-9000-000000000001',
     tripId: trips[0].id,
     ownerId: 'user_seed_maya',
     visitedOn: new Date('2026-09-12'),
@@ -214,7 +214,7 @@ const posts: SeedPost[] = [
     mediaCount: 3,
   },
   {
-    id: '00000000-0000-4000-c000-000000000002',
+    id: '00000000-0000-4000-9000-000000000002',
     tripId: trips[0].id,
     ownerId: 'user_seed_maya',
     visitedOn: new Date('2026-09-12'),
@@ -223,7 +223,7 @@ const posts: SeedPost[] = [
     mediaCount: 2,
   },
   {
-    id: '00000000-0000-4000-c000-000000000003',
+    id: '00000000-0000-4000-9000-000000000003',
     tripId: trips[0].id,
     ownerId: 'user_seed_maya',
     visitedOn: new Date('2026-09-13'),
@@ -232,7 +232,7 @@ const posts: SeedPost[] = [
     mediaCount: 1,
   },
   {
-    id: '00000000-0000-4000-c000-000000000004',
+    id: '00000000-0000-4000-9000-000000000004',
     tripId: trips[0].id,
     ownerId: 'user_seed_maya',
     visitedOn: new Date('2026-09-14'),
@@ -241,7 +241,7 @@ const posts: SeedPost[] = [
     mediaCount: 4,
   },
   {
-    id: '00000000-0000-4000-c000-000000000005',
+    id: '00000000-0000-4000-9000-000000000005',
     tripId: trips[0].id,
     ownerId: 'user_seed_maya',
     visitedOn: new Date('2026-09-15'),
@@ -251,7 +251,7 @@ const posts: SeedPost[] = [
   },
   {
     // Custom location (no Mapbox place), so it shows on the post but not the map
-    id: '00000000-0000-4000-c000-000000000006',
+    id: '00000000-0000-4000-9000-000000000006',
     tripId: trips[0].id,
     ownerId: 'user_seed_maya',
     visitedOn: new Date('2026-09-16'),
@@ -260,7 +260,7 @@ const posts: SeedPost[] = [
     mediaCount: 1,
   },
   {
-    id: '00000000-0000-4000-c000-000000000007',
+    id: '00000000-0000-4000-9000-000000000007',
     tripId: trips[1].id,
     ownerId: 'user_seed_maya',
     visitedOn: new Date('2026-08-22'),
@@ -269,7 +269,7 @@ const posts: SeedPost[] = [
     mediaCount: 1,
   },
   {
-    id: '00000000-0000-4000-c000-000000000008',
+    id: '00000000-0000-4000-9000-000000000008',
     tripId: trips[2].id,
     ownerId: 'user_seed_priya',
     visitedOn: new Date('2026-09-25'),
@@ -278,7 +278,7 @@ const posts: SeedPost[] = [
     mediaCount: 2,
   },
   {
-    id: '00000000-0000-4000-c000-000000000009',
+    id: '00000000-0000-4000-9000-000000000009',
     tripId: trips[2].id,
     ownerId: 'user_seed_priya',
     visitedOn: new Date('2026-09-26'),
@@ -287,7 +287,7 @@ const posts: SeedPost[] = [
     mediaCount: 3,
   },
   {
-    id: '00000000-0000-4000-c000-000000000010',
+    id: '00000000-0000-4000-9000-000000000010',
     tripId: trips[2].id,
     ownerId: 'user_seed_priya',
     visitedOn: new Date('2026-09-26'),
@@ -296,7 +296,7 @@ const posts: SeedPost[] = [
     mediaCount: 2,
   },
   {
-    id: '00000000-0000-4000-c000-000000000011',
+    id: '00000000-0000-4000-9000-000000000011',
     tripId: trips[3].id,
     ownerId: 'user_seed_alex',
     visitedOn: daysFromToday(-1),
@@ -344,10 +344,10 @@ async function main() {
       create: { id, ...data },
     });
 
-    // Media IDs are d<post number>-<position>, e.g. ...-d001-000000000002
+    // Media IDs are 8<post number>-<position>, e.g. ...-8001-000000000002
     const postNumber = String(index + 1).padStart(3, '0');
     for (let position = 0; position < mediaCount; position++) {
-      const mediaId = `00000000-0000-4000-d${postNumber}-${String(position).padStart(12, '0')}`;
+      const mediaId = `00000000-0000-4000-8${postNumber}-${String(position).padStart(12, '0')}`;
       const media = {
         postId: id,
         s3Key: `users/${ownerId}/posts/${mediaId}.jpg`,
