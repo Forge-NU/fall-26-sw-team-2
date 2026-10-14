@@ -1,0 +1,109 @@
+import { Pressable, StyleSheet, View } from 'react-native';
+
+import { AppText } from '@/components/app-text';
+import { BottomSheet } from '@/components/bottom-sheet';
+import { Icon, IconName } from '@/components/icon';
+import { Palette, Radius } from '@/constants/theme';
+
+type PostChooserSheetProps = {
+  visible: boolean;
+  onClose: () => void;
+  onCreateItinerary: () => void;
+  onPostStory: () => void;
+};
+
+export function PostChooserSheet({
+  visible,
+  onClose,
+  onCreateItinerary,
+  onPostStory,
+}: PostChooserSheetProps) {
+  return (
+    <BottomSheet
+      visible={visible}
+      onClose={onClose}
+      title="Post"
+      titleSize={28}
+      subtitle="Plan a new trip or share a moment.">
+      <View style={styles.options}>
+        <PostOption
+          label="Create itinerary"
+          icon="route"
+          chevron="chevron-right-coral"
+          tone="coral"
+          onPress={onCreateItinerary}
+        />
+        <PostOption
+          label="Post story"
+          icon="images-white"
+          chevron="chevron-right-teal"
+          tone="teal"
+          onPress={onPostStory}
+        />
+      </View>
+    </BottomSheet>
+  );
+}
+
+function PostOption({
+  label,
+  icon,
+  chevron,
+  tone,
+  onPress,
+}: {
+  label: string;
+  icon: IconName;
+  chevron: IconName;
+  tone: 'coral' | 'teal';
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.option,
+        { borderColor: tone === 'coral' ? 'rgba(252,122,108,0.15)' : 'rgba(125,197,199,0.15)' },
+        pressed && styles.pressed,
+      ]}>
+      <View style={[styles.symbol, { backgroundColor: Palette[tone] }]}>
+        <Icon name={icon} />
+      </View>
+      <AppText variant="bold" size={16} style={styles.label}>
+        {label}
+      </AppText>
+      <Icon name={chevron} />
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  options: {
+    gap: 12,
+    paddingBottom: 12,
+  },
+  option: {
+    height: 90,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    backgroundColor: Palette.coralSoft,
+  },
+  pressed: {
+    opacity: 0.8,
+  },
+  symbol: {
+    width: 44,
+    height: 44,
+    borderRadius: Radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  label: {
+    flex: 1,
+  },
+});

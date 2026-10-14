@@ -26,6 +26,48 @@ export const Colors = {
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
+/**
+ * Yuji brand palette from the Figma wireframes. The wireframes are light-only,
+ * so these do not switch with the color scheme.
+ */
+export const Palette = {
+  ink: '#162a2a',
+  inkMuted: '#58686b',
+  disabled: '#a9b2b4',
+  surface: '#fffcfa',
+  border: '#e6e9ee',
+  teal: '#7dc5c7',
+  tealSoft: '#c5e1e1',
+  tealMist: '#e5f5f5',
+  coral: '#fc7a6c',
+  coralSoft: '#ffe8df',
+  coralBorder: '#ffc5be',
+  scrim: 'rgba(22, 42, 42, 0.35)',
+} as const;
+
+export type PaletteColor = keyof typeof Palette;
+
+/** Font families loaded in the root layout via @expo-google-fonts. */
+export const FontFamily = {
+  display: 'BarlowCondensed_600SemiBold',
+  regular: 'PlusJakartaSans_400Regular',
+  medium: 'PlusJakartaSans_500Medium',
+  semibold: 'PlusJakartaSans_600SemiBold',
+  bold: 'PlusJakartaSans_700Bold',
+} as const;
+
+export type FontVariant = keyof typeof FontFamily;
+
+export const Radius = {
+  sm: 6,
+  md: 8,
+  sheet: 16,
+  pill: 999,
+} as const;
+
+/** Horizontal padding used by every Yuji screen. */
+export const ScreenGutter = 20;
+
 export const Fonts = Platform.select({
   ios: {
     /** iOS `UIFontDescriptorSystemDesignDefault` */
