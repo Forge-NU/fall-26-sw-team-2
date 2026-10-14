@@ -161,6 +161,8 @@ describe('Posts (e2e)', () => {
         { caption: 'x'.repeat(2201) },
         { caption: '❤️'.repeat(1101) },
         { media: [{ ...mediaItem(), width: 3000000000 }] },
+        { media: [{ ...mediaItem(), durationMs: 5000 }] },
+        { media: [{ s3Key: newKey(), mediaType: 'video' }] },
         { tripId: 'not-a-uuid' },
         { authorId: other.id },
       ];
@@ -171,6 +173,15 @@ describe('Posts (e2e)', () => {
           .send(postBody(overrides))
           .expect(400);
       }
+    });
+
+    it('accepts a video with a duration', async () => {
+      const post = await createPost({
+        media: [{ s3Key: newKey(), mediaType: 'video', durationMs: 12000 }],
+      });
+      expect(post.media).toMatchObject([
+        { mediaType: 'video', durationMs: 12000 },
+      ]);
     });
 
     it('accepts 30 media items', async () => {

@@ -60,6 +60,7 @@ export class PostsService {
       await this.assertLocationExists(dto.locationId);
     }
 
+    assertMediaDurations(dto.media);
     await this.assertMediaKeys(userId, dto.media);
 
     const post = await this.withMediaKeyCheck(() =>
@@ -116,6 +117,7 @@ export class PostsService {
       await this.assertLocationExists(dto.locationId);
     }
     if (dto.media) {
+      assertMediaDurations(dto.media);
       await this.assertMediaKeys(userId, dto.media, id);
     }
 
@@ -168,6 +170,7 @@ export class PostsService {
       }),
     );
 
+    // Never throws: S3 failures are logged, and the edit still succeeds
     await this.storage.deleteObjects(removedKeys);
 
     return this.toResponse(updated);
@@ -189,6 +192,7 @@ export class PostsService {
       return media.map((m) => m.s3Key);
     });
 
+    // Never throws: S3 failures are logged, and the delete still succeeds
     await this.storage.deleteObjects(keys);
   }
 
@@ -347,6 +351,19 @@ function assertWithinTrip(
 ) {
   if (visitedOn < trip.startDate || visitedOn > trip.endDate) {
     throw new BadRequestException("visitedOn must be within the trip's dates");
+  }
+}
+
+// Videos need a duration and images can't have one. Checked here rather than
+// in the DTO since it depends on two fields.
+function assertMediaDurations(media: MediaItemDto[]) {
+  for (const item of media) {
+    if (item.mediaType === 'video' && item.durationMs == null) {
+      throw new BadRequestException('Videos need a durationMs');
+    }
+    if (item.mediaType === 'image' && item.durationMs != null) {
+      throw new BadRequestException("Images can't have a durationMs");
+    }
   }
 }
 

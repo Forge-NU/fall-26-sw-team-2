@@ -227,6 +227,32 @@ describe('PostsService', () => {
           ),
         ).rejects.toThrow(BadRequestException);
 
+      it('requires a duration on videos and rejects one on images', async () => {
+        const create = (item: Record<string, unknown>) =>
+          service.create(
+            ownerId,
+            createDto({
+              media: [
+                {
+                  s3Key: `users/${ownerId}/posts/v.mp4`,
+                  mediaType: 'video',
+                  ...item,
+                },
+              ],
+            }),
+          );
+
+        await expect(create({ mediaType: 'video' })).rejects.toThrow(
+          'Videos need a durationMs',
+        );
+        await expect(
+          create({ mediaType: 'image', durationMs: 1000 }),
+        ).rejects.toThrow("Images can't have a durationMs");
+        await expect(
+          create({ mediaType: 'video', durationMs: 12000 }),
+        ).resolves.toBeDefined();
+      });
+
       it("rejects someone else's upload", async () => {
         await rejects(['users/user_other/posts/a.jpg']);
       });

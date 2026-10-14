@@ -29,7 +29,8 @@ export class MediaItemDto {
   @Max(20000)
   height?: number;
 
-  // Videos are up to 60 seconds (DOC-1)
+  // Videos are up to 60 seconds (DOC-1). Required for videos and not allowed
+  // on images; the service checks that, since it depends on mediaType.
   @IsOptional()
   @IsInt()
   @Min(0)
