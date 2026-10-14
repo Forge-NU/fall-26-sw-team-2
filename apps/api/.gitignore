@@ -52,3 +52,11 @@ pids
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+/src/generated/prisma
+
+# Prisma agent skills installed by `prisma init` (kept local, not shared)
+/.agents/
+/.claude/
+/.windsurf/
+/skills-lock.json
