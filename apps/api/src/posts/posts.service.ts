@@ -11,12 +11,14 @@ import { formatDateOnly, parseDateOnly } from '../common/dates';
 import {
   Page,
   PaginationQueryDto,
+  assertCursorInList,
   pageArgs,
   toPage,
 } from '../common/pagination';
 import { toUserSummary, userSummarySelect } from '../common/user-summary';
 import { POST_ORDER, TripsService } from '../trips/trips.service';
 import { canViewTrip } from '../trips/trip-rules';
+import { lockTripForShare } from '../trips/trip-locks';
 import { CreatePostDto } from './dto/create-post.dto';
 import { MediaItemDto } from './dto/media-item.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
@@ -47,10 +49,7 @@ export class PostsService {
   ) {}
 
   async create(userId: string, dto: CreatePostDto): Promise<PostResponse> {
-    const trip = await this.tripsService.getOwnedTrip(userId, dto.tripId);
-
-    const visitedOn = parseDateOnly(dto.visitedOn);
-    assertWithinTrip(trip, visitedOn);
+    await this.tripsService.getOwnedTrip(userId, dto.tripId);
 
     if ((dto.locationId != null) === (dto.customLocationName != null)) {
       throw new BadRequestException(
@@ -64,16 +63,24 @@ export class PostsService {
     await this.assertMediaKeys(userId, dto.media);
 
     const post = await this.withMediaKeyCheck(() =>
-      this.prisma.post.create({
-        data: {
-          tripId: trip.id,
-          visitedOn,
-          caption: dto.caption || null,
-          locationId: dto.locationId ?? null,
-          customLocationName: dto.customLocationName ?? null,
-          media: { create: toMediaRows(dto.media) },
-        },
-        include: postInclude,
+      this.prisma.$transaction(async (tx) => {
+        // Locked so the trip's dates can't change, and the trip can't be
+        // deleted, while the post goes in
+        const trip = await this.lockedTrip(tx, dto.tripId);
+        const visitedOn = parseDateOnly(dto.visitedOn);
+        assertWithinTrip(trip, visitedOn);
+
+        return tx.post.create({
+          data: {
+            tripId: trip.id,
+            visitedOn,
+            caption: dto.caption || null,
+            locationId: dto.locationId ?? null,
+            customLocationName: dto.customLocationName ?? null,
+            media: { create: toMediaRows(dto.media) },
+          },
+          include: postInclude,
+        });
       }),
     );
 
@@ -100,10 +107,6 @@ export class PostsService {
   ): Promise<PostResponse> {
     const post = await this.getOwnedPost(userId, id);
 
-    if (dto.visitedOn) {
-      assertWithinTrip(post.trip, parseDateOnly(dto.visitedOn));
-    }
-
     if (dto.locationId !== undefined && dto.customLocationName !== undefined) {
       throw new BadRequestException(
         'Send only one of locationId and customLocationName',
@@ -112,24 +115,35 @@ export class PostsService {
     if (dto.locationId) {
       await this.assertLocationExists(dto.locationId);
     }
-
-    let removedKeys: string[] = [];
     if (dto.media) {
       await this.assertMediaKeys(userId, dto.media, id);
-      const newKeys = new Set(dto.media.map((m) => m.s3Key));
-      removedKeys = post.media
-        .map((m) => m.s3Key)
-        .filter((key) => !newKeys.has(key));
     }
 
     const media = dto.media;
-    const updated = await this.withMediaKeyCheck(() =>
+    const { updated, removedKeys } = await this.withMediaKeyCheck(() =>
       this.prisma.$transaction(async (tx) => {
+        const trip = await this.lockedTrip(tx, post.tripId);
+        if (dto.visitedOn) {
+          assertWithinTrip(trip, parseDateOnly(dto.visitedOn));
+        }
+
+        // Locked so two edits to the same post's media run one at a time,
+        // and the removed keys are worked out from what's actually there
+        await tx.$queryRaw`SELECT id FROM posts WHERE id = ${id}::uuid FOR UPDATE`;
+        let removedKeys: string[] = [];
         if (media) {
+          const newKeys = new Set(media.map((m) => m.s3Key));
+          const current = await tx.postMedia.findMany({
+            where: { postId: id },
+            select: { s3Key: true },
+          });
+          removedKeys = current
+            .map((m) => m.s3Key)
+            .filter((key) => !newKeys.has(key));
           await tx.postMedia.deleteMany({ where: { postId: id } });
         }
 
-        return tx.post.update({
+        const updated = await tx.post.update({
           where: { id },
           data: {
             visitedOn: dto.visitedOn ? parseDateOnly(dto.visitedOn) : undefined,
@@ -144,9 +158,13 @@ export class PostsService {
               customLocationName: dto.customLocationName,
             }),
             ...(media && { media: { create: toMediaRows(media) } }),
+            // Prisma doesn't bump @updatedAt for a media-only change
+            updatedAt: new Date(),
           },
           include: postInclude,
         });
+
+        return { updated, removedKeys };
       }),
     );
 
@@ -158,9 +176,11 @@ export class PostsService {
   // Hard delete. Media rows cascade; their S3 objects are deleted after the
   // rows are gone.
   async remove(userId: string, id: string): Promise<void> {
-    await this.getOwnedPost(userId, id);
+    const post = await this.getOwnedPost(userId, id);
 
     const keys = await this.prisma.$transaction(async (tx) => {
+      // Locked so publishing can't count this post while it's being deleted
+      await this.lockedTrip(tx, post.tripId);
       const media = await tx.postMedia.findMany({
         where: { postId: id },
         select: { s3Key: true },
@@ -186,6 +206,13 @@ export class PostsService {
       throw new NotFoundException('Trip not found');
     }
 
+    await assertCursorInList(query, (cursor) =>
+      this.prisma.post.findFirst({
+        where: { id: cursor, tripId },
+        select: { id: true },
+      }),
+    );
+
     const posts = await this.prisma.post.findMany({
       where: { tripId },
       orderBy: POST_ORDER,
@@ -194,6 +221,17 @@ export class PostsService {
     });
 
     return toPage(posts, query, (post) => this.toResponse(post));
+  }
+
+  // Takes a share lock on the trip (see trip-locks.ts) and re-reads it, since
+  // its dates may have changed since the ownership check.
+  private async lockedTrip(tx: Prisma.TransactionClient, tripId: string) {
+    await lockTripForShare(tx, tripId);
+    const trip = await tx.trip.findUnique({ where: { id: tripId } });
+    if (!trip) {
+      throw new NotFoundException('Trip not found');
+    }
+    return trip;
   }
 
   // Same rules as trips: 404 if the viewer can't see the post's trip, 403 if

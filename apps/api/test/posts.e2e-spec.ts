@@ -159,6 +159,9 @@ describe('Posts (e2e)', () => {
         { media: Array.from({ length: 31 }, () => mediaItem()) },
         { media: [{ s3Key: newKey(), mediaType: 'gif' }] },
         { caption: 'x'.repeat(2201) },
+        { caption: '❤️'.repeat(1101) },
+        { media: [{ ...mediaItem(), width: 3000000000 }] },
+        { tripId: 'not-a-uuid' },
         { authorId: other.id },
       ];
       for (const overrides of bad) {
@@ -212,6 +215,9 @@ describe('Posts (e2e)', () => {
       ]);
       expect(storageMock.deleteObjects).toHaveBeenCalledWith([drop]);
       expect(await prisma.postMedia.count({ where: { s3Key: drop } })).toBe(0);
+      expect((res.body as { updatedAt: string }).updatedAt).not.toBe(
+        (post as unknown as { updatedAt: string }).updatedAt,
+      );
     });
 
     it('switches between a Mapbox place and a custom location', async () => {
@@ -252,6 +258,34 @@ describe('Posts (e2e)', () => {
         .set(as(owner))
         .send({ visitedOn: '2026-09-20' })
         .expect(400);
+    });
+
+    it('handles two media edits to the same post at once', async () => {
+      const [a, b, c] = [newKey(), newKey(), newKey()];
+      const post = await createPost({ media: [mediaItem(a), mediaItem(b)] });
+      storageMock.deleteObjects.mockClear();
+
+      const results = await Promise.all([
+        request(app.getHttpServer())
+          .patch(`/api/posts/${post.id}`)
+          .set(as(owner))
+          .send({ media: [mediaItem(a)] }),
+        request(app.getHttpServer())
+          .patch(`/api/posts/${post.id}`)
+          .set(as(owner))
+          .send({ media: [mediaItem(b), mediaItem(c)] }),
+      ]);
+      expect(results.map((r) => r.status)).toEqual([200, 200]);
+
+      // They run one at a time, so the post ends up with exactly one of the
+      // two lists, in order, never a mix of both
+      const remaining = (
+        await prisma.postMedia.findMany({
+          where: { postId: post.id },
+          orderBy: { position: 'asc' },
+        })
+      ).map((m) => m.s3Key);
+      expect([[a], [b, c]]).toContainEqual(remaining);
     });
 
     it("can't move a post to another trip", async () => {
@@ -331,6 +365,13 @@ describe('Posts (e2e)', () => {
         .get(`/api/trips/${listTrip.id}/posts`)
         .set(as(other))
         .expect(404);
+
+      // A post from another trip isn't a valid cursor here
+      const elsewhere = await createPost();
+      await request(app.getHttpServer())
+        .get(`/api/trips/${listTrip.id}/posts?cursor=${elsewhere.id}`)
+        .set(as(owner))
+        .expect(400);
     });
   });
 });

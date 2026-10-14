@@ -86,6 +86,7 @@ describe('PostsService', () => {
     post: {
       create: jest.fn(),
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       findMany: jest.fn(),
       update: jest.fn(),
       deleteMany: jest.fn(),
@@ -93,6 +94,7 @@ describe('PostsService', () => {
     postMedia: { findMany: jest.fn(), deleteMany: jest.fn() },
     location: { findUnique: jest.fn() },
     $transaction: jest.fn(),
+    $queryRaw: jest.fn(),
   };
   const storage = {
     getReadUrl: jest.fn((key: string) => Promise.resolve(`https://s3/${key}`)),
@@ -171,6 +173,19 @@ describe('PostsService', () => {
       await expect(service.create('user_other', createDto())).rejects.toThrow(
         NotFoundException,
       );
+    });
+
+    it('checks the date against the trip as it is inside the lock', async () => {
+      // Dates moved between the ownership check and the insert
+      prisma.trip.findUnique
+        .mockResolvedValueOnce(makeTrip())
+        .mockResolvedValueOnce(
+          makeTrip({ startDate: parseDateOnly('2026-10-14') }),
+        );
+      await expect(service.create(ownerId, createDto())).rejects.toThrow(
+        "visitedOn must be within the trip's dates",
+      );
+      expect(prisma.$queryRaw).toHaveBeenCalled();
     });
 
     it("rejects a date outside the trip's dates", async () => {
@@ -277,6 +292,10 @@ describe('PostsService', () => {
     });
 
     it('replaces the media and deletes removed objects', async () => {
+      prisma.postMedia.findMany
+        .mockResolvedValueOnce([]) // keys in use on other posts
+        .mockResolvedValueOnce([{ s3Key: `users/${ownerId}/posts/a.jpg` }]);
+
       await service.update(ownerId, postId, { media: media('b') });
 
       expect(prisma.postMedia.deleteMany).toHaveBeenCalledWith({
@@ -285,6 +304,18 @@ describe('PostsService', () => {
       expect(storage.deleteObjects).toHaveBeenCalledWith([
         `users/${ownerId}/posts/a.jpg`,
       ]);
+    });
+
+    it('locks the trip and post, and bumps updatedAt for a media-only edit', async () => {
+      await service.update(ownerId, postId, { media: media('a') });
+      expect(prisma.$queryRaw).toHaveBeenCalledTimes(2);
+      expect(prisma.post.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            updatedAt: expect.any(Date) as Date,
+          }) as unknown,
+        }),
+      );
     });
 
     it('lets a post keep its own media keys', async () => {
@@ -352,6 +383,17 @@ describe('PostsService', () => {
       await expect(
         service.listForTrip('user_other', tripId, {}),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it('rejects a cursor from another trip', async () => {
+      prisma.post.findFirst.mockResolvedValue(null);
+      await expect(
+        service.listForTrip(ownerId, tripId, { cursor: postId }),
+      ).rejects.toThrow('Invalid cursor');
+      expect(prisma.post.findFirst).toHaveBeenCalledWith({
+        where: { id: postId, tripId },
+        select: { id: true },
+      });
     });
 
     it('lists posts in trip order', async () => {
