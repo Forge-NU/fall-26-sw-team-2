@@ -247,9 +247,9 @@ Errors use NestJS's default shape until API-1 (#28) adds the shared error filter
 { "statusCode": 404, "message": "Trip not found", "error": "Not Found" }
 ```
 
-Validation errors (400) return `message` as a list of strings. Unknown fields in a request body are rejected.
+Validation errors (400) return `message` as a list of strings. Unknown fields in a request body are rejected. Text limits are counted the way Postgres counts characters, so an emoji like ❤️ (heart plus a variation selector) counts as 2.
 
-List endpoints use cursor pagination: `?cursor=<from the last page>&limit=<1-50, default 20>` returns `{ "items": [...], "nextCursor": "..." | null }`. `nextCursor` is `null` on the last page. The helper is a stand-in until API-1 (#28) adds the shared one.
+List endpoints use cursor pagination: `?cursor=<from the last page>&limit=<1-50, default 20>` returns `{ "items": [...], "nextCursor": "..." | null }`. `nextCursor` is `null` on the last page. A cursor that doesn't belong to that list (unknown, deleted, or from another list) returns 400, and the app should reload from the first page. The helper is a stand-in until API-1 (#28) adds the shared one.
 
 ### Shared response shapes
 
@@ -417,7 +417,7 @@ Request:
 - `visitedOn`: required, within the trip's dates. The app fills it in with today if today is within the trip's dates, otherwise the trip's start date.
 - `caption`: optional, up to 2,200 characters.
 - Location: exactly one of `locationId` (an existing location row, from #37's endpoint) and `customLocationName` (1 to 100 characters).
-- `media`: 1 to 30 items, in carousel order. Each `s3Key` has to be one of the current user's post uploads (it starts with `users/{userId}/posts/`, the key scheme from #38), can't appear twice, and can't already belong to another post. `width`, `height`, and `durationMs` are optional.
+- `media`: 1 to 30 items, in carousel order. Each `s3Key` has to be one of the current user's post uploads (it starts with `users/{userId}/posts/`, the key scheme from #38), can't appear twice, and can't already belong to another post. `width` and `height` (1 to 20,000 px) and `durationMs` (up to 60,000) are optional.
 
 The app only calls this after every upload has succeeded.
 

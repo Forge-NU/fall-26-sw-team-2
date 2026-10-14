@@ -107,6 +107,8 @@ describe('Trips (e2e)', () => {
         { ...lisbon, startDate: '09/12/2026' },
         { ...lisbon, title: '   ' },
         { ...lisbon, title: 'x'.repeat(101) },
+        // 60 hearts is 120 characters to Postgres
+        { ...lisbon, title: '❤️'.repeat(60) },
         { ...lisbon, status: 'published' },
       ];
       for (const body of bad) {
@@ -339,6 +341,22 @@ describe('Trips (e2e)', () => {
         .get('/api/users/user_does_not_exist/trips')
         .set(as(owner))
         .expect(404);
+    });
+
+    it('rejects a cursor from another list', async () => {
+      const otherTrip = await prisma.trip.create({
+        data: {
+          ownerId: other.id,
+          title: 'Not yours',
+          destination: 'Somewhere',
+          startDate: new Date('2026-09-01'),
+          endDate: new Date('2026-09-02'),
+        },
+      });
+      await request(app.getHttpServer())
+        .get(`/api/users/${owner.id}/trips?cursor=${otherTrip.id}`)
+        .set(as(owner))
+        .expect(400);
     });
 
     it('rejects a limit over 50', async () => {

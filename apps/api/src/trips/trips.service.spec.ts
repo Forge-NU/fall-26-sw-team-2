@@ -44,6 +44,7 @@ describe('TripsService', () => {
     trip: {
       create: jest.fn(),
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       findMany: jest.fn(),
       update: jest.fn(),
       deleteMany: jest.fn(),
@@ -52,6 +53,7 @@ describe('TripsService', () => {
     postMedia: { findMany: jest.fn() },
     user: { findUnique: jest.fn() },
     $transaction: jest.fn(),
+    $queryRaw: jest.fn(),
   };
   const storage = {
     getReadUrl: jest.fn((key: string) => Promise.resolve(`https://s3/${key}`)),
@@ -219,6 +221,13 @@ describe('TripsService', () => {
       });
     });
 
+    it('locks the trip while checking posts against the new dates', async () => {
+      prisma.post.count.mockResolvedValue(0);
+      await service.update(owner.id, makeTrip().id, { endDate: '2026-10-20' });
+      expect(prisma.$queryRaw).toHaveBeenCalled();
+      expect(prisma.trip.update).toHaveBeenCalled();
+    });
+
     it("doesn't check posts when the dates don't change", async () => {
       await service.update(owner.id, makeTrip().id, { title: 'New' });
       expect(prisma.post.count).not.toHaveBeenCalled();
@@ -258,16 +267,16 @@ describe('TripsService', () => {
   describe('publish', () => {
     it('rejects a trip with no posts', async () => {
       prisma.trip.findUnique.mockResolvedValue(makeTrip());
-      prisma.post.count.mockResolvedValue(0);
       await expect(service.publish(owner.id, makeTrip().id)).rejects.toThrow(
         BadRequestException,
       );
       expect(prisma.trip.update).not.toHaveBeenCalled();
     });
 
-    it('sets status and publishedAt', async () => {
-      prisma.trip.findUnique.mockResolvedValue(makeTrip());
-      prisma.post.count.mockResolvedValue(1);
+    it('locks the trip, then sets status and publishedAt', async () => {
+      prisma.trip.findUnique.mockResolvedValue(
+        makeTrip({ _count: { posts: 1 } }),
+      );
       prisma.trip.update.mockResolvedValue(
         makeTrip({ status: 'published', publishedAt: new Date() }),
       );
@@ -280,6 +289,7 @@ describe('TripsService', () => {
         }),
       );
       expect(trip.status).toBe('published');
+      expect(prisma.$queryRaw).toHaveBeenCalled();
     });
 
     it('does nothing for an already-published trip', async () => {
@@ -328,6 +338,21 @@ describe('TripsService', () => {
       );
       expect(page.items.map((t) => t.id)).toEqual(['a', 'b']);
       expect(page.nextCursor).toBe('b');
+    });
+
+    it('rejects a cursor that is not in the list', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: owner.id });
+      prisma.trip.findFirst.mockResolvedValue(null);
+      await expect(
+        service.listForUser('user_other', owner.id, {
+          cursor: makeTrip().id,
+        }),
+      ).rejects.toThrow('Invalid cursor');
+      expect(prisma.trip.findFirst).toHaveBeenCalledWith({
+        where: { id: makeTrip().id, ownerId: owner.id, status: 'published' },
+        select: { id: true },
+      });
+      expect(prisma.trip.findMany).not.toHaveBeenCalled();
     });
 
     it('returns 404 for a user that does not exist', async () => {

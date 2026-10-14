@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
 
@@ -8,8 +9,9 @@ export const DEFAULT_PAGE_SIZE = 20;
 export const MAX_PAGE_SIZE = 50;
 
 export class PaginationQueryDto {
+  // Any UUID Postgres accepts, not just RFC 4122 ones
   @IsOptional()
-  @IsUUID()
+  @IsUUID('all')
   cursor?: string;
 
   @IsOptional()
@@ -18,6 +20,18 @@ export class PaginationQueryDto {
   @Min(1)
   @Max(MAX_PAGE_SIZE)
   limit?: number;
+}
+
+// The cursor has to be a row in the list being paged (matching its filter).
+// Prisma doesn't check this: an unknown or deleted cursor silently returns an
+// empty page, and one from another list starts from the wrong position.
+export async function assertCursorInList(
+  query: PaginationQueryDto,
+  findInList: (cursor: string) => Promise<unknown>,
+) {
+  if (query.cursor && !(await findInList(query.cursor))) {
+    throw new BadRequestException('Invalid cursor');
+  }
 }
 
 export type Page<T> = {
