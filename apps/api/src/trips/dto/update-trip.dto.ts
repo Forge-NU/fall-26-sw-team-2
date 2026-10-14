@@ -2,13 +2,12 @@ import {
   IsISO8601,
   IsOptional,
   IsString,
-  Length,
   Matches,
-  MaxLength,
   ValidateIf,
 } from 'class-validator';
 import { DATE_ONLY } from '../../common/dates';
 import { Trim } from '../../common/trim';
+import { CharLength } from '../../common/char-length';
 
 // Every field is optional. Only description can be cleared with null; the
 // rest reject null.
@@ -16,19 +15,19 @@ export class UpdateTripDto {
   @ValidateIf((_, value) => value !== undefined)
   @Trim()
   @IsString()
-  @Length(1, 100)
+  @CharLength(1, 100)
   title?: string;
 
   @ValidateIf((_, value) => value !== undefined)
   @Trim()
   @IsString()
-  @Length(1, 100)
+  @CharLength(1, 100)
   destination?: string;
 
   @IsOptional()
   @Trim()
   @IsString()
-  @MaxLength(1000)
+  @CharLength(0, 1000)
   description?: string | null;
 
   @ValidateIf((_, value) => value !== undefined)

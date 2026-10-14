@@ -1,29 +1,23 @@
-import {
-  IsISO8601,
-  IsOptional,
-  IsString,
-  Length,
-  Matches,
-  MaxLength,
-} from 'class-validator';
+import { IsISO8601, IsOptional, IsString, Matches } from 'class-validator';
 import { DATE_ONLY } from '../../common/dates';
 import { Trim } from '../../common/trim';
+import { CharLength } from '../../common/char-length';
 
 export class CreateTripDto {
   @Trim()
   @IsString()
-  @Length(1, 100)
+  @CharLength(1, 100)
   title: string;
 
   @Trim()
   @IsString()
-  @Length(1, 100)
+  @CharLength(1, 100)
   destination: string;
 
   @IsOptional()
   @Trim()
   @IsString()
-  @MaxLength(1000)
+  @CharLength(0, 1000)
   description?: string | null;
 
   @Matches(DATE_ONLY, { message: 'startDate must be YYYY-MM-DD' })
