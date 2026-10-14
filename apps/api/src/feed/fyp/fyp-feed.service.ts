@@ -12,14 +12,14 @@ import type {
   ViewerContext,
 } from '../feed.types';
 import {
-  FOR_YOU_CONFIG,
-  FOR_YOU_FILTERS,
-  FOR_YOU_HYDRATORS,
-  FOR_YOU_RERANKER,
-  FOR_YOU_SCORER,
-  FOR_YOU_SOURCES,
-  type ForYouConfig,
-} from './for-you.config';
+  FYP_CONFIG,
+  FYP_FILTERS,
+  FYP_HYDRATORS,
+  FYP_RERANKER,
+  FYP_SCORER,
+  FYP_SOURCES,
+  type FypConfig,
+} from './fyp.config';
 
 export interface FeedPageRequest {
   cursor?: string;
@@ -36,16 +36,16 @@ function compareScored(a: ScoredCandidate, b: ScoredCandidate): number {
 }
 
 @Injectable()
-export class ForYouFeedService {
-  private readonly logger = new Logger(ForYouFeedService.name);
+export class FypFeedService {
+  private readonly logger = new Logger(FypFeedService.name);
 
   constructor(
-    @Inject(FOR_YOU_CONFIG) private readonly config: ForYouConfig,
-    @Inject(FOR_YOU_SOURCES) private readonly sources: CandidateSource[],
-    @Inject(FOR_YOU_HYDRATORS) private readonly hydrators: SignalHydrator[],
-    @Inject(FOR_YOU_FILTERS) private readonly filters: CandidateFilter[],
-    @Inject(FOR_YOU_SCORER) private readonly scorer: CandidateScorer,
-    @Inject(FOR_YOU_RERANKER) private readonly reranker: FeedReranker,
+    @Inject(FYP_CONFIG) private readonly config: FypConfig,
+    @Inject(FYP_SOURCES) private readonly sources: CandidateSource[],
+    @Inject(FYP_HYDRATORS) private readonly hydrators: SignalHydrator[],
+    @Inject(FYP_FILTERS) private readonly filters: CandidateFilter[],
+    @Inject(FYP_SCORER) private readonly scorer: CandidateScorer,
+    @Inject(FYP_RERANKER) private readonly reranker: FeedReranker,
   ) {}
 
   // Ranks from scratch on every request, so items can shift between pages if signals

@@ -9,12 +9,12 @@ import { AuthorDiversityReranker } from '../stages/author-diversity.reranker';
 import { ExcludeOwnItinerariesFilter } from '../stages/exclude-own-itineraries.filter';
 import { RecencyHydrator } from '../stages/recency.hydrator';
 import { WeightedSignalScorer } from '../stages/weighted-signal.scorer';
-import { DEFAULT_FOR_YOU_CONFIG } from './for-you.config';
-import { ForYouFeedService } from './for-you-feed.service';
+import { DEFAULT_FYP_CONFIG } from './fyp.config';
+import { FypFeedService } from './fyp-feed.service';
 
 const now = new Date('2026-10-14T00:00:00Z');
 const viewer: ViewerContext = { viewerId: 'viewer-1', now };
-const config = DEFAULT_FOR_YOU_CONFIG;
+const config = DEFAULT_FYP_CONFIG;
 
 function candidate(
   itineraryId: string,
@@ -39,8 +39,8 @@ function sourceOf(
 function buildService(
   sources: CandidateSource[],
   hydrators: SignalHydrator[] = [new RecencyHydrator(config)],
-): ForYouFeedService {
-  return new ForYouFeedService(
+): FypFeedService {
+  return new FypFeedService(
     config,
     sources,
     hydrators,
@@ -54,7 +54,7 @@ function ids(page: { items: { itineraryId: string }[] }): string[] {
   return page.items.map((item) => item.itineraryId);
 }
 
-describe('ForYouFeedService', () => {
+describe('FypFeedService', () => {
   beforeEach(() => {
     jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
   });

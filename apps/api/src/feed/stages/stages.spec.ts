@@ -1,12 +1,12 @@
 import { FeedCandidate, ScoredCandidate } from '../feed.types';
-import { DEFAULT_FOR_YOU_CONFIG } from '../for-you/for-you.config';
+import { DEFAULT_FYP_CONFIG } from '../fyp/fyp.config';
 import { AuthorDiversityReranker } from './author-diversity.reranker';
 import { RecencyHydrator } from './recency.hydrator';
 import { WeightedSignalScorer } from './weighted-signal.scorer';
 
 const now = new Date('2026-10-14T00:00:00Z');
 const viewer = { viewerId: null, now };
-const config = DEFAULT_FOR_YOU_CONFIG;
+const config = DEFAULT_FYP_CONFIG;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function candidate(overrides: Partial<FeedCandidate> = {}): FeedCandidate {

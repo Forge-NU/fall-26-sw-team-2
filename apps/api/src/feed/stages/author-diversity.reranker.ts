@@ -1,13 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { FeedReranker, ScoredCandidate } from '../feed.types';
-import { FOR_YOU_CONFIG, type ForYouConfig } from '../for-you/for-you.config';
+import { FYP_CONFIG, type FypConfig } from '../fyp/fyp.config';
 
 // Greedy rerank that keeps one author from filling the screen: at each slot, pick the
 // candidate with the best score after a penalty for same-author items among the last
 // `authorWindow` picks. Output keeps the original scores. O(n^2) in pool size.
 @Injectable()
 export class AuthorDiversityReranker implements FeedReranker {
-  constructor(@Inject(FOR_YOU_CONFIG) private readonly config: ForYouConfig) {}
+  constructor(@Inject(FYP_CONFIG) private readonly config: FypConfig) {}
 
   rerank(ranked: readonly ScoredCandidate[]): ScoredCandidate[] {
     const { authorWindow, repeatPenalty } = this.config.diversity;

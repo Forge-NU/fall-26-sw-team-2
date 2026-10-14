@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { FeedCandidate, SignalHydrator, ViewerContext } from '../feed.types';
-import { FOR_YOU_CONFIG, type ForYouConfig } from '../for-you/for-you.config';
+import { FYP_CONFIG, type FypConfig } from '../fyp/fyp.config';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -9,7 +9,7 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 export class RecencyHydrator implements SignalHydrator {
   readonly name = 'recency';
 
-  constructor(@Inject(FOR_YOU_CONFIG) private readonly config: ForYouConfig) {}
+  constructor(@Inject(FYP_CONFIG) private readonly config: FypConfig) {}
 
   hydrate(
     candidates: readonly FeedCandidate[],

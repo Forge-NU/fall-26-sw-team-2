@@ -2,7 +2,7 @@ import { Test } from '@nestjs/testing';
 import { FeedController } from './feed.controller';
 import { FeedModule } from './feed.module';
 import { CandidateSource } from './feed.types';
-import { FOR_YOU_SOURCES } from './for-you/for-you.config';
+import { FYP_SOURCES } from './fyp/fyp.config';
 
 const testSource: CandidateSource = {
   name: 'test',
@@ -28,25 +28,25 @@ async function buildController(
 ): Promise<FeedController> {
   const builder = Test.createTestingModule({ imports: [FeedModule] });
   if (sources) {
-    builder.overrideProvider(FOR_YOU_SOURCES).useValue(sources);
+    builder.overrideProvider(FYP_SOURCES).useValue(sources);
   }
   const moduleRef = await builder.compile();
   return moduleRef.get(FeedController);
 }
 
 describe('FeedController', () => {
-  it('returns an empty For You feed until sources are registered', async () => {
+  it('returns an empty FYP feed until sources are registered', async () => {
     const controller = await buildController();
 
     await expect(
-      controller.getForYou(undefined, undefined, undefined),
+      controller.getFyp(undefined, undefined, undefined),
     ).resolves.toEqual({ items: [], nextCursor: null });
   });
 
-  it('ranks the For You feed for the viewer in the x-user-id header', async () => {
+  it('ranks the FYP feed for the viewer in the x-user-id header', async () => {
     const controller = await buildController([testSource]);
 
-    const page = await controller.getForYou('viewer-1', undefined, undefined);
+    const page = await controller.getFyp('viewer-1', undefined, undefined);
 
     expect(page.items.map((item) => item.itineraryId)).toEqual(['theirs']);
   });
@@ -54,7 +54,7 @@ describe('FeedController', () => {
   it('serves signed-out viewers', async () => {
     const controller = await buildController([testSource]);
 
-    const page = await controller.getForYou(undefined, undefined, undefined);
+    const page = await controller.getFyp(undefined, undefined, undefined);
 
     expect(page.items).toHaveLength(2);
   });

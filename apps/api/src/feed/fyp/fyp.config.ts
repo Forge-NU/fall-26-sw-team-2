@@ -1,6 +1,6 @@
 import { FeedSignal } from '../feed.types';
 
-export interface ForYouConfig {
+export interface FypConfig {
   // Linear weights per signal. Placeholder values until we have data to tune against.
   weights: Record<FeedSignal, number>;
   candidatesPerSource: number;
@@ -15,7 +15,7 @@ export interface ForYouConfig {
   maxPageSize: number;
 }
 
-export const DEFAULT_FOR_YOU_CONFIG: ForYouConfig = {
+export const DEFAULT_FYP_CONFIG: FypConfig = {
   weights: {
     tasteMatch: 0.35,
     quality: 0.2,
@@ -34,9 +34,9 @@ export const DEFAULT_FOR_YOU_CONFIG: ForYouConfig = {
   maxPageSize: 50,
 };
 
-export const FOR_YOU_CONFIG = Symbol('FOR_YOU_CONFIG');
-export const FOR_YOU_SOURCES = Symbol('FOR_YOU_SOURCES');
-export const FOR_YOU_HYDRATORS = Symbol('FOR_YOU_HYDRATORS');
-export const FOR_YOU_FILTERS = Symbol('FOR_YOU_FILTERS');
-export const FOR_YOU_SCORER = Symbol('FOR_YOU_SCORER');
-export const FOR_YOU_RERANKER = Symbol('FOR_YOU_RERANKER');
+export const FYP_CONFIG = Symbol('FYP_CONFIG');
+export const FYP_SOURCES = Symbol('FYP_SOURCES');
+export const FYP_HYDRATORS = Symbol('FYP_HYDRATORS');
+export const FYP_FILTERS = Symbol('FYP_FILTERS');
+export const FYP_SCORER = Symbol('FYP_SCORER');
+export const FYP_RERANKER = Symbol('FYP_RERANKER');

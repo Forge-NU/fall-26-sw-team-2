@@ -1,7 +1,7 @@
 # Feed
 
-Ranks itineraries for the feed. Only the **For You** feed exists so far:
-`GET /feed/for-you?limit=20&cursor=<nextCursor>`.
+Ranks itineraries for the feed. Only the **FYP** feed exists so far:
+`GET /feed/fyp?limit=20&cursor=<nextCursor>`.
 
 ```
 sources ──► hydrators ──► filters ──► scorer ──► reranker ──► page
@@ -17,7 +17,7 @@ sources ──► hydrators ──► filters ──► scorer ──► reranke
 | Reranker | `FeedReranker` | Reorder for variety | `AuthorDiversityReranker` |
 
 Interfaces live in `feed.types.ts`. Weights, page size and other knobs live in
-`for-you/for-you.config.ts`. Wiring is in `feed.module.ts`.
+`fyp/fyp.config.ts`. Wiring is in `feed.module.ts`.
 
 ## Failure handling
 
@@ -29,15 +29,15 @@ Interfaces live in `feed.types.ts`. Weights, page size and other knobs live in
 ## Adding ingest
 
 1. **New signal**: add its name to `FEED_SIGNALS` in `feed.types.ts` and give it a weight
-   in `DEFAULT_FOR_YOU_CONFIG`. TypeScript flags the config until you do.
+   in `DEFAULT_FYP_CONFIG`. TypeScript flags the config until you do.
 2. **New source** (e.g. popular itineraries, same school, taste match): implement
-   `CandidateSource`, make it `@Injectable()`, and add it to `FOR_YOU_SOURCES` in
+   `CandidateSource`, make it `@Injectable()`, and add it to `FYP_SOURCES` in
    `feed.module.ts` with a `useFactory` like the hydrators one.
 3. **New hydrator** (e.g. engagement from saves/likes, quality from ratings): implement
-   `SignalHydrator`, normalize values to 0 to 1, and add it to `FOR_YOU_HYDRATORS`.
+   `SignalHydrator`, normalize values to 0 to 1, and add it to `FYP_HYDRATORS`.
    Fetch data for the whole batch in one query, not one per candidate.
 4. **New filter** (e.g. blocked authors, already seen): implement `CandidateFilter` and
-   add it to `FOR_YOU_FILTERS`.
+   add it to `FYP_FILTERS`.
 
 ## Known gaps
 
