@@ -7,12 +7,14 @@ import {
   NotFoundException,
   Param,
   Patch,
+  Post,
   UseGuards,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { ClerkAuthGuard } from '../auth/clerk-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { UpdateMeDto } from './dto/update-me.dto';
+import { CreateProfileDto } from './dto/create-profile.dto';
 
 @Controller()
 export class UsersController {
@@ -26,6 +28,23 @@ export class UsersController {
     if (!user) {
       throw new NotFoundException('User not found');
     }
+
+    return {
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      username: user.username,
+      avatarUrl: user.avatarUrl,
+    };
+  }
+
+  @Post('me/profile')
+  @UseGuards(ClerkAuthGuard)
+  async createProfile(
+    @CurrentUser() userId: string,
+    @Body() dto: CreateProfileDto,
+  ) {
+    const user = await this.usersService.createProfile(userId, dto);
 
     return {
       id: user.id,
