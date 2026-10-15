@@ -3,6 +3,7 @@ import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from './users.service';
 
+const mockGetClerkUser = jest.fn<Promise<unknown>, [string]>();
 const mockDeleteClerkUser = jest.fn<Promise<void>, [string]>(() =>
   Promise.resolve(),
 );
@@ -13,6 +14,7 @@ jest.mock('../auth/clerk.client', () => ({
       deleteUser: async (userId: string): Promise<void> => {
         await mockDeleteClerkUser(userId);
       },
+      getUser: (userId: string): Promise<unknown> => mockGetClerkUser(userId),
     },
   },
 }));
@@ -82,6 +84,91 @@ describe('UsersService', () => {
       expect(mockPrismaService.user.create).toHaveBeenCalledWith({
         data: userData,
       });
+    });
+  });
+
+  describe('createProfile', () => {
+    const profileData = {
+      firstName: 'Test',
+      lastName: 'User',
+      username: 'testuser',
+    };
+
+    const clerkUser = {
+      id: 'user_123',
+      primaryEmailAddressId: 'email_123',
+      emailAddresses: [
+        {
+          id: 'email_123',
+          emailAddress: 'test@example.com',
+        },
+      ],
+      imageUrl: 'https://example.com/avatar.png',
+    };
+
+    it('creates a profile using the authenticated Clerk user', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(null);
+      mockGetClerkUser.mockResolvedValue(clerkUser);
+      mockPrismaService.user.create.mockResolvedValue(mockUser);
+
+      await expect(
+        service.createProfile('user_123', profileData),
+      ).resolves.toEqual(mockUser);
+
+      expect(mockGetClerkUser).toHaveBeenCalledWith('user_123');
+      expect(mockPrismaService.user.create).toHaveBeenCalledWith({
+        data: {
+          id: 'user_123',
+          email: 'test@example.com',
+          firstName: 'Test',
+          lastName: 'User',
+          username: 'testuser',
+          avatarUrl: 'https://example.com/avatar.png',
+        },
+      });
+    });
+
+    it('rejects profile creation if the user already exists', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+
+      await expect(
+        service.createProfile('user_123', profileData),
+      ).rejects.toThrow(ConflictException);
+
+      expect(mockGetClerkUser).not.toHaveBeenCalled();
+      expect(mockPrismaService.user.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects profile creation when there is no primary email', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(null);
+      mockGetClerkUser.mockResolvedValue({
+        ...clerkUser,
+        primaryEmailAddressId: null,
+      });
+
+      await expect(
+        service.createProfile('user_123', profileData),
+      ).rejects.toThrow(ConflictException);
+
+      expect(mockPrismaService.user.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a username that is already in use', async () => {
+      const prismaError = new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint failed',
+        {
+          code: 'P2002',
+          clientVersion: 'test',
+        },
+      );
+
+      mockPrismaService.user.findUnique.mockResolvedValue(null);
+      mockGetClerkUser.mockResolvedValue(clerkUser);
+      mockPrismaService.user.create.mockRejectedValue(prismaError);
+
+      await expect(
+        service.createProfile('user_123', profileData),
+      ).rejects.toThrow(ConflictException);
     });
   });
 
