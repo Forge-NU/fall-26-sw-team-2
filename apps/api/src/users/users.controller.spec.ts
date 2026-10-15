@@ -21,10 +21,6 @@ describe('UsersController', () => {
     avatarUrl: null,
   };
 
-  const request = {
-    user: { userId: 'user_123' },
-  } as never;
-
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -49,7 +45,7 @@ describe('UsersController', () => {
     it('returns the current user profile', async () => {
       mockUsersService.findById.mockResolvedValue(mockUser);
 
-      await expect(controller.getMe(request)).resolves.toEqual({
+      await expect(controller.getMe('user_123')).resolves.toEqual({
         id: 'user_123',
         firstName: 'Test',
         lastName: 'User',
@@ -63,7 +59,7 @@ describe('UsersController', () => {
     it('throws NotFoundException when the current user does not exist', async () => {
       mockUsersService.findById.mockResolvedValue(null);
 
-      await expect(controller.getMe(request)).rejects.toBeInstanceOf(
+      await expect(controller.getMe('user_123')).rejects.toBeInstanceOf(
         NotFoundException,
       );
     });
@@ -76,7 +72,7 @@ describe('UsersController', () => {
 
       mockUsersService.update.mockResolvedValue(updatedUser);
 
-      await expect(controller.updateMe(request, dto)).resolves.toEqual({
+      await expect(controller.updateMe('user_123', dto)).resolves.toEqual({
         id: 'user_123',
         firstName: 'Test',
         lastName: 'User',
@@ -93,7 +89,7 @@ describe('UsersController', () => {
       );
 
       await expect(
-        controller.updateMe(request, { username: 'updateduser' }),
+        controller.updateMe('user_123', { username: 'updateduser' }),
       ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
@@ -102,8 +98,7 @@ describe('UsersController', () => {
     it('deletes the current user account', async () => {
       mockUsersService.deleteAccount.mockResolvedValue(undefined);
 
-      await expect(controller.deleteMe(request)).resolves.toBeUndefined();
-
+      await expect(controller.deleteMe('user_123')).resolves.toBeUndefined();
       expect(mockUsersService.deleteAccount).toHaveBeenCalledWith('user_123');
     });
 
@@ -112,7 +107,7 @@ describe('UsersController', () => {
         new NotFoundException('User not found'),
       );
 
-      await expect(controller.deleteMe(request)).rejects.toBeInstanceOf(
+      await expect(controller.deleteMe('user_123')).rejects.toBeInstanceOf(
         NotFoundException,
       );
     });
