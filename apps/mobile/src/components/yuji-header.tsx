@@ -5,24 +5,13 @@ import { AppText } from '@/components/app-text';
 import { Icon } from '@/components/icon';
 import { Radius, ScreenGutter } from '@/constants/theme';
 
-/**
- * The Figma logo is a crop of a larger brand sheet, so the image is scaled up
- * and offset inside a clipped square (same percentages as the design).
- */
 export function YujiLogo({ size = 40 }: { size?: number }) {
   return (
-    <View style={[styles.logo, { width: size, height: size }]}>
-      <Image
-        source={require('@/assets/images/yuji/logo-sprite.png')}
-        style={{
-          position: 'absolute',
-          width: size * 9.5111,
-          height: size * 9.1667,
-          left: -size * 7.2222,
-          top: -size * 0.6,
-        }}
-      />
-    </View>
+    <Image
+      source={require('@/assets/images/yuji/logo.png')}
+      style={[styles.logo, { width: size, height: size }]}
+      accessibilityLabel="Yuji"
+    />
   );
 }
 
@@ -40,13 +29,13 @@ export function YujiHeader() {
       </View>
       <View style={styles.actions}>
         <Pressable style={styles.leaderboard} accessibilityRole="button">
-          <Icon name="trophy" />
+          <Icon name="trophy" size={19} color="coral" />
           <AppText variant="bold" size={11}>
             Leaderboard
           </AppText>
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="Notifications" hitSlop={8}>
-          <Icon name="bell" />
+          <Icon name="bell" size={21} />
         </Pressable>
       </View>
     </View>
@@ -56,7 +45,6 @@ export function YujiHeader() {
 const styles = StyleSheet.create({
   logo: {
     borderRadius: Radius.md,
-    overflow: 'hidden',
   },
   header: {
     height: 60,

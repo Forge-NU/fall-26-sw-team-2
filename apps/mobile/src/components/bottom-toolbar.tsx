@@ -1,10 +1,9 @@
-import { Image } from 'expo-image';
 import { type TabListProps, type TabTriggerSlotProps } from 'expo-router/ui';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/app-text';
-import { Icon } from '@/components/icon';
+import { Icon, IconName } from '@/components/icon';
 import { Palette, Radius } from '@/constants/theme';
 
 export type ToolbarDestination = 'feed' | 'saved' | 'post' | 'maps' | 'profile';
@@ -15,6 +14,14 @@ const Labels: Record<ToolbarDestination, string> = {
   post: 'Post',
   maps: 'Maps',
   profile: 'My Profile',
+};
+
+const Icons: Record<ToolbarDestination, IconName> = {
+  feed: 'house',
+  saved: 'bookmark',
+  post: 'plus',
+  maps: 'map',
+  profile: 'user-round',
 };
 
 /** Bar container passed to `<TabList asChild>`. */
@@ -54,24 +61,13 @@ function DestinationIcon({
   destination: ToolbarDestination;
   isFocused: boolean;
 }) {
-  if (destination === 'feed' && !isFocused) {
-    // The inactive Feed icon is exported from Figma with its 42x34 tile baked in.
-    return (
-      <Image
-        source={require('@/assets/images/yuji/icons/tab-feed.svg')}
-        style={styles.tile}
-        contentFit="contain"
-      />
-    );
-  }
+  const isPost = destination === 'post';
+  // Only Feed changes color in the wireframes; the rest stay ink.
+  const color = isPost ? 'surface' : destination === 'feed' && isFocused ? 'teal' : 'ink';
 
   return (
-    <View style={[styles.tile, destination === 'post' && styles.postTile]}>
-      {destination === 'feed' && <Icon name="tab-feed-active" />}
-      {destination === 'saved' && <Icon name="bookmark" />}
-      {destination === 'post' && <Icon name="tab-post" />}
-      {destination === 'maps' && <Icon name="tab-maps" />}
-      {destination === 'profile' && <Icon name="tab-profile" />}
+    <View style={[styles.tile, isPost && styles.postTile]}>
+      <Icon name={Icons[destination]} size={22} color={color} />
     </View>
   );
 }

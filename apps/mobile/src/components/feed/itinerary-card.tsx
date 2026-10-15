@@ -8,7 +8,7 @@ import { ActionButton } from '@/components/action-button';
 import { AppText } from '@/components/app-text';
 import { Icon, IconName } from '@/components/icon';
 import { PostAuthor } from '@/components/post-author';
-import { Palette, Radius, ScreenGutter } from '@/constants/theme';
+import { Palette, PaletteColor, Radius, ScreenGutter } from '@/constants/theme';
 import type { Itinerary } from '@/data/mock';
 
 export function ItineraryCard({ itinerary }: { itinerary: Itinerary }) {
@@ -97,11 +97,12 @@ export function ItineraryCard({ itinerary }: { itinerary: Itinerary }) {
         <View style={styles.socialActions}>
           <CountAction
             icon="heart"
+            color="coral"
             label={String(itinerary.likes + (liked ? 1 : 0))}
             accessibilityLabel={liked ? 'Unlike' : 'Like'}
             onPress={() => setLiked((value) => !value)}
           />
-          <CountAction icon="comment" label={String(itinerary.comments)} accessibilityLabel="Comments" />
+          <CountAction icon="message-circle" label={String(itinerary.comments)} accessibilityLabel="Comments" />
         </View>
         <CountAction
           icon="bookmark"
@@ -125,7 +126,7 @@ export function ItineraryCard({ itinerary }: { itinerary: Itinerary }) {
         tone="teal"
         height={48}
         fontSize={13}
-        leadingIcon="plus-white"
+        leadingIcon="plus"
         onPress={() => openDay(featured.day)}
       />
     </View>
@@ -134,11 +135,13 @@ export function ItineraryCard({ itinerary }: { itinerary: Itinerary }) {
 
 function CountAction({
   icon,
+  color,
   label,
   accessibilityLabel,
   onPress,
 }: {
   icon: IconName;
+  color?: PaletteColor;
   label: string;
   accessibilityLabel: string;
   onPress?: () => void;
@@ -149,7 +152,7 @@ function CountAction({
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
       style={styles.countAction}>
-      <Icon name={icon} />
+      <Icon name={icon} size={22} color={color} />
       <AppText size={12}>{label}</AppText>
     </Pressable>
   );
@@ -174,6 +177,7 @@ const styles = StyleSheet.create({
     height: 188,
     borderRadius: Radius.md,
     overflow: 'hidden',
+    backgroundColor: Palette.border,
   },
   featuredCaption: {
     position: 'absolute',
@@ -204,6 +208,7 @@ const styles = StyleSheet.create({
     height: 86,
     borderRadius: Radius.sm,
     overflow: 'hidden',
+    backgroundColor: Palette.border,
   },
   dayLabel: {
     position: 'absolute',

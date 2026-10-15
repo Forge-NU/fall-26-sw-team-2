@@ -29,14 +29,12 @@ export function PostChooserSheet({
         <PostOption
           label="Create itinerary"
           icon="route"
-          chevron="chevron-right-coral"
           tone="coral"
           onPress={onCreateItinerary}
         />
         <PostOption
           label="Post story"
-          icon="images-white"
-          chevron="chevron-right-teal"
+          icon="images"
           tone="teal"
           onPress={onPostStory}
         />
@@ -48,13 +46,11 @@ export function PostChooserSheet({
 function PostOption({
   label,
   icon,
-  chevron,
   tone,
   onPress,
 }: {
   label: string;
   icon: IconName;
-  chevron: IconName;
   tone: 'coral' | 'teal';
   onPress: () => void;
 }) {
@@ -68,12 +64,12 @@ function PostOption({
         pressed && styles.pressed,
       ]}>
       <View style={[styles.symbol, { backgroundColor: Palette[tone] }]}>
-        <Icon name={icon} />
+        <Icon name={icon} size={23} color="surface" />
       </View>
       <AppText variant="bold" size={16} style={styles.label}>
         {label}
       </AppText>
-      <Icon name={chevron} />
+      <Icon name="chevron-right" color={tone} />
     </Pressable>
   );
 }

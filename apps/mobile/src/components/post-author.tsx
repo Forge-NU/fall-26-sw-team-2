@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/app-text';
 import { Icon } from '@/components/icon';
+import { Palette, Radius } from '@/constants/theme';
 import type { Traveler } from '@/data/mock';
 
 type PostAuthorProps = {
@@ -21,19 +22,19 @@ export function PostAuthor({ author, meta, onShare }: PostAuthorProps) {
           <AppText variant="bold" size={13}>
             {author.name}
           </AppText>
-          {author.verified && <Icon name="verified" />}
+          {author.verified && <Icon name="badge-check" size={13} />}
         </View>
         <AppText size={11} color="inkMuted" numberOfLines={1}>
           {meta}
         </AppText>
       </View>
       <Pressable accessibilityRole="button" accessibilityLabel="More options" hitSlop={8}>
-        <Icon name="ellipsis" />
+        <Icon name="ellipsis" size={20} color="inkMuted" />
       </Pressable>
       {onShare && (
         <Pressable accessibilityRole="button" onPress={onShare} style={styles.share}>
           <View style={styles.shareIcon}>
-            <Icon name="share" />
+            <Icon name="share" size={18} />
           </View>
           <AppText size={12}>Share</AppText>
         </Pressable>
@@ -51,6 +52,8 @@ const styles = StyleSheet.create({
   avatar: {
     width: 36,
     height: 36,
+    borderRadius: Radius.pill,
+    backgroundColor: Palette.border,
   },
   details: {
     flex: 1,

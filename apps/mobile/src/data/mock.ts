@@ -4,6 +4,15 @@
  */
 import type { ImageSourcePropType } from 'react-native';
 
+// Mock media is loaded from placeholder services so no sample photos live in the repo.
+// Real media will come from the posts API (S3 read URLs).
+const photo = (seed: string): ImageSourcePropType => ({
+  uri: `https://picsum.photos/seed/yuji-${seed}/800/600`,
+});
+const avatar = (seed: string): ImageSourcePropType => ({
+  uri: `https://i.pravatar.cc/120?u=yuji-${seed}`,
+});
+
 export type FeedTab = 'local' | 'friends' | 'fyp';
 
 export type Traveler = {
@@ -85,45 +94,45 @@ export const Travelers = {
   maya: {
     id: 'maya',
     name: 'Maya Chen',
-    avatar: require('@/assets/images/yuji/avatars/maya.png'),
+    avatar: avatar('maya'),
     verified: true,
   },
   priya: {
     id: 'priya',
     name: 'Priya Shah',
-    avatar: require('@/assets/images/yuji/avatars/priya.png'),
+    avatar: avatar('priya'),
     verified: true,
   },
 } satisfies Record<string, Traveler>;
 
 export const Stories: StoryBubble[] = [
-  { id: 'maya', label: 'Maya', avatar: require('@/assets/images/yuji/avatars/maya-story.png') },
-  { id: 'priya', label: 'Priya', avatar: require('@/assets/images/yuji/avatars/priya-story.png') },
-  { id: 'lisbon', label: 'Lisbon', avatar: require('@/assets/images/yuji/avatars/lisbon-story.png') },
+  { id: 'maya', label: 'Maya', avatar: avatar('maya') },
+  { id: 'priya', label: 'Priya', avatar: avatar('priya') },
+  { id: 'lisbon', label: 'Lisbon', avatar: photo('lisbon') },
   {
     id: 'copenhagen',
     label: 'Copenhagen',
-    avatar: require('@/assets/images/yuji/avatars/copenhagen-story.png'),
+    avatar: photo('copenhagen'),
   },
-  { id: 'yuji', label: 'Yuji', avatar: require('@/assets/images/yuji/avatars/yuji-story.png') },
+  { id: 'yuji', label: 'Yuji', avatar: require('@/assets/images/yuji/logo.png') },
 ];
 
 const lisbonPhotos = {
-  day1: require('@/assets/images/yuji/photos/lisbon-day1.jpg'),
-  day2: require('@/assets/images/yuji/photos/lisbon-day2.jpg'),
-  day3: require('@/assets/images/yuji/photos/lisbon-day3.jpg'),
-  day4: require('@/assets/images/yuji/photos/lisbon-day4.jpg'),
-  day5: require('@/assets/images/yuji/photos/lisbon-day5.jpg'),
-  belem: require('@/assets/images/yuji/photos/moment-belem.jpg'),
-  pastry: require('@/assets/images/yuji/photos/moment-pastry.jpg'),
-  tram: require('@/assets/images/yuji/photos/moment-tram.jpg'),
-  alfama: require('@/assets/images/yuji/photos/moment-alfama.jpg'),
+  day1: photo('lisbon-day1'),
+  day2: photo('lisbon-day2'),
+  day3: photo('lisbon-day3'),
+  day4: photo('lisbon-day4'),
+  day5: photo('lisbon-day5'),
+  belem: photo('moment-belem'),
+  pastry: photo('moment-pastry'),
+  tram: photo('moment-tram'),
+  alfama: photo('moment-alfama'),
 };
 
 const copenhagenPhotos = {
-  day1: require('@/assets/images/yuji/photos/copenhagen-day1.jpg'),
-  day2: require('@/assets/images/yuji/photos/copenhagen-day2.jpg'),
-  day3: require('@/assets/images/yuji/photos/copenhagen-day3.jpg'),
+  day1: photo('copenhagen-day1'),
+  day2: photo('copenhagen-day2'),
+  day3: photo('copenhagen-day3'),
 };
 
 export const Itineraries: Itinerary[] = [
@@ -138,10 +147,10 @@ export const Itineraries: Itinerary[] = [
     stops: 24,
     author: Travelers.maya,
     participants: [
-      require('@/assets/images/yuji/avatars/participant-1.png'),
-      require('@/assets/images/yuji/avatars/participant-2.png'),
-      require('@/assets/images/yuji/avatars/participant-3.png'),
-      require('@/assets/images/yuji/avatars/participant-4.png'),
+      avatar('participant-1'),
+      avatar('participant-2'),
+      avatar('participant-3'),
+      avatar('participant-4'),
     ],
     likes: 248,
     comments: 31,

@@ -37,7 +37,7 @@ export function TripChooserSheet({
                 accessibilityState={{ checked: selected }}
                 onPress={() => onSelect(trip.id)}
                 style={[styles.trip, selected && styles.tripSelected]}>
-                <Icon name="calendar-days-22" />
+                <Icon name="calendar-days" size={22} />
                 <View style={styles.tripDetails}>
                   <AppText variant="bold" size={13} leading={1.35}>
                     {trip.title}
@@ -49,7 +49,9 @@ export function TripChooserSheet({
                     {trip.suggested ? 'Suggested · active today' : 'Active today'}
                   </AppText>
                 </View>
-                <Icon name={selected ? 'radio-on' : 'radio-off'} />
+                <View style={[styles.radio, selected && styles.radioSelected]}>
+                  {selected && <View style={styles.radioDot} />}
+                </View>
               </Pressable>
             );
           })}
@@ -59,7 +61,7 @@ export function TripChooserSheet({
           accessibilityRole="button"
           onPress={() => onSelect(null)}
           style={styles.withoutTrip}>
-          <Icon name="minus-circle" />
+          <Icon name="circle-minus" size={20} />
           <AppText variant="bold" size={12} leading={1.35} style={styles.grow}>
             Post without a trip
           </AppText>
@@ -67,7 +69,9 @@ export function TripChooserSheet({
         </Pressable>
 
         <Pressable accessibilityRole="button" onPress={onCreateTrip} style={styles.createTrip}>
-          <Icon name="create-trip" />
+          <View style={styles.createSymbol}>
+            <Icon name="plus" size={20} color="coral" />
+          </View>
           <AppText variant="bold" size={12} leading={1.35} style={styles.grow}>
             Create trip
           </AppText>
@@ -120,5 +124,32 @@ const styles = StyleSheet.create({
   },
   grow: {
     flex: 1,
+  },
+  radio: {
+    width: 18,
+    height: 18,
+    borderRadius: Radius.pill,
+    borderWidth: 1.5,
+    borderColor: Palette.borderStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Palette.surface,
+  },
+  radioSelected: {
+    borderColor: Palette.coral,
+  },
+  radioDot: {
+    width: 8,
+    height: 8,
+    borderRadius: Radius.pill,
+    backgroundColor: Palette.coral,
+  },
+  createSymbol: {
+    width: 32,
+    height: 32,
+    borderRadius: Radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Palette.coralSoft,
   },
 });

@@ -53,7 +53,7 @@ export function DayAtAGlance({ places }: { places: DayPlace[] }) {
                   accessibilityLabel={isAdded ? `Remove ${place.name}` : `Add ${place.name}`}
                   onPress={() => toggle(place.id)}
                   style={styles.addPlace}>
-                  {isAdded ? <Icon name="check-coral" /> : <Icon name="plus-coral" />}
+                  <Icon name={isAdded ? 'check' : 'plus'} size={13} color="coral" />
                   <AppText variant="bold" size={10}>
                     {isAdded ? 'Added' : 'Add'}
                   </AppText>
@@ -72,7 +72,7 @@ export function DayAtAGlance({ places }: { places: DayPlace[] }) {
 
       <ActionButton
         label={allAdded ? `All ${places.length} places added` : `Add all ${places.length} places`}
-        leadingIcon={allAdded ? 'check-white' : 'plus-white'}
+        leadingIcon={allAdded ? 'check' : 'plus'}
         height={40}
         fontSize={12}
         disabled={allAdded}

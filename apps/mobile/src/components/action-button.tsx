@@ -39,11 +39,11 @@ export function ActionButton({
         (pressed || disabled) && styles.dimmed,
         style,
       ]}>
-      {leadingIcon && <Icon name={leadingIcon} />}
+      {leadingIcon && <Icon name={leadingIcon} color="surface" />}
       <AppText variant="bold" size={fontSize} color="surface">
         {label}
       </AppText>
-      {trailingIcon && <Icon name={trailingIcon} />}
+      {trailingIcon && <Icon name={trailingIcon} size={17} color="surface" />}
     </Pressable>
   );
 }

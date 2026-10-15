@@ -36,6 +36,7 @@ export const Palette = {
   disabled: '#a9b2b4',
   surface: '#fffcfa',
   border: '#e6e9ee',
+  borderStrong: '#b8c0c1',
   teal: '#7dc5c7',
   tealSoft: '#c5e1e1',
   tealMist: '#e5f5f5',

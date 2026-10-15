@@ -46,7 +46,7 @@ export function LocationPickerPlaceholder({ value, onChange }: LocationPickerPla
         />
         {query.length > 0 && (
           <Pressable accessibilityRole="button" accessibilityLabel="Clear search" hitSlop={8} onPress={() => setQuery('')}>
-            <Icon name="clear-14" />
+            <Icon name="x" size={14} />
           </Pressable>
         )}
       </View>
@@ -65,7 +65,7 @@ export function LocationPickerPlaceholder({ value, onChange }: LocationPickerPla
               accessibilityState={{ checked: selected }}
               onPress={() => onChange(place)}
               style={[styles.result, selected && styles.resultSelected]}>
-              <Icon name={selected ? 'map-pin-coral' : 'map-pin-dark'} />
+              <Icon name="map-pin" size={20} color={selected ? 'coral' : 'ink'} />
               <View style={styles.resultDetails}>
                 <AppText variant="bold" size={11} leading={1.35}>
                   {place.name}
@@ -78,7 +78,7 @@ export function LocationPickerPlaceholder({ value, onChange }: LocationPickerPla
                 <AppText size={9} color="inkMuted" leading={1.35}>
                   {place.distance}
                 </AppText>
-                {selected && <Icon name="check-coral" />}
+                {selected && <Icon name="check" size={16} color="coral" />}
               </View>
             </Pressable>
           );

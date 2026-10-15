@@ -41,7 +41,7 @@ export default function ItineraryDayScreen() {
     <SafeAreaView edges={['top']} style={styles.screen}>
       <View style={styles.nav}>
         <Pressable accessibilityRole="button" onPress={goBack} style={styles.navSide}>
-          <Icon name="chevron-left" />
+          <Icon name="chevron-left" size={20} />
           <AppText variant="semibold" size={13}>
             Itinerary
           </AppText>
@@ -56,7 +56,7 @@ export default function ItineraryDayScreen() {
               })
             }
             style={styles.shareButton}>
-            <Icon name="share-coral" />
+            <Icon name="share-2" size={22} color="coral" />
             <AppText variant="bold" size={12}>
               Share
             </AppText>
@@ -194,6 +194,10 @@ const styles = StyleSheet.create({
   participant: {
     width: 20,
     height: 20,
+    borderWidth: 1,
+    borderColor: Palette.surface,
+    borderRadius: Radius.pill,
+    backgroundColor: Palette.border,
   },
   overlap: {
     marginLeft: -8,

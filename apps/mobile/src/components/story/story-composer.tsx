@@ -101,7 +101,7 @@ export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; 
               )
             )}
             <Pressable accessibilityRole="button" onPress={() => setEditingText(true)} style={styles.editText}>
-              <Icon name="pencil" />
+              <Icon name="pencil" size={12} color="surface" />
               <AppText variant="semibold" size={10} color="surface">
                 Edit text · optional
               </AppText>
@@ -111,7 +111,7 @@ export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; 
 
         <View style={styles.music}>
           <View style={styles.musicSymbol}>
-            <Icon name="music" />
+            <Icon name="music" size={17} color="coral" />
           </View>
           <View style={styles.grow}>
             <AppText variant="bold" size={12} leading={1.35}>
@@ -151,7 +151,7 @@ export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; 
             )}
           </View>
           <Pressable accessibilityRole="button" onPress={() => setSheet('trip')} style={styles.selectedTrip}>
-            <Icon name="calendar-days" />
+            <Icon name="calendar-days" size={19} />
             <View style={styles.grow}>
               <AppText variant="bold" size={13} leading={1.35}>
                 {trip?.title ?? 'No trip'}
@@ -178,7 +178,7 @@ export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; 
             Story date · optional
           </AppText>
           <Pressable accessibilityRole="button" onPress={() => setSheet('date')} style={styles.dateDropdown}>
-            <Icon name="calendar-coral" />
+            <Icon name="calendar" size={16} color="coral" />
             <View style={styles.grow}>
               <AppText variant="bold" size={12} leading={1.35}>
                 {dateTitle}
@@ -191,7 +191,7 @@ export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; 
           </Pressable>
         </View>
 
-        <ActionButton label="Post story" trailingIcon="arrow-right-white" onPress={onPosted} />
+        <ActionButton label="Post story" trailingIcon="arrow-right" onPress={onPosted} />
       </ScrollView>
 
       <TripChooserSheet
@@ -232,7 +232,7 @@ export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; 
 function MediaAction({ icon, label, onPress }: { icon: IconName; label: string; onPress: () => void }) {
   return (
     <Pressable accessibilityRole="button" onPress={onPress} style={styles.mediaAction}>
-      <Icon name={icon} />
+      <Icon name={icon} size={14} />
       <AppText variant="bold" size={10} leading={1.35}>
         {label}
       </AppText>
@@ -274,6 +274,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: Radius.sm,
     overflow: 'hidden',
+    backgroundColor: Palette.border,
   },
   mediaControls: {
     flexDirection: 'row',

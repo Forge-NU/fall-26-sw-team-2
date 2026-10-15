@@ -47,5 +47,7 @@ const styles = StyleSheet.create({
   avatar: {
     width: 24,
     height: 24,
+    borderRadius: Radius.pill,
+    backgroundColor: Palette.border,
   },
 });

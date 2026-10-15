@@ -56,7 +56,7 @@ export function DayMoments({ day }: { day: TripDay }) {
                 {moment.kind === 'video' && (
                   <>
                     <View style={styles.play}>
-                      <Icon name="play" />
+                      <Icon name="play" size={16} color="surface" />
                     </View>
                     {moment.duration && (
                       <View style={styles.duration}>
@@ -98,6 +98,7 @@ const styles = StyleSheet.create({
   leadImage: {
     height: 220,
     borderRadius: Radius.md,
+    backgroundColor: Palette.border,
   },
   leadCaption: {
     gap: 3,
@@ -114,6 +115,7 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: Radius.sm,
     overflow: 'hidden',
+    backgroundColor: Palette.border,
   },
   play: {
     position: 'absolute',

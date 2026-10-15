@@ -4,7 +4,7 @@ import Animated, { SlideInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/app-text';
-import { Icon, IconName } from '@/components/icon';
+import { Icon } from '@/components/icon';
 import { Palette, Radius, ScreenGutter, Spacing } from '@/constants/theme';
 
 type BottomSheetProps = {
@@ -14,7 +14,7 @@ type BottomSheetProps = {
   titleSize?: number;
   /** Optional line under the title. */
   subtitle?: string;
-  closeIcon?: IconName;
+  closeSize?: number;
   gap?: number;
   children: ReactNode;
 };
@@ -26,7 +26,7 @@ export function BottomSheet({
   title,
   titleSize = 24,
   subtitle,
-  closeIcon = 'x',
+  closeSize = 18,
   gap = Spacing.three,
   children,
 }: BottomSheetProps) {
@@ -59,7 +59,7 @@ export function BottomSheet({
               accessibilityLabel="Close"
               hitSlop={8}
               style={styles.close}>
-              <Icon name={closeIcon} />
+              <Icon name="x" size={closeSize} />
             </Pressable>
           </View>
           {children}

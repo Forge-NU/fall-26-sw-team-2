@@ -54,7 +54,7 @@ function StoryDateSheetContent({ trip, value, capturedAt, onConfirm, onClose }: 
       onClose={onClose}
       title="Choose story date"
       titleSize={26}
-      closeIcon="close-28"
+      closeSize={28}
       gap={8}>
       {trip && (
         <AppText variant="medium" size={10} color="inkMuted" leading={1.35}>
@@ -63,7 +63,7 @@ function StoryDateSheetContent({ trip, value, capturedAt, onConfirm, onClose }: 
       )}
 
       <View style={styles.suggestion}>
-        <Icon name="sparkle" />
+        <Icon name="sparkle" size={14} color="coral" />
         <View style={styles.suggestionText}>
           <AppText variant="bold" size={10} leading={1.35}>
             From photo · {formatDay(capturedAt.date)}, {capturedAt.time}
@@ -76,13 +76,13 @@ function StoryDateSheetContent({ trip, value, capturedAt, onConfirm, onClose }: 
 
       <View style={styles.monthNav}>
         <Pressable accessibilityRole="button" accessibilityLabel="Previous month" hitSlop={10} onPress={() => shiftMonth(-1)}>
-          <Icon name="cal-chevron-left" />
+          <Icon name="chevron-left" color="disabled" />
         </Pressable>
         <AppText variant="display" size={22}>
           {formatMonth(visibleMonth.year, visibleMonth.month)}
         </AppText>
         <Pressable accessibilityRole="button" accessibilityLabel="Next month" hitSlop={10} onPress={() => shiftMonth(1)}>
-          <Icon name="cal-chevron-right" />
+          <Icon name="chevron-right" color="disabled" />
         </Pressable>
       </View>
 
@@ -142,7 +142,7 @@ function StoryDateSheetContent({ trip, value, capturedAt, onConfirm, onClose }: 
 
       <ActionButton
         label={`Use ${formatDay(pending)}`}
-        trailingIcon="check-white"
+        trailingIcon="check"
         height={42}
         fontSize={13}
         style={styles.confirm}

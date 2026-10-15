@@ -33,7 +33,7 @@ function LocationSheetContent({ value, onConfirm, onClose }: LocationSheetProps)
       </Pressable>
       <ActionButton
         label="Confirm location"
-        trailingIcon="arrow-right-white"
+        trailingIcon="arrow-right"
         disabled={!pending}
         onPress={() => onConfirm(pending)}
       />
