@@ -44,7 +44,6 @@ describe('UsersService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-
     service = new UsersService(mockPrismaService as unknown as PrismaService);
   });
 
@@ -153,7 +152,7 @@ describe('UsersService', () => {
       expect(mockPrismaService.user.create).not.toHaveBeenCalled();
     });
 
-    it('rejects a username that is already in use', async () => {
+    it('rethrows Prisma P2002 errors when the username is already in use', async () => {
       const prismaError = new Prisma.PrismaClientKnownRequestError(
         'Unique constraint failed',
         {
@@ -168,7 +167,7 @@ describe('UsersService', () => {
 
       await expect(
         service.createProfile('user_123', profileData),
-      ).rejects.toThrow(ConflictException);
+      ).rejects.toThrow(prismaError);
     });
   });
 
@@ -187,7 +186,7 @@ describe('UsersService', () => {
       });
     });
 
-    it('throws ConflictException when the username is already in use', async () => {
+    it('rethrows Prisma P2002 errors when the username is already in use', async () => {
       const prismaError = new Prisma.PrismaClientKnownRequestError(
         'Unique constraint failed',
         {
@@ -200,10 +199,10 @@ describe('UsersService', () => {
 
       await expect(
         service.update('user_123', { username: 'taken' }),
-      ).rejects.toThrow(ConflictException);
+      ).rejects.toThrow(prismaError);
     });
 
-    it('throws NotFoundException when the user does not exist', async () => {
+    it('rethrows Prisma P2025 errors when the user does not exist', async () => {
       const prismaError = new Prisma.PrismaClientKnownRequestError(
         'Record not found',
         {
@@ -216,7 +215,7 @@ describe('UsersService', () => {
 
       await expect(
         service.update('missing_user', { username: 'newname' }),
-      ).rejects.toThrow(NotFoundException);
+      ).rejects.toThrow(prismaError);
     });
 
     it('rethrows unexpected database errors', async () => {
@@ -249,9 +248,8 @@ describe('UsersService', () => {
     it('throws NotFoundException when the user does not exist', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue(null);
 
-      await expect(service.deleteAccount('missing_user')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.deleteAccount('missing_user'),
+        ).rejects.toThrow(NotFoundException);
 
       expect(mockDeleteClerkUser).not.toHaveBeenCalled();
       expect(mockPrismaService.user.deleteMany).not.toHaveBeenCalled();
@@ -261,9 +259,8 @@ describe('UsersService', () => {
       mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
       mockDeleteClerkUser.mockRejectedValue(new Error('Clerk deletion failed'));
 
-      await expect(service.deleteAccount('user_123')).rejects.toThrow(
-        'Clerk deletion failed',
-      );
+      await expect(service.deleteAccount('user_123'),
+      ).rejects.toThrow('Clerk deletion failed');
 
       expect(mockPrismaService.user.deleteMany).not.toHaveBeenCalled();
     });

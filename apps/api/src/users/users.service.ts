@@ -4,7 +4,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Prisma } from '../generated/prisma/client';
 import { clerkClient } from '../auth/clerk.client';
 import { UpdateMeDto } from './dto/update-me.dto';
 import { CreateProfileDto } from './dto/create-profile.dto';
@@ -27,18 +26,9 @@ export class UsersService {
     username: string;
     avatarUrl?: string;
   }) {
-    try {
-      return await this.prisma.user.create({
-        data,
-      });
-    } catch (e) {
-      if (e instanceof Prisma.PrismaClientKnownRequestError) {
-        if (e.code === 'P2002') {
-          throw new ConflictException('Username already in use');
-        }
-      }
-      throw e;
-    }
+    return this.prisma.user.create({
+      data,
+    });
   }
 
   async createProfile(id: string, data: CreateProfileDto) {
@@ -74,21 +64,11 @@ export class UsersService {
   }
 
   async update(id: string, data: UpdateMeDto) {
-    try {
-      return await this.prisma.user.update({ where: { id }, data });
-    } catch (e) {
-      if (e instanceof Prisma.PrismaClientKnownRequestError) {
-        if (e.code === 'P2002') {
-          throw new ConflictException('Username already in use');
-        }
-        if (e.code === 'P2025') {
-          throw new NotFoundException('User not found');
-        }
-      }
-      throw e;
-    }
+    return this.prisma.user.update({
+      where: { id },
+      data,
+    });
   }
-
   async deleteAccount(id: string) {
     const user = await this.findById(id);
     if (!user) throw new NotFoundException('User not found');
