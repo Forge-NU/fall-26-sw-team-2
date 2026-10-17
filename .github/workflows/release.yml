@@ -1,0 +1,49 @@
+name: Release
+
+# Tags and publishes a GitHub release for every PR merged into main.
+# pull_request_target runs this workflow from main with a write token. That's safe
+# here because nothing from the PR is checked out or run.
+on:
+  pull_request_target:
+    branches: [main]
+    types: [closed]
+
+# One release at a time, so two quick merges don't claim the same version.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # tags, to find the latest version
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Work out the version
+        id: next
+        env:
+          BUMP: ${{ contains(github.event.pull_request.labels.*.name, 'release:major') && 'major' || contains(github.event.pull_request.labels.*.name, 'release:minor') && 'minor' || 'patch' }}
+        run: echo "version=$(node .github/scripts/next-version.mjs)" >> "$GITHUB_OUTPUT"
+
+      - name: Tag and publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.next.outputs.version }}
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh release create "v$VERSION" --target "$MERGE_SHA" --title "v$VERSION" --generate-notes
+          gh pr comment "$PR" --body "Released as [v$VERSION](https://github.com/$REPO/releases/tag/v$VERSION)."

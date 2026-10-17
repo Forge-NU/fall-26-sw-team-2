@@ -1,0 +1,51 @@
+name: Release Version
+
+# Shows in the PR description which version merging it will release.
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+concurrency:
+  group: release-version-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  version:
+    # PRs from forks get a read-only token, so they can't edit their description.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # tags, to find the latest version
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Test the release scripts
+        run: node --test .github/scripts/release-scripts.test.mjs
+
+      - name: Work out the next version
+        id: next
+        env:
+          BUMP: ${{ contains(github.event.pull_request.labels.*.name, 'release:major') && 'major' || contains(github.event.pull_request.labels.*.name, 'release:minor') && 'minor' || 'patch' }}
+        run: echo "version=$(node .github/scripts/next-version.mjs)" >> "$GITHUB_OUTPUT"
+
+      - name: Show it in the PR description
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          VERSION: ${{ steps.next.outputs.version }}
+        run: |
+          cat > section.md <<EOF
+          ### Release
+          Merging this PR releases **v$VERSION**. It's worked out again at merge time, in case other PRs merge first. Add a \`release:minor\` or \`release:major\` label for a bigger bump.
+          EOF
+          node .github/scripts/set-pr-section.mjs "$PR" release-version section.md

@@ -1,0 +1,31 @@
+{
+  "cli": {
+    "version": ">= 24.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "pr-preview": {
+      "distribution": "store",
+      "environment": "preview",
+      "autoIncrement": true
+    },
+    "production": {
+      "distribution": "store",
+      "environment": "production",
+      "autoIncrement": true
+    }
+  },
+  "submit": {
+    "pr-preview": {
+      "ios": {
+        "ascAppId": "SET_ME_APP_STORE_CONNECT_APP_ID",
+        "groups": ["PR Previews"]
+      }
+    },
+    "production": {
+      "ios": {
+        "ascAppId": "SET_ME_APP_STORE_CONNECT_APP_ID"
+      }
+    }
+  }
+}

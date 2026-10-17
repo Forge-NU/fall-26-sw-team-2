@@ -1,0 +1,127 @@
+name: iOS Preview
+
+# Builds the app for each PR that changes it and puts the build on TestFlight, with
+# the version and build number in the PR description. Setup: docs/release-process.md.
+#
+# The build runs on GitHub's macOS runner (`eas build --local`), which is free for
+# public repos, so it doesn't use EAS cloud builds. EAS still provides the signing
+# credentials and uploads the build to App Store Connect (`eas submit`).
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'apps/mobile/**'
+
+# A newer push to the same PR cancels the build in progress.
+concurrency:
+  group: ios-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  testflight:
+    # Drafts don't build, to keep runner time down. PRs from forks get no secrets,
+    # so they can't build either.
+    if: >-
+      !github.event.pull_request.draft &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    # Expo SDK 57 needs Xcode 26.4+, which macOS 15 runners don't have.
+    runs-on: macos-26
+    timeout-minutes: 120
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR: ${{ github.event.pull_request.number }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # tags, to find the latest version
+
+      # Pinned so a new default Xcode on the runner can't change builds unannounced.
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_26.6.app
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: 'npm'
+          cache-dependency-path: apps/mobile/package-lock.json
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v9
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        working-directory: apps/mobile
+        run: npm ci
+
+      - name: Stamp the release version
+        id: version
+        env:
+          BUMP: ${{ contains(github.event.pull_request.labels.*.name, 'release:major') && 'major' || contains(github.event.pull_request.labels.*.name, 'release:minor') && 'minor' || 'patch' }}
+        run: |
+          version=$(node .github/scripts/next-version.mjs)
+          node .github/scripts/set-app-version.mjs apps/mobile/app.json "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Say the build has started
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          cat > section.md <<EOF
+          ### iOS preview
+          Building v$VERSION for TestFlight. This usually takes 20 to 40 minutes. [Follow along]($RUN_URL).
+          EOF
+          node .github/scripts/set-pr-section.mjs "$PR" ios-preview section.md
+
+      - name: Build
+        working-directory: apps/mobile
+        run: >-
+          eas build --local --platform ios --profile pr-preview --non-interactive
+          --output "$RUNNER_TEMP/yuji.ipa"
+
+      - name: Read the build number
+        id: build
+        run: |
+          unzip -p "$RUNNER_TEMP/yuji.ipa" 'Payload/*.app/Info.plist' > "$RUNNER_TEMP/Info.plist"
+          echo "number=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$RUNNER_TEMP/Info.plist")" >> "$GITHUB_OUTPUT"
+
+      - name: Submit to TestFlight
+        working-directory: apps/mobile
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: >-
+          eas submit --platform ios --profile pr-preview --non-interactive
+          --path "$RUNNER_TEMP/yuji.ipa" --what-to-test "PR #$PR: $PR_TITLE"
+
+      - name: Put the build in the PR description
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          BUILD_NUMBER: ${{ steps.build.outputs.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          TESTFLIGHT_URL: ${{ vars.TESTFLIGHT_URL }}
+        run: |
+          testflight_link=${TESTFLIGHT_URL:+" · [Open TestFlight]($TESTFLIGHT_URL)"}
+          cat > section.md <<EOF
+          ### iOS preview
+          **v$VERSION (build $BUILD_NUMBER)** is uploaded to TestFlight for the internal testers group, built from ${HEAD_SHA::7}. It appears in TestFlight once Apple finishes processing it, usually within 30 minutes. In the TestFlight app, open Yuji and choose build $BUILD_NUMBER; its "What to Test" note names this PR.
+
+          [Build logs]($RUN_URL)$testflight_link
+          EOF
+          node .github/scripts/set-pr-section.mjs "$PR" ios-preview section.md
+
+      - name: Say the build failed
+        if: failure() && steps.version.outcome == 'success'
+        run: |
+          cat > section.md <<EOF
+          ### iOS preview
+          The iOS build for this PR failed. [See the logs]($RUN_URL).
+          EOF
+          node .github/scripts/set-pr-section.mjs "$PR" ios-preview section.md

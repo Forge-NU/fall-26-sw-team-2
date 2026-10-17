@@ -69,6 +69,9 @@ cd apps/mobile
 npm run lint && npm run typecheck
 ```
 
+### Releases and PR builds
+Every merged PR is a release (v0.0.1, v0.0.2, …), and PRs that change the app get an iOS build on TestFlight. See [docs/release-process.md](./docs/release-process.md), which also lists the one-time setup.
+
 ## Repo Structure
 ```
 /apps/api       - NestJS backend
