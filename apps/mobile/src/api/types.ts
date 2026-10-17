@@ -90,7 +90,7 @@ export type CreateStoryRequest = {
 
 // Uploads: guessed until MEDIA-1 (#38) defines the endpoint
 
-export type UploadPurpose = 'story';
+export type UploadPurpose = 'story' | 'post';
 
 export type CreateUploadRequest = {
   purpose: UploadPurpose;
@@ -137,3 +137,51 @@ export type PostResponse = {
   createdAt: string;
   updatedAt: string;
 };
+
+// POST /api/posts. Exactly one of locationId and customLocationName.
+export type CreatePostRequest = {
+  tripId: string;
+  visitedOn: string; // YYYY-MM-DD, within the trip's dates
+  caption?: string | null; // up to 2,200 characters
+  locationId?: string;
+  customLocationName?: string; // 1-100 characters
+  media: CreatePostMedia[]; // 1-30, carousel order
+};
+
+export type CreatePostMedia = {
+  s3Key: string;
+  mediaType: MediaType;
+  width?: number;
+  height?: number;
+  durationMs?: number; // videos only (#53)
+};
+
+// Locations (#62, LOC-1)
+
+// One row of place search results (Mapbox Search Box /suggest)
+export type PlaceSuggestion = {
+  mapboxId: string;
+  name: string;
+  description: string | null; // e.g. "Sintra, Lisbon, Portugal"
+};
+
+// Body of POST /api/locations/resolve
+export type ResolveLocationRequest =
+  | {
+      kind: 'mapbox';
+      mapboxId: string;
+      name: string;
+      latitude: number;
+      longitude: number;
+      address?: string | null;
+      city?: string | null;
+      region?: string | null;
+      countryCode?: string;
+    }
+  | { kind: 'custom'; name: string };
+
+// A Mapbox place resolves to a shared locations row. A custom name isn't
+// stored; it goes on the post or story as customLocationName.
+export type ResolveLocationResponse =
+  | { kind: 'mapbox'; location: LocationResponse }
+  | { kind: 'custom'; name: string };
