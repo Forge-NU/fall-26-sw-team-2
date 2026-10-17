@@ -85,7 +85,7 @@ function mockPost(
   visitedOn: string,
   caption: string | null,
   location: LocationResponse | string,
-  photoSeeds: string[],
+  photoIds: number[], // picsum.photos image IDs
 ): PostResponse {
   const now = new Date(Date.now() + nextId).toISOString();
   return {
@@ -96,10 +96,10 @@ function mockPost(
     visitedOn,
     location: typeof location === 'string' ? null : location,
     customLocationName: typeof location === 'string' ? location : null,
-    media: photoSeeds.map((seed) => ({
+    media: photoIds.map((photoId) => ({
       id: mockId('media'),
       mediaType: 'image',
-      url: `https://picsum.photos/seed/${seed}/900/1200`,
+      url: `https://picsum.photos/id/${photoId}/900/1200`,
       width: 900,
       height: 1200,
       durationMs: null,
@@ -134,19 +134,19 @@ function seed() {
   const pena = mockLocation('Pena Palace', 'Sintra', 38.787586, -9.390616);
   const cascais = mockLocation('Praia da Rainha', 'Cascais', 38.696392, -9.420598);
   posts.push(
-    mockPost(lisbon, lisbon.startDate, 'Six pastéis between the two of us. No regrets.', belem, ['belem1', 'belem2']),
-    mockPost(lisbon, addDays(lisbon.startDate, 1), 'Tram 28 all the way up to Graça.', 'Miradouro da Graça', ['graca']),
-    mockPost(lisbon, today, 'Fog lifted right as we got to the top.', pena, ['pena1', 'pena2', 'pena3']),
-    mockPost(lisbon, today, 'Back down the hill for lunch.', pena, ['sintra']),
-    mockPost(lisbon, today, null, cascais, ['cascais']),
+    mockPost(lisbon, lisbon.startDate, 'Six pastéis between the two of us. No regrets.', belem, [431, 429]),
+    mockPost(lisbon, addDays(lisbon.startDate, 1), 'Tram 28 all the way up to Graça.', 'Miradouro da Graça', [1047]),
+    mockPost(lisbon, today, 'Fog lifted right as we got to the top.', pena, [1040, 1039, 416]),
+    mockPost(lisbon, today, 'Back down the hill for lunch.', pena, [1018]),
+    mockPost(lisbon, today, null, cascais, [1050]),
   );
 
   const copenhagen = mockTrip('Copenhagen in spring', 'Copenhagen, Denmark', addDays(today, -60), addDays(today, -55));
   copenhagen.status = 'published';
   copenhagen.publishedAt = new Date(Date.now() - 50 * 24 * 60 * 60 * 1000).toISOString();
   posts.push(
-    mockPost(copenhagen, copenhagen.startDate, 'Nyhavn before the crowds.', 'Nyhavn', ['nyhavn']),
-    mockPost(copenhagen, addDays(copenhagen.startDate, 2), 'Bikes everywhere.', 'Nørrebro', ['bikes']),
+    mockPost(copenhagen, copenhagen.startDate, 'Nyhavn before the crowds.', 'Nyhavn', [164]),
+    mockPost(copenhagen, addDays(copenhagen.startDate, 2), 'Bikes everywhere.', 'Nørrebro', [211]),
   );
 
   const kyoto = mockTrip('Kyoto, someday', 'Kyoto, Japan', addDays(today, 40), addDays(today, 46));

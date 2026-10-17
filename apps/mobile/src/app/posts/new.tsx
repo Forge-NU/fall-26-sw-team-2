@@ -194,7 +194,7 @@ export default function NewPostScreen() {
                 setVisitedOn(null);
                 setErrors(({ trip: _trip, ...rest }) => rest);
               }}
-              onCreateTrip={() => router.push('/trips/new' as never)}
+              onCreateTrip={() => router.push('/trips/new')}
             />
           </Section>
 

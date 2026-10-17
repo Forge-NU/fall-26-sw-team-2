@@ -30,6 +30,10 @@ export default function AppTabs() {
             <TabButton>Explore</TabButton>
           </TabTrigger>
 
+          <TabTrigger name="my-trips" href="/my-trips" asChild>
+            <TabButton>Trips</TabButton>
+          </TabTrigger>
+
           {__DEV__ && (
             <TabTrigger
               name="components-preview"

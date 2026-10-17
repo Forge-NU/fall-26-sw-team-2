@@ -38,7 +38,7 @@ export function DateField({ label, value, onChange, placeholder = 'Pick a date',
         <Ionicons name="calendar-outline" size={16} color={Palette.placeholderGray} />
       </Pressable>
       {error ? (
-        <AppText variant="label" accessibilityLiveRegion="polite" style={styles.error}>
+        <AppText accessibilityLiveRegion="polite" style={styles.error}>
           {error}
         </AppText>
       ) : null}
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
   monthRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
   cell: { width: CELL, aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: Radii.circle },
-  weekday: { textAlign: 'center', textAlignVertical: 'center', color: Palette.placeholderGray },
+  weekday: { aspectRatio: undefined, height: 24, textAlign: 'center', color: Palette.placeholderGray },
   dayText: { color: Palette.black },
   today: { color: Palette.coral },
   selected: { backgroundColor: Palette.coral },
