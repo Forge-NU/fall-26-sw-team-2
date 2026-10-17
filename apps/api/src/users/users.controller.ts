@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
@@ -15,6 +16,8 @@ import { ClerkAuthGuard } from '../auth/clerk-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { UpdateMeDto } from './dto/update-me.dto';
 import { CreateProfileDto } from './dto/create-profile.dto';
+import { UserResponse, PaginatedResponse } from 'shared-types';
+import { PaginationDto } from '../common/decorators/pagination.dto';
 
 @Controller()
 export class UsersController {
@@ -22,7 +25,7 @@ export class UsersController {
 
   @Get('me')
   @UseGuards(ClerkAuthGuard)
-  async getMe(@CurrentUser() userId: string) {
+  async getMe(@CurrentUser() userId: string): Promise<UserResponse> {
     const user = await this.usersService.findById(userId);
 
     if (!user) {
@@ -43,7 +46,7 @@ export class UsersController {
   async createProfile(
     @CurrentUser() userId: string,
     @Body() dto: CreateProfileDto,
-  ) {
+  ): Promise<UserResponse> {
     const user = await this.usersService.createProfile(userId, dto);
 
     return {
@@ -57,7 +60,7 @@ export class UsersController {
 
   @Patch('me')
   @UseGuards(ClerkAuthGuard)
-  async updateMe(@CurrentUser() userId: string, @Body() dto: UpdateMeDto) {
+  async updateMe(@CurrentUser() userId: string, @Body() dto: UpdateMeDto): Promise<UserResponse> {
     const user = await this.usersService.update(userId, dto);
 
     return {
@@ -78,7 +81,7 @@ export class UsersController {
 
   @Get('users/:id')
   @UseGuards(ClerkAuthGuard)
-  async findById(@Param('id') id: string) {
+  async findById(@Param('id') id: string): Promise<UserResponse> {
     const user = await this.usersService.findById(id);
 
     if (!user) {
@@ -91,6 +94,23 @@ export class UsersController {
       lastName: user.lastName,
       username: user.username,
       avatarUrl: user.avatarUrl,
+    };
+  }
+
+  @Get('users')
+  @UseGuards(ClerkAuthGuard)
+  async listUsers(@Query() pagination: PaginationDto): Promise<PaginatedResponse<UserResponse>> {
+    const result = await this.usersService.listUsers(pagination);
+
+    return {
+      items: result.items.map((user) => ({
+        id: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        username: user.username,
+        avatarUrl: user.avatarUrl,
+      })),
+      nextCursor: result.nextCursor,
     };
   }
 }

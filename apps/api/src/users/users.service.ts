@@ -7,6 +7,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { clerkClient } from '../auth/clerk.client';
 import { UpdateMeDto } from './dto/update-me.dto';
 import { CreateProfileDto } from './dto/create-profile.dto';
+import { PaginationDto } from '../common/decorators/pagination.dto';
+import { decodeCursor, buildPaginatedResponse } from '../common/utils/pagination.helper';
 
 @Injectable()
 export class UsersService {
@@ -75,5 +77,30 @@ export class UsersService {
 
     await clerkClient.users.deleteUser(id); // delete in Clerk first
     await this.prisma.user.deleteMany({ where: { id } }); // then locally
+  }
+
+  async listUsers(pagination: PaginationDto) {
+    const { cursor, limit = 20 } = pagination;
+
+    const where = cursor
+      ? {
+          id: {
+            gt: decodeCursor(cursor),
+          },
+        }
+      : {};
+
+    const users = await this.prisma.user.findMany({
+      where,
+      take: limit + 1, // Fetch one extra to determine if there's a next page
+      orderBy: {
+        id: 'asc',
+      },
+    });
+
+    const hasMore = users.length > limit;
+    const items = hasMore ? users.slice(0, -1) : users;
+
+    return buildPaginatedResponse(items, hasMore, (user) => user.id);
   }
 }

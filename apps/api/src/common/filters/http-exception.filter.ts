@@ -47,16 +47,20 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
         if (typeof body === 'string') {
           message = body;
-        } else if (Array.isArray(body.message)) {
-          message = body.message.join('; ');
-        } else if (typeof body.message === 'string') {
-          message = body.message;
-        }
+          error = ERROR_NAMES[statusCode] ?? 'HTTP Error';
+        } else if (typeof body === 'object' && body !== null) {
+          const bodyObj = body as { message?: string | string[]; error?: string };
+          if (Array.isArray(bodyObj.message)) {
+            message = bodyObj.message.join('; ');
+          } else if (typeof bodyObj.message === 'string') {
+            message = bodyObj.message;
+          }
 
-        error =
-          typeof body.error === 'string'
-            ? body.error
-            : (ERROR_NAMES[statusCode] ?? 'HTTP Error');
+          error =
+            typeof bodyObj.error === 'string'
+              ? bodyObj.error
+              : (ERROR_NAMES[statusCode] ?? 'HTTP Error');
+        }
       } else {
         message = 'Internal server error';
         error = 'Internal Server Error';

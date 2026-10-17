@@ -1,3 +1,4 @@
+
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -28,6 +29,7 @@ describe('UsersService', () => {
       create: jest.fn(),
       update: jest.fn(),
       deleteMany: jest.fn(),
+      findMany: jest.fn(),
     },
   };
 
@@ -248,8 +250,9 @@ describe('UsersService', () => {
     it('throws NotFoundException when the user does not exist', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue(null);
 
-      await expect(service.deleteAccount('missing_user'),
-        ).rejects.toThrow(NotFoundException);
+      await expect(
+        service.deleteAccount('missing_user'),
+      ).rejects.toThrow(NotFoundException);
 
       expect(mockDeleteClerkUser).not.toHaveBeenCalled();
       expect(mockPrismaService.user.deleteMany).not.toHaveBeenCalled();
@@ -259,10 +262,76 @@ describe('UsersService', () => {
       mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
       mockDeleteClerkUser.mockRejectedValue(new Error('Clerk deletion failed'));
 
-      await expect(service.deleteAccount('user_123'),
+      await expect(
+        service.deleteAccount('user_123'),
       ).rejects.toThrow('Clerk deletion failed');
 
       expect(mockPrismaService.user.deleteMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('listUsers', () => {
+    it('returns paginated users without cursor', async () => {
+      const mockUsers = [
+        mockUser,
+        { ...mockUser, id: 'user_456', username: 'testuser2' },
+      ];
+
+      mockPrismaService.user.findMany.mockResolvedValue(mockUsers);
+
+      const result = await service.listUsers({ limit: 20 });
+
+      expect(result.items).toEqual(mockUsers);
+      expect(result.nextCursor).toBeNull();
+      expect(mockPrismaService.user.findMany).toHaveBeenCalledWith({
+        where: {},
+        take: 21,
+        orderBy: { id: 'asc' },
+      });
+    });
+
+    it('returns paginated users with cursor', async () => {
+      const mockUsers = [
+        { ...mockUser, id: 'user_456', username: 'testuser2' },
+      ];
+
+      mockPrismaService.user.findMany.mockResolvedValue(mockUsers);
+
+      const result = await service.listUsers({
+        cursor: 'dXNlcl8xMjM=',
+        limit: 20,
+      });
+
+      expect(result.items).toEqual(mockUsers);
+      expect(result.nextCursor).toBeNull();
+      expect(mockPrismaService.user.findMany).toHaveBeenCalledWith({
+        where: { id: { gt: 'user_123' } },
+        take: 21,
+        orderBy: { id: 'asc' },
+      });
+    });
+
+    it('returns nextCursor when there are more results', async () => {
+      const mockUsers = Array.from({ length: 21 }, (_, i) => ({
+        ...mockUser,
+        id: `user_${i}`,
+      }));
+
+      mockPrismaService.user.findMany.mockResolvedValue(mockUsers);
+
+      const result = await service.listUsers({ limit: 20 });
+
+      expect(result.items).toHaveLength(20);
+      expect(result.nextCursor).toBe('dXNlcl8xOQ==');
+    });
+
+    it('returns empty list when no users exist', async () => {
+      mockPrismaService.user.findMany.mockResolvedValue([]);
+
+      const result = await service.listUsers({ limit: 20 });
+
+      expect(result.items).toEqual([]);
+      expect(result.nextCursor).toBeNull();
     });
   });
 });

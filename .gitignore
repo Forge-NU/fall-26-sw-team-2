@@ -31,6 +31,7 @@ coverage/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
 
 # OS
 .DS_Store
@@ -40,6 +41,13 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+*.swo
 
 # Claude Code (personal settings; shared settings.json is committed)
 .claude/settings.local.json
+
+# Expo / React Native
+.expo/
+.expo-shared/
+*.ipa
+*.apk

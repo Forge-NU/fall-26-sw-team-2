@@ -10,6 +10,7 @@ describe('UsersController', () => {
     findById: jest.fn(),
     update: jest.fn(),
     deleteAccount: jest.fn(),
+    listUsers: jest.fn(),
   };
 
   const mockUser = {
@@ -134,6 +135,68 @@ describe('UsersController', () => {
       await expect(controller.findById('missing')).rejects.toBeInstanceOf(
         NotFoundException,
       );
+    });
+  });
+
+  describe('listUsers', () => {
+    it('returns a paginated list of users', async () => {
+      const mockUsers = [
+        mockUser,
+        { ...mockUser, id: 'user_456', username: 'testuser2' },
+      ];
+
+      mockUsersService.listUsers.mockResolvedValue({
+        items: mockUsers,
+        nextCursor: 'dXNlcl80NTY=',
+      });
+
+      await expect(controller.listUsers({})).resolves.toEqual({
+        items: [
+          {
+            id: 'user_123',
+            firstName: 'Test',
+            lastName: 'User',
+            username: 'testuser',
+            avatarUrl: null,
+          },
+          {
+            id: 'user_456',
+            firstName: 'Test',
+            lastName: 'User',
+            username: 'testuser2',
+            avatarUrl: null,
+          },
+        ],
+        nextCursor: 'dXNlcl80NTY=',
+      });
+
+      expect(mockUsersService.listUsers).toHaveBeenCalledWith({});
+    });
+
+    it('returns empty list when no users exist', async () => {
+      mockUsersService.listUsers.mockResolvedValue({
+        items: [],
+        nextCursor: null,
+      });
+
+      await expect(controller.listUsers({})).resolves.toEqual({
+        items: [],
+        nextCursor: null,
+      });
+    });
+
+    it('passes pagination params to service', async () => {
+      mockUsersService.listUsers.mockResolvedValue({
+        items: [],
+        nextCursor: null,
+      });
+
+      await controller.listUsers({ cursor: 'abc123', limit: 10 });
+
+      expect(mockUsersService.listUsers).toHaveBeenCalledWith({
+        cursor: 'abc123',
+        limit: 10,
+      });
     });
   });
 });
