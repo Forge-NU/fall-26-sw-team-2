@@ -86,7 +86,11 @@ Cut from the MVP: interest tags, tagging other users in posts, several locations
 - A location is either a **Mapbox place** (picked from search, stored with its Mapbox ID, name, and coordinates) or a **custom location** (a name the user typed when search had no result).
 - Custom locations have no coordinates, so they show on the post but not on the map.
 - Two posts tagged at the same Mapbox place share one location row. That shared row is what lets the map and place search group posts by place.
-- **Mapbox storage terms:** pending #37 (LOC-1). Grace will record here which Mapbox search results we're allowed to store permanently, and whether that requires `permanent=true` geocoding.
+- **Mapbox storage terms** (confirmed for #37 LOC-1, checked 2026-10-17):
+  - **Search Box API:** results are for temporary use only and can't be stored. Storing them needs a separate agreement with Mapbox sales. ([Search Box API](https://docs.mapbox.com/api/search/search-box/))
+  - **Geocoding API:** results can be stored indefinitely only when requested with `permanent=true`. That needs a credit card on file (or an enterprise contract), is billed separately per 1,000 requests with no free tier, and is for our own use only (no redistribution). ([Geocoding API](https://docs.mapbox.com/api/search/geocoding/), [temporary vs. permanent](https://docs.mapbox.com/help/dive-deeper/understand-temporary-vs-permanent-geocoding/), [pricing](https://www.mapbox.com/pricing))
+  - **Permanent geocoding has no POIs.** It covers addresses, places, neighborhoods and so on, but not restaurants, landmarks or shops.
+  - **Open decision, escalated:** the MVP stores POI rows (name and coordinates) picked from search, and neither API allows that as-is. Until the team decides (ask Mapbox sales, limit stored places to permanent-geocoding results, or change provider), the `locations` table and the resolve endpoint (`docs/architecture/locations.md`) are built against the current design.
 
 ## Stories
 
