@@ -1,7 +1,4 @@
-// STAND-IN: MEDIA-1 (#38) ships the app's reusable pick → compress → upload
-// hook. Switch to it and delete this file once it lands.
-//
-// Take or pick one photo.
+// STAND-IN for MEDIA-1 (#38): use its upload hook once it lands.
 import * as ImagePicker from 'expo-image-picker';
 
 export type PickedPhoto = {
@@ -17,7 +14,7 @@ export type PickPhotoResult =
 
 const options: ImagePicker.ImagePickerOptions = {
   mediaTypes: ['images'],
-  quality: 1, // compressed once, in preparePhoto
+  quality: 1, // compressed in preparePhoto
 };
 
 export async function takePhoto(): Promise<PickPhotoResult> {

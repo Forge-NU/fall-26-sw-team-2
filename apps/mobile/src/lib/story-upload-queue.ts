@@ -1,11 +1,6 @@
-// Posts stories in the background so the composer can close as soon as the
-// user taps Post. Each story goes through: get an upload URL, PUT the photo
-// to S3, create the story. Steps that already worked are skipped on retry.
-// Retryable failures are retried with backoff (lib/retry.ts); if the story
-// still doesn't post, the user is told and can retry or discard it.
-//
-// The queue lives in memory: it keeps going while the app is open, but a
-// story still uploading is lost if the app is force-closed.
+// Posts stories in the background: get an upload URL, upload the photo, then
+// create the story. Retries skip steps that already succeeded. Kept in memory
+// only, so pending stories are lost if the app is killed.
 import { Alert } from 'react-native';
 
 import { ApiError } from '@/api/client';
@@ -25,11 +20,10 @@ export type StoryUpload = {
   attempt: number;
 };
 
-// Progress kept between attempts, so a retry doesn't redo finished steps.
 type Progress = {
   upload: CreateUploadResponse | null;
   uploaded: boolean;
-  // A create request failed without a response, so the story may exist.
+  // A create failed with no response, so it may have gone through
   createOutcomeUnknown: boolean;
   running: boolean;
 };
@@ -59,7 +53,7 @@ export function subscribeToStoryUploads(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
-// Stories that haven't posted yet. Posted stories are removed.
+// Pending and failed stories (posted ones are removed)
 export function getStoryUploads(): StoryUpload[] {
   return uploads;
 }
@@ -98,6 +92,7 @@ async function run(id: string) {
         remove(id);
         return;
       } catch (error) {
+        if (!uploads.some((upload) => upload.id === id)) return; // discarded
         const retriesLeft = attempt <= RETRY_DELAYS_MS.length;
         if (!retriesLeft || !isRetryableError(error)) {
           update(id, { status: 'failed' });
@@ -122,8 +117,11 @@ async function attemptOnce(draft: StoryDraft, state: Progress) {
     try {
       await putObject(state.upload.uploadUrl, draft.photo.uri);
     } catch (error) {
-      // The presigned URL may have expired; get a new one next time.
-      if (error instanceof ApiError && error.status === 403) state.upload = null;
+      if (error instanceof ApiError && error.status === 403) {
+        // Presigned URL expired: get a new one next attempt (plain Error so it retries)
+        state.upload = null;
+        throw new Error('Upload URL expired');
+      }
       throw error;
     }
     state.uploaded = true;
@@ -132,22 +130,25 @@ async function attemptOnce(draft: StoryDraft, state: Progress) {
   try {
     await createStory(toCreateStoryRequest(draft, state.upload.s3Key, todayLocalIso()));
   } catch (error) {
-    // If an earlier create reached the server but its response was lost, the
-    // retry is rejected because the key is already used: the story posted.
+    // Key already used by the earlier create, so the story did post
     if (state.createOutcomeUnknown && error instanceof ApiError && error.status === 400) return;
     if (!(error instanceof ApiError)) state.createOutcomeUnknown = true;
     throw error;
   }
 }
 
-// TODO: switch to the toast from #60 (ui-theme-components) once it merges.
+// TODO: use the toast from #60 once it merges
 function notifyFailed(id: string, error: unknown) {
-  const message = isRetryableError(error)
-    ? 'Check your connection and try again.'
-    : "Something in this story can't be posted, for example its trip is no longer active.";
-
-  Alert.alert("Your story didn't post", message, [
+  Alert.alert("Your story didn't post", failureMessage(error), [
     { text: 'Discard', style: 'destructive', onPress: () => discardStoryUpload(id) },
     { text: 'Retry', onPress: () => retryStoryUpload(id) },
   ]);
+}
+
+function failureMessage(error: unknown): string {
+  if (error instanceof ApiError && error.status === 401) {
+    return 'You were signed out. Sign in again, then retry.';
+  }
+  if (isRetryableError(error)) return 'Check your connection and try again.';
+  return "Something in this story can't be posted, for example its trip is no longer active.";
 }

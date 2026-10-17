@@ -1,8 +1,4 @@
-// STAND-IN: APP-1 (#30) sets up the app's pattern for mocking endpoints. Move
-// these to that pattern, or delete them once the real endpoints are live.
-//
-// Fake responses used while USE_MOCK_API is true, typed from api/types.ts so
-// they match the real endpoints. Nothing here leaves the device.
+// STAND-IN for APP-1 (#30): fake responses while USE_MOCK_API is on.
 import { ApiError } from '@/api/client';
 import type {
   ActiveTripsResponse,
@@ -16,7 +12,7 @@ import type {
 } from '@/api/types';
 import { addDays, isDateWithin } from '@/utils/local-date';
 
-// Set above 0 to make uploads fail at random, to try the retry flow.
+// Raise to test retries
 const MOCK_UPLOAD_FAILURE_RATE = 0;
 const MOCK_LATENCY_MS = 400;
 

@@ -1,13 +1,10 @@
-// MEDIA-1 (#38) and POST-2 (#42) also retry failed uploads. If either adds a
-// shared retry helper, use it here instead.
+// TODO: switch to a shared retry helper if MEDIA-1 (#38) or POST-2 (#42) adds one
 import { ApiError } from '@/api/client';
 
-// Waits between attempts: 4 attempts in total, about 40 seconds end to end.
+// Delays between attempts (4 attempts total)
 export const RETRY_DELAYS_MS = [2_000, 8_000, 30_000];
 
-// Network failures and server-side errors are worth retrying. Other 4xx
-// responses (a bad request, a trip that's no longer active) will fail the
-// same way again.
+// Other 4xx errors would just fail again
 export function isRetryableError(error: unknown): boolean {
   if (error instanceof ApiError) {
     return error.status >= 500 || error.status === 408 || error.status === 429;

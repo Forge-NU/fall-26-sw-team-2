@@ -15,8 +15,6 @@ export type StoryDraft = {
   keepOnTrip: boolean;
 };
 
-// "Add to trip" only makes sense with a linked trip. The composer disables
-// the toggle without one.
 export function canKeepOnTrip(tripId: string | null): boolean {
   return tripId !== null;
 }
@@ -30,10 +28,14 @@ export function toCreateStoryRequest(
   const request: CreateStoryRequest = { s3Key, date: today };
 
   if (text) request.text = text;
-  if (draft.location) Object.assign(request, draft.location);
+  if (draft.location && 'locationId' in draft.location) {
+    request.locationId = draft.location.locationId;
+  } else if (draft.location) {
+    const name = draft.location.customLocationName.trim();
+    if (name) request.customLocationName = name;
+  }
   if (draft.tripId) {
     request.tripId = draft.tripId;
-    // Never send keepOnTrip without a trip, even if the draft says so.
     request.keepOnTrip = draft.keepOnTrip;
   }
   return request;

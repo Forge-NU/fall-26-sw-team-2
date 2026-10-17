@@ -1,5 +1,4 @@
-// Date-only strings (YYYY-MM-DD) in the user's local time zone. The API uses
-// the user's local date for "today" in the active-trip rule.
+// YYYY-MM-DD dates in the user's local time zone
 
 function pad(n: number): string {
   return String(n).padStart(2, '0');
@@ -18,7 +17,7 @@ export function addDays(isoDate: string, days: number): string {
   return toIsoDate(new Date(year, month - 1, day + days));
 }
 
-// Inclusive. YYYY-MM-DD strings compare correctly as text.
+// Inclusive. YYYY-MM-DD strings compare fine as text.
 export function isDateWithin(isoDate: string, startDate: string, endDate: string): boolean {
   return startDate <= isoDate && isoDate <= endDate;
 }

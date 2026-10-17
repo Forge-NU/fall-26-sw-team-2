@@ -6,7 +6,7 @@ import type {
   TripResponse,
 } from '@/api/types';
 
-// The user's active trips: drafts whose dates include `date` (their local today).
+// `date` is the user's local today
 export function getActiveTrips(date: string): Promise<ActiveTripsResponse> {
   if (USE_MOCK_API) return mockGetActiveTrips(date);
   return apiRequest('GET', `/api/me/trips/active?date=${encodeURIComponent(date)}`);

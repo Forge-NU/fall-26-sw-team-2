@@ -1,16 +1,12 @@
-// STAND-IN: APP-1 (#30) owns the app's API client (base URL per environment,
-// auth hook, error toast). This minimal version only exists so STORY-2 (#24)
-// can be built before APP-1 lands. Replace it with APP-1's client then.
+// STAND-IN for APP-1 (#30): replace with its API client.
 
-// TODO: set to false once the real endpoints are merged and the app can sign
-// in: uploads (#38 MEDIA-1), trips (#56), stories (#61). Must be false in any
-// release build.
+// TODO: set to false once #38, #56 and #61 are merged and sign-in works.
+// Never ship this as true.
 export const USE_MOCK_API = true;
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
 
-// A response with a non-2xx status. Callers decide what to do from the status
-// alone, since the error body's shape changes with API-1 (#28).
+// Only the status is used, since the error body changes with #28.
 export class ApiError extends Error {
   constructor(
     readonly status: number,

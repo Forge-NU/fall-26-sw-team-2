@@ -1,11 +1,5 @@
-// STAND-IN: API-1 (#28) adds a shared-types package for these. Import from
-// there and delete this file once it lands.
-//
-// Request and response shapes for the endpoints the app calls. Copied from:
-// - #61 STORY-1: apps/api/src/stories/story.types.ts, dto/create-story.dto.ts
-// - #56 trips: apps/api/src/trips/trip.types.ts, dto/create-trip.dto.ts
-// - common/user-summary.ts, common/pagination.ts
-// If those PRs change, update these to match.
+// STAND-IN for API-1 (#28): delete once shared-types exists.
+// Copied from #61 (stories) and #56 (trips), keep in sync until then.
 
 export type UserSummary = {
   id: string;
@@ -91,12 +85,10 @@ export type CreateStoryRequest = {
   text?: string | null; // up to 200 characters
   locationId?: string;
   customLocationName?: string; // 1-100 characters
-  date?: string; // the user's local today, YYYY-MM-DD, for the active-trip check
+  date?: string; // user's local today, for the active-trip check
 };
 
-// Uploads (#38 MEDIA-1)
-// GUESS: MEDIA-1 hasn't defined its contract yet. Replace with the real one
-// when it lands. Keys for stories start with users/{userId}/stories/.
+// Uploads: guessed until MEDIA-1 (#38) defines the endpoint
 
 export type UploadPurpose = 'story';
 

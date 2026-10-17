@@ -5,11 +5,8 @@ import type { TripResponse } from '@/api/types';
 import { isActiveTrip, pickSuggestedTrip } from '@/lib/trips';
 import { todayLocalIso } from '@/utils/local-date';
 
-// STAND-IN (fetching only): APP-1 (#30) sets up React Query. Once it lands,
-// fetch with a query instead of useEffect; the filtering and suggestion stay.
-//
-// The user's active trips for the story composer's trip chooser, and the one
-// to preselect. Only active trips are returned, so nothing else can be picked.
+// Active trips for the story composer, and which one to preselect.
+// STAND-IN for APP-1 (#30): fetch with React Query once it's set up.
 export function useActiveTrips() {
   const [today] = useState(todayLocalIso);
   const [trips, setTrips] = useState<TripResponse[]>([]);
@@ -41,7 +38,7 @@ export function useActiveTrips() {
     setRequestId((id) => id + 1);
   }, []);
 
-  // After a quick-create, add the new trip without refetching.
+  // After a quick-create
   const addTrip = useCallback(
     (trip: TripResponse) => {
       if (isActiveTrip(trip, today)) setTrips((current) => [trip, ...current]);

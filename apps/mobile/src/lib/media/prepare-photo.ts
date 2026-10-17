@@ -1,8 +1,5 @@
-// STAND-IN: MEDIA-1 (#38) ships the app's compress step. Switch to it and
-// delete this file once it lands.
-//
-// Resizes and compresses a photo before upload, per DOC-1 (#33): longest edge
-// at most 2,048 px, saved as JPEG at about 80% quality.
+// STAND-IN for MEDIA-1 (#38).
+// Longest edge 2048px, JPEG at 80%, per DOC-1 (#33).
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 
 import type { PickedPhoto } from '@/lib/media/pick-photo';

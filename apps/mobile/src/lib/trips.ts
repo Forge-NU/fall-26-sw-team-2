@@ -1,10 +1,8 @@
-// Trip rules the story composer needs on the client. The API enforces the same
-// rules (apps/api/src/trips/trip-rules.ts); these keep the UI from offering
-// choices the server would reject.
+// Client-side versions of the API's trip rules (apps/api/src/trips/trip-rules.ts)
 import type { CreateTripRequest, TripResponse } from '@/api/types';
 import { isDateWithin } from '@/utils/local-date';
 
-// A draft whose dates include today. Only active trips can have stories.
+// Draft, and today is within its dates
 export function isActiveTrip(
   trip: Pick<TripResponse, 'status' | 'startDate' | 'endDate'>,
   today: string,
@@ -12,7 +10,7 @@ export function isActiveTrip(
   return trip.status === 'draft' && isDateWithin(today, trip.startDate, trip.endDate);
 }
 
-// The trip the composer preselects: the active trip that started most recently.
+// Preselect the active trip that started most recently
 export function pickSuggestedTrip(trips: TripResponse[], today: string): TripResponse | null {
   return (
     trips
@@ -21,13 +19,9 @@ export function pickSuggestedTrip(trips: TripResponse[], today: string): TripRes
   );
 }
 
-// STAND-IN (field checks only): TRIP-2 (#41) builds the create-trip form with
-// the same title, destination and date checks. Reuse its validation once it
-// lands; the "dates must include today" rule is specific to stories and stays.
-//
-// Checks a quick-create trip from the story composer. Its dates have to
-// include today so the new trip is active and the story can link to it.
-// Returns an error message, or null when it's valid.
+// Quick-create from the story composer. Dates must include today so the trip
+// is active. Returns an error message, or null if valid.
+// STAND-IN for TRIP-2 (#41): reuse its form validation for the field checks.
 export function validateQuickTrip(trip: CreateTripRequest, today: string): string | null {
   const title = trip.title.trim();
   const destination = trip.destination.trim();
