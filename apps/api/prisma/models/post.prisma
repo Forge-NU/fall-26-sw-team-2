@@ -1,0 +1,22 @@
+// A post's author is always its trip's owner, so there's no author_id.
+// Check constraint (added in the migration): exactly one of location_id and
+// custom_location_name is set.
+model Post {
+  id                 String   @id @default(uuid()) @db.Uuid
+  tripId             String   @map("trip_id") @db.Uuid
+  locationId         String?  @map("location_id") @db.Uuid
+  customLocationName String?  @map("custom_location_name") @db.VarChar(100)
+  caption            String?  @db.VarChar(2200)
+  visitedOn          DateTime @map("visited_on") @db.Date
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  trip     Trip        @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  location Location?   @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  media    PostMedia[]
+
+  @@index([tripId, visitedOn, createdAt])
+  @@index([locationId])
+  @@index([createdAt])
+  @@map("posts")
+}

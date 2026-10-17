@@ -1,3 +1,4 @@
+import { NotFoundException } from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client';
 import { Test, TestingModule } from '@nestjs/testing';
 import { UsersController } from './users.controller';
@@ -22,6 +23,9 @@ describe('UsersController', () => {
     username: 'testuser',
     avatarUrl: null,
   };
+  const request = {
+    user: { userId: 'user_123' },
+  } as never;
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -50,18 +54,23 @@ describe('UsersController', () => {
       await expect(controller.getMe('user_123')).resolves.toEqual(
         mapUserToResponse(mockUser),
       );
+      await expect(controller.getMe(request)).resolves.toEqual({
+        id: 'user_123',
+        firstName: 'Test',
+        lastName: 'User',
+        username: 'testuser',
+        avatarUrl: null,
+      });
 
       expect(mockUsersService.findById).toHaveBeenCalledWith('user_123');
     });
 
-    it('propagates Prisma P2025 when user does not exist (handled by global filter)', async () => {
-      const prismaError = new Prisma.PrismaClientKnownRequestError(
-        'Record not found',
-        { code: 'P2025', clientVersion: 'test' },
-      );
-      mockUsersService.findById.mockRejectedValue(prismaError);
+    it('throws NotFoundException when the current user does not exist', async () => {
+      mockUsersService.findById.mockResolvedValue(null);
 
-      await expect(controller.getMe('user_123')).rejects.toThrow(prismaError);
+      await expect(controller.getMe(request)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
   });
 
@@ -72,23 +81,25 @@ describe('UsersController', () => {
 
       mockUsersService.update.mockResolvedValue(updatedUser);
 
-      await expect(controller.updateMe('user_123', dto)).resolves.toEqual(
-        mapUserToResponse(updatedUser),
-      );
+      await expect(controller.updateMe(request, dto)).resolves.toEqual({
+        id: 'user_123',
+        firstName: 'Test',
+        lastName: 'User',
+        username: 'updateduser',
+        avatarUrl: null,
+      });
 
       expect(mockUsersService.update).toHaveBeenCalledWith('user_123', dto);
     });
 
-    it('propagates Prisma errors from the service (handled by global filter)', async () => {
-      const prismaError = new Prisma.PrismaClientKnownRequestError(
-        'Record not found',
-        { code: 'P2025', clientVersion: 'test' },
+    it('propagates errors from the service', async () => {
+      mockUsersService.update.mockRejectedValue(
+        new NotFoundException('User not found'),
       );
-      mockUsersService.update.mockRejectedValue(prismaError);
 
       await expect(
-        controller.updateMe('user_123', { username: 'updateduser' }),
-      ).rejects.toThrow(prismaError);
+        controller.updateMe(request, { username: 'updateduser' }),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 
@@ -96,15 +107,19 @@ describe('UsersController', () => {
     it('deletes the current user account', async () => {
       mockUsersService.deleteAccount.mockResolvedValue(undefined);
 
-      await expect(controller.deleteMe('user_123')).resolves.toBeUndefined();
+      await expect(controller.deleteMe(request)).resolves.toBeUndefined();
+
       expect(mockUsersService.deleteAccount).toHaveBeenCalledWith('user_123');
     });
 
     it('propagates errors from account deletion', async () => {
-      const error = new Error('Clerk deletion failed');
-      mockUsersService.deleteAccount.mockRejectedValue(error);
+      mockUsersService.deleteAccount.mockRejectedValue(
+        new NotFoundException('User not found'),
+      );
 
-      await expect(controller.deleteMe('user_123')).rejects.toThrow(error);
+      await expect(controller.deleteMe(request)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
   });
 
@@ -112,24 +127,25 @@ describe('UsersController', () => {
     it('returns a user profile by ID', async () => {
       mockUsersService.findById.mockResolvedValue(mockUser);
 
-      await expect(controller.findById('user_123')).resolves.toEqual(
-        mapUserToResponse(mockUser),
-      );
+      await expect(controller.findById('user_123')).resolves.toEqual({
+        id: 'user_123',
+        firstName: 'Test',
+        lastName: 'User',
+        username: 'testuser',
+        avatarUrl: null,
+      });
 
       expect(mockUsersService.findById).toHaveBeenCalledWith('user_123');
     });
 
-    it('propagates Prisma P2025 when user does not exist (handled by global filter)', async () => {
-      const prismaError = new Prisma.PrismaClientKnownRequestError(
-        'Record not found',
-        { code: 'P2025', clientVersion: 'test' },
-      );
-      mockUsersService.findById.mockRejectedValue(prismaError);
+    it('throws NotFoundException when the user does not exist', async () => {
+      mockUsersService.findById.mockResolvedValue(null);
 
-      await expect(controller.findById('missing')).rejects.toThrow(prismaError);
+      await expect(controller.findById('missing')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
   });
-
   describe('listUsers', () => {
     it('returns a paginated list of users', async () => {
       const mockUsers = [
@@ -168,12 +184,13 @@ describe('UsersController', () => {
         nextCursor: null,
       });
 
-      await controller.listUsers('user_123', { cursor: 'abc123', limit: 10 });
-
-      expect(mockUsersService.listUsers).toHaveBeenCalledWith({
+      await controller.listUsers('user_123', {
         cursor: 'abc123',
         limit: 10,
       });
+
+      expect(mockUsersService.listUsers).toHaveBeenCalledWith({
+        cursor: 'abc123
     });
   });
 });

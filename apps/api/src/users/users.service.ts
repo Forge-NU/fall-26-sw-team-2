@@ -1,13 +1,21 @@
 import {
   ConflictException,
   Injectable,
+
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { clerkClient } from '../auth/clerk.client';
 import { UpdateMeDto } from './dto/update-me.dto';
 import { CreateProfileDto } from './dto/create-profile.dto';
 import { PaginationDto } from '../common/decorators/pagination.dto';
-import { decodeCursor, buildPaginatedResponse } from '../common/utils/pagination.helper';
+import {
+  decodeCursor,
+  buildPaginatedResponse,
+} from '../common/utils/pagination.helper';
 import { Prisma } from '../generated/prisma/client';
 
 @Injectable()
@@ -15,7 +23,7 @@ export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findById(id: string) {
-    return this.prisma.user.findFirstOrThrow({
+    return this.prisma.user.findUnique({
       where: { id },
     });
   }
@@ -68,15 +76,40 @@ export class UsersService {
   }
 
   async update(id: string, data: UpdateMeDto) {
-    return this.prisma.user.update({
-      where: { id },
-      data,
-    });
+    try {
+      return await this.prisma.user.update({
+        where: { id },
+        data,
+      });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError) {
+        if (e.code === 'P2002') {
+          throw new ConflictException('Username already in use');
+        }
+
+        if (e.code === 'P2025') {
+          throw new NotFoundException('User not found');
+        }
+      }
+
+      throw e;
+    }
   }
+
   async deleteAccount(id: string) {
-    // Prisma P2025 will be thrown if user doesn't exist, handled by global filter
-    await clerkClient.users.deleteUser(id); // delete in Clerk first
-    await this.prisma.user.deleteMany({ where: { id } }); // then locally
+    const user = await this.findById(id);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Delete from Clerk first.
+    await clerkClient.users.deleteUser(id);
+
+    // Then delete the local database record.
+    await this.prisma.user.deleteMany({
+      where: { id },
+    });
   }
 
   async listUsers(pagination: PaginationDto) {
@@ -92,7 +125,7 @@ export class UsersService {
 
     const users = await this.prisma.user.findMany({
       where,
-      take: limit + 1, // Fetch one extra to determine if there's a next page
+      take: limit + 1,
       orderBy: {
         id: 'asc',
       },
