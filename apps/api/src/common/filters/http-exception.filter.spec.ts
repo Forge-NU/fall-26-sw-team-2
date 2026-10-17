@@ -2,6 +2,14 @@ import { ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
 import { HttpExceptionFilter } from './http-exception.filter';
 import { Prisma } from '../../generated/prisma/client';
 
+interface ErrorResponse {
+  statusCode: number;
+  message: string;
+  error: string;
+  path: string;
+  timestamp: string;
+}
+
 describe('HttpExceptionFilter', () => {
   let filter: HttpExceptionFilter;
 
@@ -9,18 +17,22 @@ describe('HttpExceptionFilter', () => {
     filter = new HttpExceptionFilter();
   });
 
-  const createMockHost = (url: string, jsonCallback: (data: any) => void) => ({
-    switchToHttp: () => ({
-      getRequest: () => ({ url, originalUrl: url }),
-      getResponse: () => ({
-        status: (code: number) => ({
-          json: (data: any) => {
-            jsonCallback(data);
-          },
+  const createMockHost = (
+    url: string,
+    jsonCallback: (data: ErrorResponse) => void,
+  ): ArgumentsHost =>
+    ({
+      switchToHttp: () => ({
+        getRequest: () => ({ url, originalUrl: url }),
+        getResponse: () => ({
+          status: () => ({
+            json: (data: ErrorResponse) => {
+              jsonCallback(data);
+            },
+          }),
         }),
       }),
-    }),
-  }) as ArgumentsHost;
+    }) as unknown as ArgumentsHost;
 
   it('should handle Prisma P2002 (unique constraint) as 409 Conflict', () => {
     const prismaError = new Prisma.PrismaClientKnownRequestError(
@@ -28,13 +40,16 @@ describe('HttpExceptionFilter', () => {
       { code: 'P2002', clientVersion: '7.10.0' },
     );
 
-    filter.catch(prismaError, createMockHost('/api/me', (data) => {
-      expect(data.statusCode).toBe(409);
-      expect(data.error).toBe('Conflict');
-      expect(data.message).toBe('A record with these details already exists');
-      expect(data).toHaveProperty('path');
-      expect(data).toHaveProperty('timestamp');
-    }));
+    filter.catch(
+      prismaError,
+      createMockHost('/api/me', (data) => {
+        expect(data.statusCode).toBe(409);
+        expect(data.error).toBe('Conflict');
+        expect(data.message).toBe('A record with these details already exists');
+        expect(data).toHaveProperty('path');
+        expect(data).toHaveProperty('timestamp');
+      }),
+    );
   });
 
   it('should handle Prisma P2025 (record not found) as 404 Not Found', () => {
@@ -43,13 +58,16 @@ describe('HttpExceptionFilter', () => {
       { code: 'P2025', clientVersion: '7.10.0' },
     );
 
-    filter.catch(prismaError, createMockHost('/api/users/123', (data) => {
-      expect(data.statusCode).toBe(404);
-      expect(data.error).toBe('Not Found');
-      expect(data.message).toBe('Resource not found');
-      expect(data).toHaveProperty('path');
-      expect(data).toHaveProperty('timestamp');
-    }));
+    filter.catch(
+      prismaError,
+      createMockHost('/api/users/123', (data) => {
+        expect(data.statusCode).toBe(404);
+        expect(data.error).toBe('Not Found');
+        expect(data.message).toBe('Resource not found');
+        expect(data).toHaveProperty('path');
+        expect(data).toHaveProperty('timestamp');
+      }),
+    );
   });
 
   it('should handle HttpException with message array', () => {
@@ -61,28 +79,33 @@ describe('HttpExceptionFilter', () => {
       HttpStatus.BAD_REQUEST,
     );
 
-    filter.catch(exception, createMockHost('/api/me', (data) => {
-      expect(data.statusCode).toBe(400);
-      expect(data.error).toBe('Bad Request');
-      expect(data.message).toBe('username must be longer than or equal to 3 characters');
-      expect(data).toHaveProperty('path');
-      expect(data).toHaveProperty('timestamp');
-    }));
+    filter.catch(
+      exception,
+      createMockHost('/api/me', (data) => {
+        expect(data.statusCode).toBe(400);
+        expect(data.error).toBe('Bad Request');
+        expect(data.message).toBe(
+          'username must be longer than or equal to 3 characters',
+        );
+        expect(data).toHaveProperty('path');
+        expect(data).toHaveProperty('timestamp');
+      }),
+    );
   });
 
   it('should handle HttpException with string message', () => {
-    const exception = new HttpException(
-      'User not found',
-      HttpStatus.NOT_FOUND,
-    );
+    const exception = new HttpException('User not found', HttpStatus.NOT_FOUND);
 
-    filter.catch(exception, createMockHost('/api/users/123', (data) => {
-      expect(data.statusCode).toBe(404);
-      expect(data.error).toBe('Not Found');
-      expect(data.message).toBe('User not found');
-      expect(data).toHaveProperty('path');
-      expect(data).toHaveProperty('timestamp');
-    }));
+    filter.catch(
+      exception,
+      createMockHost('/api/users/123', (data) => {
+        expect(data.statusCode).toBe(404);
+        expect(data.error).toBe('Not Found');
+        expect(data.message).toBe('User not found');
+        expect(data).toHaveProperty('path');
+        expect(data).toHaveProperty('timestamp');
+      }),
+    );
   });
 
   it('should include all required fields in error response', () => {
@@ -94,16 +117,26 @@ describe('HttpExceptionFilter', () => {
       HttpStatus.NOT_FOUND,
     );
 
-    filter.catch(exception, createMockHost('/api/users/123', (data) => {
-      const requiredFields = ['statusCode', 'message', 'error', 'path', 'timestamp'];
-      requiredFields.forEach(field => {
-        expect(data).toHaveProperty(field);
-      });
-    }));
+    filter.catch(
+      exception,
+      createMockHost('/api/users/123', (data) => {
+        const requiredFields = [
+          'statusCode',
+          'message',
+          'error',
+          'path',
+          'timestamp',
+        ];
+
+        requiredFields.forEach((field) => {
+          expect(data).toHaveProperty(field);
+        });
+      }),
+    );
   });
 
   it('should return consistent error shape across different error types', () => {
-    const checkShape = (data: any) => {
+    const checkShape = (data: ErrorResponse) => {
       expect(data).toHaveProperty('statusCode');
       expect(data).toHaveProperty('message');
       expect(data).toHaveProperty('error');
@@ -116,21 +149,18 @@ describe('HttpExceptionFilter', () => {
       expect(typeof data.timestamp).toBe('string');
     };
 
-    // Test 400
     const badRequest = new HttpException(
       { message: 'Bad input', error: 'Bad Request' },
       HttpStatus.BAD_REQUEST,
     );
     filter.catch(badRequest, createMockHost('/api/me', checkShape));
 
-    // Test 404
     const notFound = new HttpException(
       { message: 'Not found', error: 'Not Found' },
       HttpStatus.NOT_FOUND,
     );
     filter.catch(notFound, createMockHost('/api/users/123', checkShape));
 
-    // Test 409 (Prisma)
     const conflict = new Prisma.PrismaClientKnownRequestError(
       'Unique constraint failed',
       { code: 'P2002', clientVersion: '7.10.0' },
@@ -139,46 +169,55 @@ describe('HttpExceptionFilter', () => {
   });
 
   it('should handle 401 Unauthorized with a consistent response', () => {
-  const exception = new HttpException(
-    'Unauthorized',
-    HttpStatus.UNAUTHORIZED,
-  );
+    const exception = new HttpException(
+      'Unauthorized',
+      HttpStatus.UNAUTHORIZED,
+    );
 
-  filter.catch(exception, createMockHost('/api/me', (data) => {
-    expect(data.statusCode).toBe(401);
-    expect(data.error).toBe('Unauthorized');
-    expect(data.message).toBe('Unauthorized');
-    expect(data.path).toBe('/api/me');
-    expect(typeof data.timestamp).toBe('string');
-  }));
-});
+    filter.catch(
+      exception,
+      createMockHost('/api/me', (data) => {
+        expect(data.statusCode).toBe(401);
+        expect(data.error).toBe('Unauthorized');
+        expect(data.message).toBe('Unauthorized');
+        expect(data.path).toBe('/api/me');
+        expect(typeof data.timestamp).toBe('string');
+      }),
+    );
+  });
 
-it('should hide internal details from 500 HttpExceptions', () => {
-  const exception = new HttpException(
-    'Sensitive internal details',
-    HttpStatus.INTERNAL_SERVER_ERROR,
-  );
+  it('should hide internal details from 500 HttpExceptions', () => {
+    const exception = new HttpException(
+      'Sensitive internal details',
+      HttpStatus.INTERNAL_SERVER_ERROR,
+    );
 
-  filter.catch(exception, createMockHost('/api/me', (data) => {
-    expect(data.statusCode).toBe(500);
-    expect(data.error).toBe('Internal Server Error');
-    expect(data.message).toBe('Internal server error');
-    expect(data.message).not.toContain('Sensitive internal details');
-  }));
-});
+    filter.catch(
+      exception,
+      createMockHost('/api/me', (data) => {
+        expect(data.statusCode).toBe(500);
+        expect(data.error).toBe('Internal Server Error');
+        expect(data.message).toBe('Internal server error');
+        expect(data.message).not.toContain('Sensitive internal details');
+      }),
+    );
+  });
 
-it('should return a generic 500 response for unexpected errors', () => {
-  const exception = new Error('Unexpected database failure');
+  it('should return a generic 500 response for unexpected errors', () => {
+    const exception = new Error('Unexpected database failure');
 
-  filter.catch(exception, createMockHost('/api/users', (data) => {
-    expect(data.statusCode).toBe(500);
-    expect(data.error).toBe('Internal Server Error');
-    expect(data.message).toBe('Internal server error');
-    expect(data.message).not.toContain('Unexpected database failure');
-    expect(data.path).toBe('/api/users');
-    expect(data).toHaveProperty('timestamp');
-  }));
-});
+    filter.catch(
+      exception,
+      createMockHost('/api/users', (data) => {
+        expect(data.statusCode).toBe(500);
+        expect(data.error).toBe('Internal Server Error');
+        expect(data.message).toBe('Internal server error');
+        expect(data.message).not.toContain('Unexpected database failure');
+        expect(data.path).toBe('/api/users');
+        expect(data).toHaveProperty('timestamp');
+      }),
+    );
+  });
 
   it('should sanitize unexpected errors into a generic 500 response', () => {
     const exception = new Error('Database connection details must not leak');
@@ -197,6 +236,7 @@ it('should return a generic 500 response for unexpected errors', () => {
       }),
     );
   });
+
   it('should sanitize server-side HttpExceptions into a generic 500 response', () => {
     const exception = new HttpException(
       'Internal database details must not leak',

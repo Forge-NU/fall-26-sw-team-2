@@ -49,7 +49,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
           message = body;
           error = ERROR_NAMES[statusCode] ?? 'HTTP Error';
         } else if (typeof body === 'object' && body !== null) {
-          const bodyObj = body as { message?: string | string[]; error?: string };
+          const bodyObj = body as {
+            message?: string | string[];
+            error?: string;
+          };
           if (Array.isArray(bodyObj.message)) {
             message = bodyObj.message.join('; ');
           } else if (typeof bodyObj.message === 'string') {

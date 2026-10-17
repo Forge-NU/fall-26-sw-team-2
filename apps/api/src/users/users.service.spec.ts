@@ -1,4 +1,3 @@
-
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -263,9 +262,9 @@ describe('UsersService', () => {
       mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
       mockDeleteClerkUser.mockRejectedValue(new Error('Clerk deletion failed'));
 
-      await expect(
-        service.deleteAccount('user_123'),
-      ).rejects.toThrow('Clerk deletion failed');
+      await expect(service.deleteAccount('user_123')).rejects.toThrow(
+        'Clerk deletion failed',
+      );
 
       expect(mockPrismaService.user.deleteMany).not.toHaveBeenCalled();
     });

@@ -31,9 +31,10 @@ export function buildPaginatedResponse<T>(
   hasMore: boolean,
   cursorExtractor: (item: T) => string | number,
 ): PaginatedResult<T> {
-  const nextCursor = hasMore && items.length > 0
-    ? encodeCursor(cursorExtractor(items[items.length - 1]))
-    : null;
+  const nextCursor =
+    hasMore && items.length > 0
+      ? encodeCursor(cursorExtractor(items[items.length - 1]))
+      : null;
 
   return {
     items,
