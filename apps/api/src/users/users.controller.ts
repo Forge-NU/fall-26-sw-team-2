@@ -14,12 +14,16 @@ import { Request } from 'express';
 import { UsersService } from './users.service';
 import { ClerkAuthGuard } from '../auth/clerk-auth.guard';
 import { UpdateMeDto } from './dto/update-me.dto';
+import { FollowsService } from '../follows/follows.service';
 
 type AuthedRequest = Request & { user: { userId: string } };
 
 @Controller('api')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly followsService: FollowsService,
+  ) {}
 
   @Get('me')
   @UseGuards(ClerkAuthGuard)
@@ -31,6 +35,7 @@ export class UsersController {
     }
 
     return {
+      ...(await this.followsService.getCounts(user.id)),
       id: user.id,
       firstName: user.firstName,
       lastName: user.lastName,
@@ -70,6 +75,7 @@ export class UsersController {
     }
 
     return {
+      ...(await this.followsService.getCounts(user.id)),
       id: user.id,
       firstName: user.firstName,
       lastName: user.lastName,
