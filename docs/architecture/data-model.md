@@ -13,7 +13,8 @@ The doc has three kinds of content:
   - `authentication.md` for users (#15)
   - `follower-system.md` for follows (#16)
   - `itinerary-schema.md` for trips, posts, and locations (#17)
-  - the docs that STORY-1, INT-1, and INT-2 will add for stories, likes, saves, and comments
+  - `stories.md` for stories (#23)
+  - the docs that INT-1 and INT-2 will add for likes, saves, and comments
 - **Suggestion (Christian):** a suggestion for that owner to accept or push back on in their PR.
 
 When an owner confirms or changes their tables, update this doc to match. [Changes to open PRs](#changes-to-open-prs) lists what has to change in each one.
@@ -140,7 +141,7 @@ The diagram includes Christian's suggested columns (`avatar_key`, `published_at`
 | `users` | #15 / #29 ACCT-1 | Lucy | Lucy's Prisma model in #15 | Built in #15, not merged yet |
 | `follows` | #10 FOL-1 | Ruoxi | Ruoxi's doc in #16, with changes to match #15 | No, the changes need Ruoxi's review |
 | `trips`, `posts`, `post_media`, `locations` | #3 DB-1 | Duke (Grace reviews `locations` in #37 LOC-1) | Duke's draft in #17, with changes for the #33 decisions | No, #17 is still a draft |
-| `stories` | #23 STORY-1 | Richie | The STORY-1 ticket scope | No, not designed yet |
+| `stories` | #23 STORY-1 | Richie | `stories.md` (#23), which takes both suggestions below | Built in #23, not merged yet |
 | `post_likes`, `post_saves`, `trip_saves` | #49 INT-1 | Unassigned | The INT-1 ticket scope | No, not designed yet |
 | `comments` | #50 INT-2 | Unassigned | The INT-2 ticket scope | No, not designed yet |
 
@@ -206,6 +207,7 @@ Only the rules that cross features are listed here. Column types and lengths fol
   - `expires_at` is `created_at + 24 hours`. Reads filter on it, so a story disappears on time even before the cleanup job deletes it.
 - **Suggestion (Christian):** use the same location approach as posts, but optional. At most one of `location_id` and `custom_location_name` is set, enforced by `NOT (location_id IS NOT NULL AND custom_location_name IS NOT NULL)`.
 - **Suggestion (Christian):** index `(owner_id, expires_at)` for the stories bar and `(trip_id)` for kept stories on a trip page.
+- Built in #23 ([`stories.md`](stories.md)) with both suggestions. The indexes are `(owner_id, expires_at)`, `(trip_id, created_at)` so the trip page doesn't sort, and `(expires_at)` for the cleanup job and the stories bar until follows land.
 
 ### post_likes, post_saves, trip_saves
 

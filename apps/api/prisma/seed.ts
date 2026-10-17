@@ -2,7 +2,7 @@
 // Every row has a fixed ID and is upserted, so running this twice doesn't
 // duplicate anything. #45 (DEV-1) owns the seed script overall; this covers
 // the users the trips need plus the #3 tables (trips, posts, post_media,
-// locations).
+// locations) and stories (#23).
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client';
@@ -306,6 +306,67 @@ const posts: SeedPost[] = [
   },
 ];
 
+// `hours` hours before now. Stories are timed from when the seed runs, so the
+// active ones are always active and the expired one always expired.
+function hoursAgo(hours: number) {
+  return new Date(Date.now() - hours * 60 * 60 * 1000);
+}
+
+const DAY_HOURS = 24;
+
+type SeedStory = {
+  id: string;
+  ownerId: string;
+  tripId: string | null;
+  text: string | null;
+  locationId?: string;
+  customLocationName?: string;
+  keepOnTrip: boolean;
+  createdAt: Date;
+};
+
+const stories: SeedStory[] = [
+  {
+    // On Alex's active trip, kept with "Add to trip"
+    id: '00000000-0000-4000-c000-000000000001',
+    ownerId: 'user_seed_alex',
+    tripId: trips[3].id,
+    text: 'Pena Palace in the fog',
+    locationId: locations[4].id,
+    keepOnTrip: true,
+    createdAt: hoursAgo(3),
+  },
+  {
+    // On Alex's active trip, not kept, so it goes after 24 hours
+    id: '00000000-0000-4000-c000-000000000002',
+    ownerId: 'user_seed_alex',
+    tripId: trips[3].id,
+    text: 'Coffee before the next hill',
+    keepOnTrip: false,
+    createdAt: hoursAgo(1),
+  },
+  {
+    // No trip
+    id: '00000000-0000-4000-c000-000000000003',
+    ownerId: 'user_seed_priya',
+    tripId: null,
+    text: null,
+    customLocationName: 'Back home',
+    keepOnTrip: false,
+    createdAt: hoursAgo(5),
+  },
+  {
+    // Created 25 hours ago and not kept: expired, so it never shows in the
+    // stories bar, and the cleanup job deletes it
+    id: '00000000-0000-4000-c000-000000000004',
+    ownerId: 'user_seed_maya',
+    tripId: null,
+    text: 'This one has expired',
+    keepOnTrip: false,
+    createdAt: hoursAgo(25),
+  },
+];
+
 async function main() {
   for (const user of users) {
     await prisma.user.upsert({
@@ -364,8 +425,26 @@ async function main() {
     }
   }
 
+  for (const { id, ...story } of stories) {
+    const data = {
+      ...story,
+      s3Key: `users/${story.ownerId}/stories/${id}.jpg`,
+      locationId: story.locationId ?? null,
+      customLocationName: story.customLocationName ?? null,
+      // Set explicitly (normally the database default) to match createdAt
+      expiresAt: new Date(
+        story.createdAt.getTime() + DAY_HOURS * 60 * 60 * 1000,
+      ),
+    };
+    await prisma.story.upsert({
+      where: { id },
+      update: data,
+      create: { id, ...data },
+    });
+  }
+
   console.log(
-    `Seeded ${users.length} users, ${locations.length} locations, ${trips.length} trips, ${posts.length} posts`,
+    `Seeded ${users.length} users, ${locations.length} locations, ${trips.length} trips, ${posts.length} posts, ${stories.length} stories`,
   );
 }
 
