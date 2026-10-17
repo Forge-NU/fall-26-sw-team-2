@@ -64,6 +64,7 @@ export default function TabLayout() {
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="trips/new" options={{ presentation: "modal" }} />
             <Stack.Screen name="trips/[id]/edit" options={{ presentation: "modal" }} />
+            <Stack.Screen name="posts/new" options={{ presentation: "modal" }} />
           </Stack>
         </ToastProvider>
       </ThemeProvider>
