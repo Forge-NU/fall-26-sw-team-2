@@ -9,4 +9,6 @@ model User {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   trips Trip[]
+  following Follow[] @relation("FollowSource")
+  followers Follow[] @relation("FollowTarget")
 }
