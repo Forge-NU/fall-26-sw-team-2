@@ -1,23 +1,27 @@
+import { randomUUID } from 'node:crypto';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { decodeCursor, encodeCursor } from '../feed-cursor';
 import type {
   CandidateFilter,
+  CandidateHydrator,
   CandidateScorer,
+  CandidateSelector,
   CandidateSource,
   FeedCandidate,
   FeedPage,
-  FeedReranker,
-  ScoredCandidate,
-  SignalHydrator,
+  FeedSideEffect,
   ViewerContext,
+  ViewerHydrator,
 } from '../feed.types';
 import {
+  FYP_CANDIDATE_HYDRATORS,
   FYP_CONFIG,
   FYP_FILTERS,
-  FYP_HYDRATORS,
-  FYP_RERANKER,
-  FYP_SCORER,
+  FYP_SCORERS,
+  FYP_SELECTOR,
+  FYP_SIDE_EFFECTS,
   FYP_SOURCES,
+  FYP_VIEWER_HYDRATORS,
   type FypConfig,
 } from './fyp.config';
 
@@ -26,43 +30,65 @@ export interface FeedPageRequest {
   limit?: number;
 }
 
-// Highest score first; ties go to the newer itinerary, then by id so order is stable.
-function compareScored(a: ScoredCandidate, b: ScoredCandidate): number {
-  return (
-    b.score - a.score ||
-    b.createdAt.getTime() - a.createdAt.getTime() ||
-    a.itineraryId.localeCompare(b.itineraryId)
-  );
-}
-
 @Injectable()
 export class FypFeedService {
   private readonly logger = new Logger(FypFeedService.name);
 
   constructor(
     @Inject(FYP_CONFIG) private readonly config: FypConfig,
+    @Inject(FYP_VIEWER_HYDRATORS)
+    private readonly viewerHydrators: ViewerHydrator[],
     @Inject(FYP_SOURCES) private readonly sources: CandidateSource[],
-    @Inject(FYP_HYDRATORS) private readonly hydrators: SignalHydrator[],
+    @Inject(FYP_CANDIDATE_HYDRATORS)
+    private readonly candidateHydrators: CandidateHydrator[],
     @Inject(FYP_FILTERS) private readonly filters: CandidateFilter[],
-    @Inject(FYP_SCORER) private readonly scorer: CandidateScorer,
-    @Inject(FYP_RERANKER) private readonly reranker: FeedReranker,
+    @Inject(FYP_SCORERS) private readonly scorers: CandidateScorer[],
+    @Inject(FYP_SELECTOR) private readonly selector: CandidateSelector,
+    @Inject(FYP_SIDE_EFFECTS) private readonly sideEffects: FeedSideEffect[],
   ) {}
 
-  // Ranks from scratch on every request, so items can shift between pages if signals
-  // change mid-scroll. If that becomes a problem, cache the ranked list per viewer.
+  // Each page is the best of what this session hasn't been served yet, so pages never
+  // repeat even when scores change between requests. No cursor starts a new session.
   async getPage(
-    viewer: ViewerContext,
+    viewer: Pick<ViewerContext, 'viewerId' | 'now'>,
     request: FeedPageRequest = {},
   ): Promise<FeedPage> {
-    const limit = Math.min(
+    const size = Math.min(
       Math.max(request.limit ?? this.config.defaultPageSize, 1),
       this.config.maxPageSize,
     );
-    const offset = request.cursor ? decodeCursor(request.cursor) : 0;
+    const sessionId = request.cursor
+      ? decodeCursor(request.cursor)
+      : randomUUID();
+    const context = await this.hydrateViewer({ ...viewer, sessionId });
 
-    const ranked = await this.rank(viewer);
-    const page = ranked.slice(offset, offset + limit);
-    const nextOffset = offset + page.length;
+    let candidates = await this.retrieve(context);
+    for (const hydrator of this.candidateHydrators) {
+      candidates = await this.runStage(
+        'Candidate hydrator',
+        hydrator.name,
+        candidates,
+        (input) => hydrator.hydrate(input, context),
+      );
+    }
+
+    // Filters are not caught: if one fails we error rather than show something the
+    // viewer shouldn't see.
+    for (const filter of this.filters) {
+      candidates = await filter.apply(candidates, context);
+    }
+
+    for (const scorer of this.scorers) {
+      candidates = await this.runStage(
+        'Scorer',
+        scorer.name,
+        candidates,
+        (input) => scorer.score(input, context),
+      );
+    }
+
+    const page = this.selector.select(candidates, context, size);
+    await this.runSideEffects(context, page);
 
     return {
       items: page.map(({ itineraryId, authorId, score, sources }) => ({
@@ -71,32 +97,30 @@ export class FypFeedService {
         score,
         sources,
       })),
-      nextCursor: nextOffset < ranked.length ? encodeCursor(nextOffset) : null,
+      nextCursor:
+        candidates.length > page.length ? encodeCursor(sessionId) : null,
     };
   }
 
-  async rank(viewer: ViewerContext): Promise<ScoredCandidate[]> {
-    let candidates = await this.retrieve(viewer);
-    candidates = await this.hydrate(candidates, viewer);
-
-    // Filters are not caught: if one fails we error rather than show something the
-    // viewer shouldn't see.
-    for (const filter of this.filters) {
-      candidates = await filter.apply(candidates, viewer);
-    }
-
-    const scored = candidates
-      .map((candidate) => ({
-        ...candidate,
-        score: this.scorer.score(candidate, viewer),
-      }))
-      .sort(compareScored);
-
-    return this.reranker.rerank(scored, viewer);
+  private async hydrateViewer(base: ViewerContext): Promise<ViewerContext> {
+    const results = await Promise.allSettled(
+      this.viewerHydrators.map((hydrator) => hydrator.hydrate(base)),
+    );
+    const viewer = { ...base };
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        Object.assign(viewer, result.value);
+      } else {
+        this.logger.warn(
+          `Viewer hydrator "${this.viewerHydrators[index].name}" failed: ${String(result.reason)}`,
+        );
+      }
+    });
+    return viewer;
   }
 
-  // A failing source shouldn't empty the feed, so drop it and keep the rest.
-  // Itineraries returned by several sources are merged; earlier sources win on signals.
+  // A failing source shouldn't empty the feed, so drop it and keep the rest. An
+  // itinerary returned by several sources keeps the first source's copy.
   private async retrieve(viewer: ViewerContext): Promise<FeedCandidate[]> {
     const results = await Promise.allSettled(
       this.sources.map((source) =>
@@ -117,11 +141,12 @@ export class FypFeedService {
         const existing = byId.get(candidate.itineraryId);
         if (existing) {
           existing.sources.push(sourceName);
-          existing.signals = { ...candidate.signals, ...existing.signals };
         } else {
           byId.set(candidate.itineraryId, {
             ...candidate,
             sources: [sourceName],
+            predictions: {},
+            score: 0,
           });
         }
       }
@@ -130,21 +155,43 @@ export class FypFeedService {
     return [...byId.values()];
   }
 
-  // Hydrators fail open: a signal that never gets set just scores 0.
-  private async hydrate(
+  // Hydrators and scorers fail open: if one throws or returns a different number of
+  // candidates, its output is dropped and the pipeline carries on without it.
+  private async runStage(
+    stage: string,
+    name: string,
     candidates: FeedCandidate[],
-    viewer: ViewerContext,
+    run: (input: FeedCandidate[]) => Promise<FeedCandidate[]>,
   ): Promise<FeedCandidate[]> {
-    let hydrated = candidates;
-    for (const hydrator of this.hydrators) {
-      try {
-        hydrated = await hydrator.hydrate(hydrated, viewer);
-      } catch (error) {
+    try {
+      const output = await run(candidates);
+      if (output.length === candidates.length) {
+        return output;
+      }
+      this.logger.warn(
+        `${stage} "${name}" returned ${output.length} of ${candidates.length} candidates; skipped`,
+      );
+    } catch (error) {
+      this.logger.warn(`${stage} "${name}" failed: ${String(error)}`);
+    }
+    return candidates;
+  }
+
+  // Awaited so the next page sees this page's served history. Failures are logged,
+  // not thrown: the viewer already has their page.
+  private async runSideEffects(
+    viewer: ViewerContext,
+    page: FeedCandidate[],
+  ): Promise<void> {
+    const results = await Promise.allSettled(
+      this.sideEffects.map((sideEffect) => sideEffect.run(viewer, page)),
+    );
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
         this.logger.warn(
-          `Signal hydrator "${hydrator.name}" failed: ${String(error)}`,
+          `Side effect "${this.sideEffects[index].name}" failed: ${String(result.reason)}`,
         );
       }
-    }
-    return hydrated;
+    });
   }
 }

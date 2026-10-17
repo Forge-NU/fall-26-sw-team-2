@@ -1,19 +1,26 @@
 import { BadRequestException, Logger } from '@nestjs/common';
-import {
+import type {
+  CandidateHydrator,
   CandidateSource,
-  SignalHydrator,
+  EngagementStats,
+  FeedPage,
   SourcedCandidate,
-  ViewerContext,
 } from '../feed.types';
-import { AuthorDiversityReranker } from '../stages/author-diversity.reranker';
+import { InMemoryServedHistoryStore } from '../served-history.store';
+import { AuthorDiversityScorer } from '../stages/author-diversity.scorer';
+import { EngagementRateScorer } from '../stages/engagement-rate.scorer';
 import { ExcludeOwnItinerariesFilter } from '../stages/exclude-own-itineraries.filter';
-import { RecencyHydrator } from '../stages/recency.hydrator';
-import { WeightedSignalScorer } from '../stages/weighted-signal.scorer';
+import { PreviouslyServedFilter } from '../stages/previously-served.filter';
+import { RecencyScorer } from '../stages/recency.scorer';
+import { ServedHistoryHydrator } from '../stages/served-history.hydrator';
+import { TopKSelector } from '../stages/top-k.selector';
+import { UpdateServedHistorySideEffect } from '../stages/update-served-history.side-effect';
+import { WeightedActionScorer } from '../stages/weighted-action.scorer';
 import { DEFAULT_FYP_CONFIG } from './fyp.config';
 import { FypFeedService } from './fyp-feed.service';
 
 const now = new Date('2026-10-14T00:00:00Z');
-const viewer: ViewerContext = { viewerId: 'viewer-1', now };
+const viewer = { viewerId: 'viewer-1', now };
 const config = DEFAULT_FYP_CONFIG;
 
 function candidate(
@@ -24,9 +31,12 @@ function candidate(
     itineraryId,
     authorId: `author-${itineraryId}`,
     createdAt: now,
-    signals: {},
     ...overrides,
   };
+}
+
+function saves(count: number): EngagementStats {
+  return { impressions: 100, actions: { save: count } };
 }
 
 function sourceOf(
@@ -38,19 +48,27 @@ function sourceOf(
 
 function buildService(
   sources: CandidateSource[],
-  hydrators: SignalHydrator[] = [new RecencyHydrator(config)],
+  candidateHydrators: CandidateHydrator[] = [],
 ): FypFeedService {
+  const servedHistory = new InMemoryServedHistoryStore();
   return new FypFeedService(
     config,
+    [new ServedHistoryHydrator(servedHistory)],
     sources,
-    hydrators,
-    [new ExcludeOwnItinerariesFilter()],
-    new WeightedSignalScorer(config),
-    new AuthorDiversityReranker(config),
+    candidateHydrators,
+    [new ExcludeOwnItinerariesFilter(), new PreviouslyServedFilter()],
+    [
+      new EngagementRateScorer(config),
+      new WeightedActionScorer(config),
+      new RecencyScorer(config),
+      new AuthorDiversityScorer(config),
+    ],
+    new TopKSelector(config),
+    [new UpdateServedHistorySideEffect(servedHistory)],
   );
 }
 
-function ids(page: { items: { itineraryId: string }[] }): string[] {
+function ids(page: FeedPage): string[] {
   return page.items.map((item) => item.itineraryId);
 }
 
@@ -69,29 +87,65 @@ describe('FypFeedService', () => {
     expect(page).toEqual({ items: [], nextCursor: null });
   });
 
-  it('ranks candidates by weighted signals', async () => {
+  it('ranks by predicted actions, with negative actions pulling items down', async () => {
     const service = buildService([
       sourceOf('test', [
-        candidate('a', { signals: { tasteMatch: 0.2 } }),
-        candidate('b', { signals: { tasteMatch: 0.9 } }),
-        candidate('c', { signals: { quality: 1 } }),
+        candidate('often-hidden', {
+          stats: { impressions: 100, actions: { hide: 30 } },
+        }),
+        candidate('no-data'),
+        candidate('often-saved', { stats: saves(20) }),
       ]),
     ]);
 
-    expect(ids(await service.getPage(viewer))).toEqual(['b', 'c', 'a']);
+    expect(ids(await service.getPage(viewer))).toEqual([
+      'often-saved',
+      'no-data',
+      'often-hidden',
+    ]);
+  });
+
+  it('uses stats loaded by candidate hydrators', async () => {
+    const statsForB: CandidateHydrator = {
+      name: 'stats',
+      hydrate: (candidates) =>
+        Promise.resolve(
+          candidates.map((c) =>
+            c.itineraryId === 'b' ? { ...c, stats: saves(20) } : c,
+          ),
+        ),
+    };
+    const service = buildService(
+      [sourceOf('test', [candidate('a'), candidate('b')])],
+      [statsForB],
+    );
+
+    expect(ids(await service.getPage(viewer))).toEqual(['b', 'a']);
+  });
+
+  it('keeps serving when a candidate hydrator fails', async () => {
+    const broken: CandidateHydrator = {
+      name: 'broken',
+      hydrate: () => Promise.reject(new Error('boom')),
+    };
+    const service = buildService(
+      [sourceOf('test', [candidate('a')])],
+      [broken],
+    );
+
+    expect(ids(await service.getPage(viewer))).toEqual(['a']);
   });
 
   it('merges an itinerary returned by more than one source', async () => {
     const service = buildService([
-      sourceOf('popular', [candidate('a', { signals: { engagement: 0.8 } })]),
-      sourceOf('taste', [candidate('a', { signals: { tasteMatch: 0.6 } })]),
+      sourceOf('popular', [candidate('a')]),
+      sourceOf('taste', [candidate('a')]),
     ]);
 
     const { items } = await service.getPage(viewer);
 
     expect(items).toHaveLength(1);
     expect(items[0].sources).toEqual(['popular', 'taste']);
-    expect(items[0].score).toBeCloseTo(0.2 * 0.8 + 0.35 * 0.6 + 0.15);
   });
 
   it('keeps serving when a source fails', async () => {
@@ -101,21 +155,6 @@ describe('FypFeedService', () => {
     ]);
 
     expect(ids(await service.getPage(viewer))).toEqual(['a']);
-  });
-
-  it('keeps serving when a hydrator fails', async () => {
-    const broken: SignalHydrator = {
-      name: 'broken',
-      hydrate: () => Promise.reject(new Error('boom')),
-    };
-    const service = buildService(
-      [sourceOf('test', [candidate('a', { signals: { quality: 1 } })])],
-      [broken],
-    );
-
-    const { items } = await service.getPage(viewer);
-
-    expect(items[0].score).toBeCloseTo(0.2);
   });
 
   it("excludes the viewer's own itineraries", async () => {
@@ -129,15 +168,22 @@ describe('FypFeedService', () => {
     expect(ids(await service.getPage(viewer))).toEqual(['theirs']);
   });
 
-  it('pages through the ranked list with a cursor', async () => {
-    const service = buildService([
-      sourceOf(
-        'test',
-        [0.9, 0.8, 0.7, 0.6, 0.5].map((tasteMatch, i) =>
-          candidate(`i${i}`, { signals: { tasteMatch } }),
-        ),
-      ),
-    ]);
+  it('never repeats an itinerary across pages, even when scores change', async () => {
+    const itineraryIds = ['i0', 'i1', 'i2', 'i3', 'i4'];
+    let fetches = 0;
+    const shifting: CandidateSource = {
+      name: 'shifting',
+      fetch: () => {
+        // First fetch ranks i0 highest; later fetches rank i4 highest.
+        const reversed = fetches++ > 0;
+        return Promise.resolve(
+          itineraryIds.map((id, i) =>
+            candidate(id, { stats: saves(reversed ? i * 5 : (4 - i) * 5) }),
+          ),
+        );
+      },
+    };
+    const service = buildService([shifting]);
 
     const first = await service.getPage(viewer, { limit: 2 });
     const second = await service.getPage(viewer, {
@@ -150,9 +196,20 @@ describe('FypFeedService', () => {
     });
 
     expect(ids(first)).toEqual(['i0', 'i1']);
-    expect(ids(second)).toEqual(['i2', 'i3']);
-    expect(ids(third)).toEqual(['i4']);
+    expect(ids(second)).toEqual(['i4', 'i3']);
+    expect(ids(third)).toEqual(['i2']);
     expect(third.nextCursor).toBeNull();
+  });
+
+  it('starts a new session when there is no cursor', async () => {
+    const service = buildService([
+      sourceOf('test', [candidate('a'), candidate('b')]),
+    ]);
+
+    const first = await service.getPage(viewer, { limit: 1 });
+    const again = await service.getPage(viewer, { limit: 1 });
+
+    expect(ids(again)).toEqual(ids(first));
   });
 
   it('caps the page size', async () => {

@@ -1,11 +1,22 @@
-import { FeedCandidate, ScoredCandidate } from '../feed.types';
+import {
+  FEED_ACTIONS,
+  type FeedCandidate,
+  type ViewerContext,
+} from '../feed.types';
 import { DEFAULT_FYP_CONFIG } from '../fyp/fyp.config';
-import { AuthorDiversityReranker } from './author-diversity.reranker';
-import { RecencyHydrator } from './recency.hydrator';
-import { WeightedSignalScorer } from './weighted-signal.scorer';
+import { InMemoryServedHistoryStore } from '../served-history.store';
+import { AuthorDiversityScorer } from './author-diversity.scorer';
+import { EngagementRateScorer } from './engagement-rate.scorer';
+import { PreviouslyServedFilter } from './previously-served.filter';
+import { RecencyScorer } from './recency.scorer';
+import { applyMultiplier } from './score-utils';
+import { ServedHistoryHydrator } from './served-history.hydrator';
+import { TopKSelector } from './top-k.selector';
+import { UpdateServedHistorySideEffect } from './update-served-history.side-effect';
+import { WeightedActionScorer } from './weighted-action.scorer';
 
 const now = new Date('2026-10-14T00:00:00Z');
-const viewer = { viewerId: null, now };
+const viewer: ViewerContext = { viewerId: null, sessionId: 'session-1', now };
 const config = DEFAULT_FYP_CONFIG;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -15,86 +26,206 @@ function candidate(overrides: Partial<FeedCandidate> = {}): FeedCandidate {
     authorId: 'author-a',
     createdAt: now,
     sources: ['test'],
-    signals: {},
+    predictions: {},
+    score: 0,
     ...overrides,
   };
 }
 
-function scored(
-  itineraryId: string,
-  authorId: string,
-  score: number,
-): ScoredCandidate {
-  return { ...candidate({ itineraryId, authorId }), score };
+function ids(candidates: FeedCandidate[]): string[] {
+  return candidates.map((c) => c.itineraryId);
 }
 
-describe('WeightedSignalScorer', () => {
-  const scorer = new WeightedSignalScorer(config);
-
-  it('sums weighted signals, treating missing ones as 0', () => {
-    const score = scorer.score(
-      candidate({ signals: { tasteMatch: 1, quality: 0.5 } }),
-    );
-
-    expect(score).toBeCloseTo(0.35 + 0.2 * 0.5);
-  });
-
-  it('clamps signals to [0, 1]', () => {
-    const score = scorer.score(
-      candidate({ signals: { tasteMatch: 5, quality: -3 } }),
-    );
-
-    expect(score).toBeCloseTo(0.35);
+describe('applyMultiplier', () => {
+  it('demotes and promotes negative scores the same way as positive ones', () => {
+    expect(applyMultiplier(2, 0.5)).toBe(1);
+    expect(applyMultiplier(-2, 0.5)).toBe(-4);
+    expect(applyMultiplier(-2, 2)).toBe(-1);
   });
 });
 
-describe('RecencyHydrator', () => {
-  const hydrator = new RecencyHydrator(config);
-  const halfLife = config.recencyHalfLifeDays * DAY_MS;
+describe('EngagementRateScorer', () => {
+  const scorer = new EngagementRateScorer(config);
 
-  it('halves the recency signal every half-life', async () => {
-    const ages = [0, halfLife, 2 * halfLife];
-    const hydrated = await hydrator.hydrate(
-      ages.map((age) =>
-        candidate({ createdAt: new Date(now.getTime() - age) }),
-      ),
-      viewer,
-    );
+  it('falls back to the priors for an itinerary without stats', async () => {
+    const [scored] = await scorer.score([candidate()]);
 
-    expect(hydrated.map((c) => c.signals.recency)).toEqual([1, 0.5, 0.25]);
+    for (const action of FEED_ACTIONS) {
+      expect(scored.predictions[action]).toBeCloseTo(
+        config.actionPriors[action],
+      );
+    }
   });
 
-  it('treats future timestamps as brand new and keeps other signals', async () => {
-    const [hydrated] = await hydrator.hydrate(
+  it('smooths the observed rate toward the prior', async () => {
+    const [scored] = await scorer.score([
+      candidate({ stats: { impressions: 80, actions: { save: 18 } } }),
+    ]);
+
+    // (18 + 0.02 × 20) / (80 + 20)
+    expect(scored.predictions.save).toBeCloseTo(0.184);
+  });
+
+  it('caps predictions at 1', async () => {
+    const [scored] = await scorer.score([
+      candidate({ stats: { impressions: 0, actions: { open: 50 } } }),
+    ]);
+
+    expect(scored.predictions.open).toBe(1);
+  });
+});
+
+describe('WeightedActionScorer', () => {
+  const scorer = new WeightedActionScorer(config);
+
+  it('sums weighted predictions, with negative actions pulling the score down', async () => {
+    const [scored] = await scorer.score([
+      candidate({ predictions: { save: 0.5, hide: 0.1 } }),
+    ]);
+
+    expect(scored.score).toBeCloseTo(6 * 0.5 - 20 * 0.1);
+  });
+});
+
+describe('RecencyScorer', () => {
+  const scorer = new RecencyScorer(config);
+  const halfLifeAgo = new Date(
+    now.getTime() - config.recency.halfLifeDays * DAY_MS,
+  );
+
+  it('decays older itineraries toward the floor', async () => {
+    const scored = await scorer.score(
       [
-        candidate({
-          createdAt: new Date(now.getTime() + DAY_MS),
-          signals: { quality: 0.7 },
-        }),
+        candidate({ score: 2 }),
+        candidate({ score: 2, createdAt: halfLifeAgo }),
       ],
       viewer,
     );
 
-    expect(hydrated.signals).toEqual({ quality: 0.7, recency: 1 });
+    // floor 0.5: one half-life multiplies by 0.5 + 0.5 × 0.5 = 0.75
+    expect(scored.map((c) => c.score)).toEqual([2, 1.5]);
+  });
+
+  it('pushes negative scores further down as they age', async () => {
+    const [scored] = await scorer.score(
+      [candidate({ score: -1, createdAt: halfLifeAgo })],
+      viewer,
+    );
+
+    expect(scored.score).toBeCloseTo(-1 / 0.75);
   });
 });
 
-describe('AuthorDiversityReranker', () => {
-  const reranker = new AuthorDiversityReranker(config);
+describe('AuthorDiversityScorer', () => {
+  const scorer = new AuthorDiversityScorer(config);
 
-  it('spreads out back-to-back items from the same author', () => {
-    const result = reranker.rerank([
-      scored('x1', 'x', 1),
-      scored('x2', 'x', 0.9),
-      scored('y1', 'y', 0.8),
+  it("decays each author's later itineraries down to a floor, keeping input order", async () => {
+    const scored = await scorer.score([
+      candidate({ itineraryId: 'y1', authorId: 'y', score: 0.8 }),
+      candidate({ itineraryId: 'x2', authorId: 'x', score: 0.9 }),
+      candidate({ itineraryId: 'x1', authorId: 'x', score: 1 }),
+      candidate({ itineraryId: 'x3', authorId: 'x', score: 0.5 }),
+      candidate({ itineraryId: 'x4', authorId: 'x', score: 0.4 }),
     ]);
 
-    expect(result.map((c) => c.itineraryId)).toEqual(['x1', 'y1', 'x2']);
+    expect(ids(scored)).toEqual(['y1', 'x2', 'x1', 'x3', 'x4']);
+    // decay 0.6, floor 0.25: x1 × 1, x2 × 0.6, x3 × 0.36, x4 × 0.25 (0.216 is below the floor)
+    const expected = [0.8, 0.9 * 0.6, 1, 0.5 * 0.36, 0.4 * 0.25];
+    scored.forEach((c, i) => expect(c.score).toBeCloseTo(expected[i]));
+  });
+});
+
+describe('TopKSelector', () => {
+  const selector = new TopKSelector(config);
+  const established = (itineraryId: string, score: number) =>
+    candidate({
+      itineraryId,
+      authorId: `author-${itineraryId}`,
+      authorImpressions: 10_000,
+      score,
+    });
+  const newcomer = (score: number) =>
+    candidate({
+      itineraryId: 'new',
+      authorId: 'author-new',
+      authorImpressions: 10,
+      score,
+    });
+  const ranked = [
+    established('a1', 1),
+    established('a2', 0.9),
+    established('a3', 0.8),
+    established('a4', 0.7),
+  ];
+
+  it('keeps the top K by score', () => {
+    const page = selector.select(
+      [established('a', 0.2), established('b', 0.9), established('c', 0.5)],
+      viewer,
+      2,
+    );
+
+    expect(ids(page)).toEqual(['b', 'c']);
   });
 
-  it('keeps score order when authors are all different', () => {
-    const ranked = [scored('a', 'a', 0.9), scored('b', 'b', 0.5)];
+  it('moves the best new-author itinerary into the reserved slot', () => {
+    const page = selector.select([...ranked, newcomer(0.1)], viewer, 4);
 
-    expect(reranker.rerank(ranked)).toEqual(ranked);
+    expect(ids(page)).toEqual(['a1', 'a2', 'new', 'a3']);
+  });
+
+  it('leaves the order alone when a new author already ranks near the top', () => {
+    const page = selector.select([...ranked, newcomer(0.95)], viewer, 4);
+
+    expect(ids(page)).toEqual(['a1', 'new', 'a2', 'a3']);
+  });
+
+  it('does not boost authors whose impressions are unknown', () => {
+    const unknown = candidate({ itineraryId: 'unknown', score: 0.1 });
+
+    const page = selector.select([...ranked, unknown], viewer, 4);
+
+    expect(ids(page)).toEqual(['a1', 'a2', 'a3', 'a4']);
+  });
+});
+
+describe('served history', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('filters out what earlier pages in the session served', async () => {
+    const store = new InMemoryServedHistoryStore();
+    await new UpdateServedHistorySideEffect(store).run(viewer, [
+      candidate({ itineraryId: 'a' }),
+    ]);
+
+    const hydrated = {
+      ...viewer,
+      ...(await new ServedHistoryHydrator(store).hydrate(viewer)),
+    };
+    const kept = await new PreviouslyServedFilter().apply(
+      [candidate({ itineraryId: 'a' }), candidate({ itineraryId: 'b' })],
+      hydrated,
+    );
+
+    expect(ids(kept)).toEqual(['b']);
+  });
+
+  it('keeps sessions separate', async () => {
+    const store = new InMemoryServedHistoryStore();
+    await store.add('session-1', ['a']);
+
+    expect(await store.get('session-2')).toEqual(new Set());
+  });
+
+  it('forgets a session after an hour', async () => {
+    const store = new InMemoryServedHistoryStore();
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(now.getTime());
+    await store.add('session-1', ['a']);
+
+    clock.mockReturnValue(now.getTime() + 61 * 60 * 1000);
+
+    expect(await store.get('session-1')).toEqual(new Set());
   });
 });
