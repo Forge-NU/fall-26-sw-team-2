@@ -227,6 +227,27 @@ export class PostsService {
     return toPage(posts, query, (post) => this.toResponse(post));
   }
 
+  // Every post of these trips in trip order, keyed by trip id, for feed cards.
+  // Doesn't check visibility, so only pass trips the viewer can see.
+  async listForTrips(
+    tripIds: readonly string[],
+  ): Promise<Map<string, PostResponse[]>> {
+    const posts = await this.prisma.post.findMany({
+      where: { tripId: { in: [...tripIds] } },
+      orderBy: POST_ORDER,
+      include: postInclude,
+    });
+    const responses = await Promise.all(
+      posts.map((post) => this.toResponse(post)),
+    );
+
+    const byTrip = new Map<string, PostResponse[]>();
+    for (const post of responses) {
+      byTrip.set(post.tripId, [...(byTrip.get(post.tripId) ?? []), post]);
+    }
+    return byTrip;
+  }
+
   // Takes a share lock on the trip (see trip-locks.ts) and re-reads it, since
   // its dates may have changed since the ownership check.
   private async lockedTrip(tx: Prisma.TransactionClient, tripId: string) {

@@ -383,4 +383,22 @@ describe('TripsService', () => {
       );
     });
   });
+
+  describe('findPublishedByIds', () => {
+    it('only looks up published trips', async () => {
+      prisma.trip.findMany.mockResolvedValue([
+        makeTrip({ status: 'published', publishedAt: new Date() }),
+      ]);
+
+      const trips = await service.findPublishedByIds(['trip-a', 'trip-b']);
+
+      expect(prisma.trip.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: { in: ['trip-a', 'trip-b'] }, status: 'published' },
+        }),
+      );
+      expect(trips).toHaveLength(1);
+      expect(trips[0].status).toBe('published');
+    });
+  });
 });

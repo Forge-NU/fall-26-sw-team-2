@@ -434,4 +434,26 @@ describe('PostsService', () => {
       expect(page.nextCursor).toBeNull();
     });
   });
+
+  describe('listForTrips', () => {
+    it('groups posts by trip, in trip order', async () => {
+      const otherTripId = '44444444-4444-4444-8444-444444444444';
+      prisma.post.findMany.mockResolvedValue([
+        makePost({ id: 'p1' }),
+        makePost({ id: 'p2', tripId: otherTripId }),
+        makePost({ id: 'p3' }),
+      ]);
+
+      const byTrip = await service.listForTrips([tripId, otherTripId]);
+
+      expect(prisma.post.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { tripId: { in: [tripId, otherTripId] } },
+          orderBy: [{ visitedOn: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
+        }),
+      );
+      expect(byTrip.get(tripId)?.map((post) => post.id)).toEqual(['p1', 'p3']);
+      expect(byTrip.get(otherTripId)?.map((post) => post.id)).toEqual(['p2']);
+    });
+  });
 });

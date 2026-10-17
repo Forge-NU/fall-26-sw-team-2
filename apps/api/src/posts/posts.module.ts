@@ -9,5 +9,6 @@ import { PostsService } from './posts.service';
   imports: [PrismaModule, StorageModule, TripsModule],
   controllers: [PostsController],
   providers: [PostsService],
+  exports: [PostsService],
 })
 export class PostsModule {}
