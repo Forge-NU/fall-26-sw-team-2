@@ -27,6 +27,16 @@ export default function AppTabs() {
           renderingMode="template"
         />
       </NativeTabs.Trigger>
+
+      {__DEV__ && (
+        <NativeTabs.Trigger name="components-preview">
+          <NativeTabs.Trigger.Label>Components</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Icon
+            sf="square.grid.2x2"
+            md="grid_view"
+          />
+        </NativeTabs.Trigger>
+      )}
     </NativeTabs>
   );
 }
