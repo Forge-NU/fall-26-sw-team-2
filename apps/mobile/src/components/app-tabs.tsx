@@ -28,6 +28,12 @@ export default function AppTabs() {
         />
       </NativeTabs.Trigger>
 
+      {/* STAND-IN for PROF-1 (#31): trips live in the profile grid once it lands */}
+      <NativeTabs.Trigger name="my-trips">
+        <NativeTabs.Trigger.Label>Trips</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="suitcase" md="luggage" />
+      </NativeTabs.Trigger>
+
       {__DEV__ && (
         <NativeTabs.Trigger name="components-preview">
           <NativeTabs.Trigger.Label>Components</NativeTabs.Trigger.Label>
