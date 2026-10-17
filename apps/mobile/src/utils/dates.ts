@@ -59,6 +59,17 @@ export function tripDayNumber(iso: string, startIso: string) {
   return Math.round(ms / 86_400_000) + 1;
 }
 
+/** "18m", "5h", "3d" or "6w" since a timestamp (ISO date-time). */
+export function formatTimeAgo(timestamp: string, now = new Date()) {
+  const minutes = Math.max(0, Math.floor((now.getTime() - Date.parse(timestamp)) / 60_000));
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d`;
+  return `${Math.floor(days / 7)}w`;
+}
+
 /** Monday-first weeks for a month; `null` pads days outside the month. */
 export function monthGrid(year: number, month: number): (string | null)[][] {
   const first = new Date(year, month, 1);

@@ -34,7 +34,8 @@ export type Moment = {
 
 export type DayPlace = {
   id: string;
-  time: string;
+  /** Left out for API trips: posts have a date but no time of day. */
+  time?: string;
   name: string;
   note: string;
 };

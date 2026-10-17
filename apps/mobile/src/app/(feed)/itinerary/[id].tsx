@@ -11,7 +11,7 @@ import { PostAuthor } from '@/components/post-author';
 import { Avatar } from '@/components/ui/avatar';
 import { YujiLogo } from '@/components/yuji-header';
 import { Palette, Radius, ScreenGutter } from '@/constants/theme';
-import { getItinerary } from '@/data/mock';
+import { getItinerary } from '@/data/itineraries';
 
 export default function ItineraryDayScreen() {
   const { id, day } = useLocalSearchParams<{ id: string; day?: string }>();

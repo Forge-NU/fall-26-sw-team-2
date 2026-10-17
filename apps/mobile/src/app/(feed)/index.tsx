@@ -1,13 +1,26 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/app-text';
+import { FypStatus } from '@/components/feed/fyp-status';
 import { ItineraryCard } from '@/components/feed/itinerary-card';
 import { StoriesRow } from '@/components/feed/stories-row';
 import { YujiHeader } from '@/components/yuji-header';
 import { Palette, ScreenGutter } from '@/constants/theme';
 import { FeedTab, Itineraries, Stories } from '@/data/mock';
+import { useFypFeed } from '@/hooks/use-fyp-feed';
+
+/** How close to the bottom, in points, the FYP starts loading its next page. */
+const LOAD_MORE_DISTANCE = 600;
 
 const FeedTabs: { key: FeedTab; label: string }[] = [
   { key: 'local', label: 'Local' },
@@ -17,12 +30,37 @@ const FeedTabs: { key: FeedTab; label: string }[] = [
 
 export default function FeedScreen() {
   const [activeTab, setActiveTab] = useState<FeedTab>('fyp');
-  const itineraries = Itineraries.filter((itinerary) => itinerary.feeds.includes(activeTab));
+  const fyp = useFypFeed();
+  const showingFyp = activeTab === 'fyp';
+  // Local and Friends have no endpoints yet, so they still show mock data.
+  const itineraries = showingFyp
+    ? fyp.itineraries
+    : Itineraries.filter((itinerary) => itinerary.feeds.includes(activeTab));
+
+  const loadMoreNearBottom = ({ nativeEvent }: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+    const nearBottom =
+      layoutMeasurement.height + contentOffset.y >= contentSize.height - LOAD_MORE_DISTANCE;
+    if (showingFyp && nearBottom) fyp.loadMore();
+  };
 
   return (
     <SafeAreaView edges={['top']} style={styles.screen}>
       <YujiHeader />
-      <ScrollView stickyHeaderIndices={[1]} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        stickyHeaderIndices={[1]}
+        showsVerticalScrollIndicator={false}
+        onScroll={loadMoreNearBottom}
+        scrollEventThrottle={200}
+        refreshControl={
+          showingFyp ? (
+            <RefreshControl
+              refreshing={fyp.status === 'refreshing'}
+              onRefresh={fyp.refresh}
+              tintColor={Palette.teal}
+            />
+          ) : undefined
+        }>
         <View style={styles.intro}>
           <AppText variant="display" size={24} leading={1.1}>
             Find your next trip.
@@ -61,6 +99,7 @@ export default function FeedScreen() {
             <ItineraryCard key={itinerary.id} itinerary={itinerary} />
           ))}
         </View>
+        {showingFyp && <FypStatus feed={fyp} />}
       </ScrollView>
     </SafeAreaView>
   );
