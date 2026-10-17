@@ -2,6 +2,7 @@ import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
+import { mapUserToResponse } from './utils/user.mapper';
 
 describe('UsersController', () => {
   let controller: UsersController;
@@ -10,6 +11,7 @@ describe('UsersController', () => {
     findById: jest.fn(),
     update: jest.fn(),
     deleteAccount: jest.fn(),
+    listUsers: jest.fn(),
   };
 
   const mockUser = {
@@ -21,6 +23,7 @@ describe('UsersController', () => {
     avatarUrl: null,
   };
 
+  // The controller reads request.user.userId.
   const request = {
     user: { userId: 'user_123' },
   } as never;
@@ -49,13 +52,9 @@ describe('UsersController', () => {
     it('returns the current user profile', async () => {
       mockUsersService.findById.mockResolvedValue(mockUser);
 
-      await expect(controller.getMe(request)).resolves.toEqual({
-        id: 'user_123',
-        firstName: 'Test',
-        lastName: 'User',
-        username: 'testuser',
-        avatarUrl: null,
-      });
+      await expect(controller.getMe(request)).resolves.toEqual(
+        mapUserToResponse(mockUser),
+      );
 
       expect(mockUsersService.findById).toHaveBeenCalledWith('user_123');
     });
@@ -139,6 +138,57 @@ describe('UsersController', () => {
       await expect(controller.findById('missing')).rejects.toBeInstanceOf(
         NotFoundException,
       );
+    });
+  });
+
+  describe('listUsers', () => {
+    it('returns a paginated list of users', async () => {
+      const mockUsers = [
+        mockUser,
+        { ...mockUser, id: 'user_456', username: 'testuser2' },
+      ];
+
+      mockUsersService.listUsers.mockResolvedValue({
+        items: mockUsers,
+        nextCursor: 'dXNlcl80NTY=',
+      });
+
+      await expect(controller.listUsers(request, {})).resolves.toEqual({
+        items: mockUsers.map(mapUserToResponse),
+        nextCursor: 'dXNlcl80NTY=',
+      });
+
+      expect(mockUsersService.listUsers).toHaveBeenCalledWith({});
+    });
+
+    it('returns empty list when no users exist', async () => {
+      mockUsersService.listUsers.mockResolvedValue({
+        items: [],
+        nextCursor: null,
+      });
+
+      await expect(controller.listUsers(request, {})).resolves.toEqual({
+        items: [],
+        nextCursor: null,
+      });
+
+      expect(mockUsersService.listUsers).toHaveBeenCalledWith({});
+    });
+
+    it('passes pagination params to service', async () => {
+      mockUsersService.listUsers.mockResolvedValue({
+        items: [],
+        nextCursor: null,
+      });
+
+      const pagination = {
+        cursor: 'abc123',
+        limit: 10,
+      };
+
+      await controller.listUsers(request, pagination);
+
+      expect(mockUsersService.listUsers).toHaveBeenCalledWith(pagination);
     });
   });
 });
