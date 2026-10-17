@@ -57,6 +57,7 @@ export function LocationPicker({
   error,
 }: LocationPickerProps) {
   const [open, setOpen] = useState(false);
+  const a11yName = label || 'Location';
   const subtitle =
     value?.kind === 'mapbox'
       ? [value.location.city, value.location.countryCode].filter(Boolean).join(', ')
@@ -71,22 +72,26 @@ export function LocationPicker({
           {label}
         </AppText>
       ) : null}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={value ? `${label}: ${locationName(value)}. Change` : `${label}: ${placeholder}`}
-        onPress={() => setOpen(true)}
-        style={[styles.field, error ? styles.fieldError : null]}>
-        <Ionicons name="location-outline" size={18} color={Palette.coral} />
-        <View style={styles.fieldText}>
-          <AppText numberOfLines={1} style={!value && styles.placeholder}>
-            {value ? locationName(value) : placeholder}
-          </AppText>
-          {subtitle ? (
-            <AppText variant="caption" numberOfLines={1} style={styles.secondary}>
-              {subtitle}
+      {/* Siblings, not nested: a button inside a button breaks on web */}
+      <View style={[styles.field, error ? styles.fieldError : null]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={value ? `${a11yName}: ${locationName(value)}. Change` : `${a11yName}: ${placeholder}`}
+          onPress={() => setOpen(true)}
+          style={styles.fieldMain}>
+          <Ionicons name="location-outline" size={18} color={Palette.coral} />
+          <View style={styles.fieldText}>
+            <AppText numberOfLines={1} style={!value && styles.placeholder}>
+              {value ? locationName(value) : placeholder}
             </AppText>
-          ) : null}
-        </View>
+            {subtitle ? (
+              <AppText variant="caption" numberOfLines={1} style={styles.secondary}>
+                {subtitle}
+              </AppText>
+            ) : null}
+          </View>
+          {value ? null : <Ionicons name="chevron-forward" size={16} color={Palette.placeholderGray} />}
+        </Pressable>
         {value ? (
           <Pressable
             accessibilityRole="button"
@@ -95,10 +100,8 @@ export function LocationPicker({
             onPress={() => onChange(null)}>
             <Ionicons name="close-circle" size={18} color={Palette.placeholderGray} />
           </Pressable>
-        ) : (
-          <Ionicons name="chevron-forward" size={16} color={Palette.placeholderGray} />
-        )}
-      </Pressable>
+        ) : null}
+      </View>
       {error ? (
         <AppText variant="label" accessibilityLiveRegion="polite" style={styles.error}>
           {error}
@@ -267,6 +270,7 @@ const styles = StyleSheet.create({
     backgroundColor: InputTokens.background,
   },
   fieldError: { borderColor: InputTokens.errorBorder, borderWidth: InputTokens.focusedBorderWidth },
+  fieldMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.two, alignSelf: 'stretch' },
   fieldText: { flex: 1, minWidth: 0 },
   placeholder: { color: InputTokens.placeholder },
   secondary: { color: Palette.placeholderGray },
