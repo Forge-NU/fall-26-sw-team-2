@@ -4,10 +4,14 @@ import type {
   ActiveTripsResponse,
   CreateStoryRequest,
   CreateTripRequest,
+  CreatePostRequest,
   CreateUploadResponse,
   LocationResponse,
   Page,
   PostResponse,
+  PlaceSuggestion,
+  ResolveLocationRequest,
+  ResolveLocationResponse,
   StoryResponse,
   TripResponse,
   UpdateTripRequest,
@@ -16,8 +20,9 @@ import type {
 } from '@/api/types';
 import { addDays, isDateWithin, todayLocalIso } from '@/utils/local-date';
 
-// Raise to test retries
-const MOCK_UPLOAD_FAILURE_RATE = 0;
+// Raise to test retries. EXPO_PUBLIC_MOCK_UPLOAD_FAILURE_RATE=1 in .env makes
+// every upload fail, for checking the draft + Retry flow. Leave it unset.
+const MOCK_UPLOAD_FAILURE_RATE = Number(process.env.EXPO_PUBLIC_MOCK_UPLOAD_FAILURE_RATE ?? 0);
 const MOCK_LATENCY_MS = 400;
 
 export const me: UserSummary = {
@@ -235,6 +240,112 @@ export async function mockGetTripPosts(tripId: string): Promise<Page<PostRespons
   await delay();
   findOwnTrip(tripId);
   return { items: postsForTrip(tripId), nextCursor: null };
+}
+
+// Counts code points, the way Postgres does
+function textLength(text: string): number {
+  return [...text].length;
+}
+
+export async function mockCreatePost(body: CreatePostRequest): Promise<PostResponse> {
+  await delay();
+  const trip = findOwnTrip(body.tripId);
+  if (body.media.length < 1 || body.media.length > 30) {
+    throw new ApiError(400, 'media must contain 1 to 30 items');
+  }
+  if (!isDateWithin(body.visitedOn, trip.startDate, trip.endDate)) {
+    throw new ApiError(400, "visitedOn must be within the trip's dates");
+  }
+  if (Boolean(body.locationId) === Boolean(body.customLocationName)) {
+    throw new ApiError(400, 'Exactly one of locationId and customLocationName is required');
+  }
+  if (body.caption && textLength(body.caption) > 2200) {
+    throw new ApiError(400, 'caption must be at most 2200 characters');
+  }
+  const location = body.locationId ? resolvedLocations.get(body.locationId) : undefined;
+  if (body.locationId && !location) throw new ApiError(400, 'Location not found');
+
+  const now = new Date().toISOString();
+  const post: PostResponse = {
+    id: mockId('post'),
+    tripId: trip.id,
+    author: me,
+    caption: body.caption?.trim() || null,
+    visitedOn: body.visitedOn,
+    location: location ?? null,
+    customLocationName: body.customLocationName?.trim() ?? null,
+    // Uploads never really happen in mock mode, so show a stock photo per key
+    media: body.media.map((item) => ({
+      id: mockId('media'),
+      mediaType: item.mediaType,
+      url: `https://picsum.photos/seed/${encodeURIComponent(item.s3Key)}/900/1200`,
+      width: item.width ?? null,
+      height: item.height ?? null,
+      durationMs: item.durationMs ?? null,
+    })),
+    createdAt: now,
+    updatedAt: now,
+  };
+  posts.push(post);
+  refreshDerived(trip);
+  return post;
+}
+
+// Places the mock search knows about, with what /retrieve would return
+const mockPlaces: (PlaceSuggestion & Extract<ResolveLocationRequest, { kind: 'mapbox' }>)[] = [
+  { kind: 'mapbox', mapboxId: 'mock.pena-palace', name: 'Pena Palace', description: 'Sintra, Lisbon, Portugal', latitude: 38.787586, longitude: -9.390616, city: 'Sintra', region: 'Lisbon', countryCode: 'PT' },
+  { kind: 'mapbox', mapboxId: 'mock.quinta-regaleira', name: 'Quinta da Regaleira', description: 'Sintra, Lisbon, Portugal', latitude: 38.796167, longitude: -9.395966, city: 'Sintra', region: 'Lisbon', countryCode: 'PT' },
+  { kind: 'mapbox', mapboxId: 'mock.sintra', name: 'Sintra', description: 'Lisbon, Portugal', latitude: 38.802951, longitude: -9.381692, city: 'Sintra', region: 'Lisbon', countryCode: 'PT' },
+  { kind: 'mapbox', mapboxId: 'mock.belem', name: 'Pastéis de Belém', description: 'R. de Belém 84-92, Lisbon, Portugal', latitude: 38.697464, longitude: -9.203213, city: 'Lisbon', region: 'Lisbon', countryCode: 'PT' },
+  { kind: 'mapbox', mapboxId: 'mock.belem-tower', name: 'Belém Tower', description: 'Lisbon, Portugal', latitude: 38.691584, longitude: -9.215977, city: 'Lisbon', region: 'Lisbon', countryCode: 'PT' },
+  { kind: 'mapbox', mapboxId: 'mock.lisbon', name: 'Lisbon', description: 'Portugal', latitude: 38.722252, longitude: -9.139337, city: 'Lisbon', region: 'Lisbon', countryCode: 'PT' },
+  { kind: 'mapbox', mapboxId: 'mock.praia-rainha', name: 'Praia da Rainha', description: 'Cascais, Lisbon, Portugal', latitude: 38.696392, longitude: -9.420598, city: 'Cascais', region: 'Lisbon', countryCode: 'PT' },
+  { kind: 'mapbox', mapboxId: 'mock.cascais', name: 'Cascais', description: 'Lisbon, Portugal', latitude: 38.697055, longitude: -9.42149, city: 'Cascais', region: 'Lisbon', countryCode: 'PT' },
+  { kind: 'mapbox', mapboxId: 'mock.boca-inferno', name: 'Boca do Inferno', description: 'Cascais, Lisbon, Portugal', latitude: 38.69136, longitude: -9.430774, city: 'Cascais', region: 'Lisbon', countryCode: 'PT' },
+];
+
+export async function mockSearchPlaces(query: string): Promise<PlaceSuggestion[]> {
+  await delay(250);
+  const needle = query.trim().toLowerCase();
+  return mockPlaces
+    .filter((place) => `${place.name} ${place.description}`.toLowerCase().includes(needle))
+    .map(({ mapboxId, name, description }) => ({ mapboxId, name, description }));
+}
+
+export async function mockRetrievePlace(mapboxId: string): Promise<ResolveLocationRequest> {
+  await delay(150);
+  const place = mockPlaces.find((p) => p.mapboxId === mapboxId);
+  if (!place) throw new ApiError(404, 'Place not found');
+  const { description: _description, ...request } = place;
+  return request;
+}
+
+// Keyed by providerPlaceId, so resolving the same place twice reuses the row
+const resolvedLocations = new Map<string, LocationResponse>();
+
+export async function mockResolveLocation(body: ResolveLocationRequest): Promise<ResolveLocationResponse> {
+  await delay();
+  const name = body.name.trim();
+  if (body.kind === 'custom') {
+    if (!name || textLength(name) > 100) throw new ApiError(400, 'name must be 1 to 100 characters');
+    return { kind: 'custom', name };
+  }
+  const existing = [...resolvedLocations.values()].find((l) => l.providerPlaceId === body.mapboxId);
+  if (existing) return { kind: 'mapbox', location: existing };
+  const location: LocationResponse = {
+    id: mockId('loc'),
+    provider: 'mapbox',
+    providerPlaceId: body.mapboxId,
+    name,
+    address: body.address ?? null,
+    latitude: body.latitude,
+    longitude: body.longitude,
+    city: body.city ?? null,
+    region: body.region ?? null,
+    countryCode: body.countryCode?.toUpperCase() ?? null,
+  };
+  resolvedLocations.set(location.id, location);
+  return { kind: 'mapbox', location };
 }
 
 export async function mockCreateUpload(purpose: UploadPurpose): Promise<CreateUploadResponse> {
