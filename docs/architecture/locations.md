@@ -5,7 +5,7 @@ Issue: #37 (LOC-1)
 
 ## Overview
 
-One shared definition of a location, used by posts, stories, the map and search. The `locations` table itself is defined in [`itinerary-schema.md`](itinerary-schema.md#locations). This doc covers the endpoint that turns a place the user picked into something a post can reference, and the review of the table against Mapbox.
+One shared definition of a location, used by posts, stories, the map and search. The `locations` table itself is defined in [`itinerary-schema.md`](itinerary-schema.md#locations). This doc covers the endpoint that turns a place the user picked into something a post can reference.
 
 Product rules are in DOC-1 ([`mvp-decisions.md`](../product/mvp-decisions.md#locations)), including the Mapbox storage terms. If this doc disagrees with DOC-1, DOC-1 wins.
 
@@ -103,20 +103,6 @@ A custom request that includes any Mapbox field, or any request with an unknown 
 - **Deduplication.** Rows are unique on `(provider, provider_place_id)`, so resolving the same place twice returns the same row.
 - **First write wins.** If the row already exists, it's returned unchanged. The fields in the request are only used to create the row.
 - **Concurrency.** If two requests create the same place at once, one hits the unique constraint and returns the row the other created.
-
-## Review of the `locations` table (#17)
-
-Checked against what this ticket needs. No changes were needed.
-
-| Requirement | Table | Result |
-|---|---|---|
-| Provider place ID, unique | `provider` + `provider_place_id`, unique together | Fits. `provider` keeps IDs from a second provider from colliding. |
-| Name | `name` | Fits |
-| Latitude/longitude | `Decimal(9,6)` with range checks | Fits. About 0.1 m precision. |
-| Custom flag | None | Not needed, by design: custom locations live on the post (DOC-1), so every row is a Mapbox place. |
-| Geo index for map queries | B-tree on `(latitude, longitude)` | Fits bounding-box queries for the MVP map. PostGIS is deferred until we need radius search. |
-
-The table's open risk is the storage terms: DOC-1 records that Mapbox doesn't allow storing POI search results as-is.
 
 ## Seed data
 
