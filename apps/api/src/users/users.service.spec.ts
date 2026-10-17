@@ -71,7 +71,9 @@ describe('UsersService', () => {
       );
       mockPrismaService.user.findFirstOrThrow.mockRejectedValue(prismaError);
 
-      await expect(service.findById('missing_user')).rejects.toThrow(prismaError);
+      await expect(service.findById('missing_user')).rejects.toThrow(
+        prismaError,
+      );
     });
   });
 
@@ -116,11 +118,7 @@ describe('UsersService', () => {
     };
 
     it('creates a profile using the authenticated Clerk user', async () => {
-      const notFoundError = new Prisma.PrismaClientKnownRequestError(
-        'Record not found',
-        { code: 'P2025', clientVersion: 'test' },
-      );
-      mockPrismaService.user.findFirstOrThrow.mockRejectedValueOnce(notFoundError);
+      mockPrismaService.user.findUnique.mockResolvedValue(null);
       mockGetClerkUser.mockResolvedValue(clerkUser);
       mockPrismaService.user.create.mockResolvedValue(mockUser);
 
@@ -142,7 +140,7 @@ describe('UsersService', () => {
     });
 
     it('rejects profile creation if the user already exists', async () => {
-      mockPrismaService.user.findFirstOrThrow.mockResolvedValue(mockUser);
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
 
       await expect(
         service.createProfile('user_123', profileData),
@@ -153,11 +151,7 @@ describe('UsersService', () => {
     });
 
     it('rejects profile creation when there is no primary email', async () => {
-      const notFoundError = new Prisma.PrismaClientKnownRequestError(
-        'Record not found',
-        { code: 'P2025', clientVersion: 'test' },
-      );
-      mockPrismaService.user.findFirstOrThrow.mockRejectedValue(notFoundError);
+      mockPrismaService.user.findUnique.mockResolvedValue(null);
       mockGetClerkUser.mockResolvedValue({
         ...clerkUser,
         primaryEmailAddressId: null,
@@ -179,11 +173,7 @@ describe('UsersService', () => {
         },
       );
 
-      const notFoundError = new Prisma.PrismaClientKnownRequestError(
-        'Record not found',
-        { code: 'P2025', clientVersion: 'test' },
-      );
-      mockPrismaService.user.findFirstOrThrow.mockRejectedValueOnce(notFoundError);
+      mockPrismaService.user.findUnique.mockResolvedValue(null);
       mockGetClerkUser.mockResolvedValue(clerkUser);
       mockPrismaService.user.create.mockRejectedValue(prismaError);
 
