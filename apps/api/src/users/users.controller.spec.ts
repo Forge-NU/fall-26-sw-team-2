@@ -1,5 +1,5 @@
+
 import { NotFoundException } from '@nestjs/common';
-import { Prisma } from '../generated/prisma/client';
 import { Test, TestingModule } from '@nestjs/testing';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
@@ -23,6 +23,8 @@ describe('UsersController', () => {
     username: 'testuser',
     avatarUrl: null,
   };
+
+  // The controller reads request.user.userId.
   const request = {
     user: { userId: 'user_123' },
   } as never;
@@ -51,16 +53,9 @@ describe('UsersController', () => {
     it('returns the current user profile', async () => {
       mockUsersService.findById.mockResolvedValue(mockUser);
 
-      await expect(controller.getMe('user_123')).resolves.toEqual(
+      await expect(controller.getMe(request)).resolves.toEqual(
         mapUserToResponse(mockUser),
       );
-      await expect(controller.getMe(request)).resolves.toEqual({
-        id: 'user_123',
-        firstName: 'Test',
-        lastName: 'User',
-        username: 'testuser',
-        avatarUrl: null,
-      });
 
       expect(mockUsersService.findById).toHaveBeenCalledWith('user_123');
     });
@@ -146,6 +141,7 @@ describe('UsersController', () => {
       );
     });
   });
+
   describe('listUsers', () => {
     it('returns a paginated list of users', async () => {
       const mockUsers = [
@@ -158,7 +154,7 @@ describe('UsersController', () => {
         nextCursor: 'dXNlcl80NTY=',
       });
 
-      await expect(controller.listUsers('user_123', {})).resolves.toEqual({
+      await expect(controller.listUsers(request, {})).resolves.toEqual({
         items: mockUsers.map(mapUserToResponse),
         nextCursor: 'dXNlcl80NTY=',
       });
@@ -172,10 +168,12 @@ describe('UsersController', () => {
         nextCursor: null,
       });
 
-      await expect(controller.listUsers('user_123', {})).resolves.toEqual({
+      await expect(controller.listUsers(request, {})).resolves.toEqual({
         items: [],
         nextCursor: null,
       });
+
+      expect(mockUsersService.listUsers).toHaveBeenCalledWith({});
     });
 
     it('passes pagination params to service', async () => {
@@ -184,13 +182,14 @@ describe('UsersController', () => {
         nextCursor: null,
       });
 
-      await controller.listUsers('user_123', {
+      const pagination = {
         cursor: 'abc123',
         limit: 10,
-      });
+      };
 
-      expect(mockUsersService.listUsers).toHaveBeenCalledWith({
-        cursor: 'abc123
+      await controller.listUsers(request, pagination);
+
+      expect(mockUsersService.listUsers).toHaveBeenCalledWith(pagination);
     });
   });
 });
