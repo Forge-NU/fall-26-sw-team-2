@@ -242,6 +242,8 @@ export async function mockGetTripPosts(tripId: string): Promise<Page<PostRespons
   return { items: postsForTrip(tripId), nextCursor: null };
 }
 
+const MOCK_UPLOAD_PHOTO_IDS = [1015, 1036, 1043, 1050, 1067];
+
 // Counts code points, the way Postgres does
 function textLength(text: string): number {
   return [...text].length;
@@ -274,11 +276,11 @@ export async function mockCreatePost(body: CreatePostRequest): Promise<PostRespo
     visitedOn: body.visitedOn,
     location: location ?? null,
     customLocationName: body.customLocationName?.trim() ?? null,
-    // Uploads never really happen in mock mode, so show a stock photo per key
-    media: body.media.map((item) => ({
+    // Uploads never really happen in mock mode, so show stock photos
+    media: body.media.map((item, i) => ({
       id: mockId('media'),
       mediaType: item.mediaType,
-      url: `https://picsum.photos/seed/${encodeURIComponent(item.s3Key)}/900/1200`,
+      url: `https://picsum.photos/id/${MOCK_UPLOAD_PHOTO_IDS[(posts.length + i) % MOCK_UPLOAD_PHOTO_IDS.length]}/900/1200`,
       width: item.width ?? null,
       height: item.height ?? null,
       durationMs: item.durationMs ?? null,

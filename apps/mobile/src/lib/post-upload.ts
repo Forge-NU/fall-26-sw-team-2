@@ -9,7 +9,8 @@ import { toLocationFields } from '@/components/location/location-picker';
 import { deleteDraft, saveDraft, type PostDraft } from '@/lib/post-drafts';
 import { isRetryableError, RETRY_DELAYS_MS, sleep } from '@/lib/retry';
 
-export type UploadProgress = { uploaded: number; total: number; creating: boolean };
+// current: 1-based photo being uploaded
+export type UploadProgress = { current: number; uploaded: number; total: number; creating: boolean };
 
 export type SubmitResult =
   | { status: 'created'; post: PostResponse }
@@ -54,17 +55,15 @@ export async function submitPostDraft(
 
   try {
     await saveDraft(draft);
-    onProgress({ uploaded: countUploaded(), total, creating: false });
-
-    for (const photo of draft.photos) {
+    for (const [index, photo] of draft.photos.entries()) {
       if (photo.s3Key) continue;
+      onProgress({ current: index + 1, uploaded: countUploaded(), total, creating: false });
       try {
         photo.s3Key = await uploadPhoto(photo.uri);
         await saveDraft(draft);
       } catch {
         // Keep going, so one bad photo doesn't stop the rest from uploading
       }
-      onProgress({ uploaded: countUploaded(), total, creating: false });
     }
 
     const failed = total - countUploaded();
@@ -78,7 +77,7 @@ export async function submitPostDraft(
       return { status: 'failed', draft };
     }
 
-    onProgress({ uploaded: total, total, creating: true });
+    onProgress({ current: total, uploaded: total, total, creating: true });
     try {
       const post = await createPost({
         tripId: draft.tripId,

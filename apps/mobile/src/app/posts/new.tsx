@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState, type ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { queryKeys } from '@/api/query-keys';
 import type { TripResponse } from '@/api/types';
@@ -175,10 +175,17 @@ export default function NewPostScreen() {
               <AppText variant="label">
                 {failedDraft.error ?? "Couldn't upload this post."} Your post is saved as a draft.
               </AppText>
-              <View style={styles.bannerActions}>
-                <Button title="Retry" onPress={() => void submit()} style={styles.flex} />
-                <Button title="Discard" variant="teal" onPress={() => void discardDraft()} style={styles.flex} />
-              </View>
+              {/* Retry is the main button at the bottom */}
+              <Pressable
+                accessibilityRole="button"
+                disabled={uploading}
+                hitSlop={Spacing.two}
+                onPress={() => void discardDraft()}
+                style={styles.discard}>
+                <AppText variant="label" style={styles.discardText}>
+                  Discard draft
+                </AppText>
+              </Pressable>
             </View>
           ) : null}
 
@@ -265,7 +272,7 @@ export default function NewPostScreen() {
           <AppText variant="caption" accessibilityLiveRegion="polite" style={styles.progress}>
             {progress.creating
               ? 'Saving post…'
-              : `Uploading ${Math.min(progress.uploaded + 1, progress.total)} of ${progress.total}`}
+              : `Uploading photo ${progress.current} of ${progress.total}`}
           </AppText>
         ) : null}
         <Button
@@ -346,7 +353,8 @@ const styles = StyleSheet.create({
     borderColor: Palette.coral,
     backgroundColor: Palette.peach,
   },
-  bannerActions: { flexDirection: 'row', gap: Spacing.two },
+  discard: { alignSelf: 'flex-start' },
+  discardText: { color: Palette.coral },
   footer: { gap: Spacing.two },
   progress: { textAlign: 'center', color: Palette.placeholderGray },
   submit: { width: '100%' },
