@@ -22,6 +22,7 @@
     "noFallthroughCasesInSwitch": false,
     "types": ["jest"],
     "paths": {
+      "@forge/shared-types": ["../shared-types/src"],
       "shared-types": ["../shared-types/src"]
     }
   }

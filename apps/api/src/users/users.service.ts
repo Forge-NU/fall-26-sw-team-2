@@ -1,7 +1,6 @@
 import {
   ConflictException,
   Injectable,
-  NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { clerkClient } from '../auth/clerk.client';
@@ -9,13 +8,14 @@ import { UpdateMeDto } from './dto/update-me.dto';
 import { CreateProfileDto } from './dto/create-profile.dto';
 import { PaginationDto } from '../common/decorators/pagination.dto';
 import { decodeCursor, buildPaginatedResponse } from '../common/utils/pagination.helper';
+import { Prisma } from '../generated/prisma/client';
 
 @Injectable()
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findById(id: string) {
-    return this.prisma.user.findUnique({
+    return this.prisma.user.findFirstOrThrow({
       where: { id },
     });
   }
@@ -35,10 +35,19 @@ export class UsersService {
 
   async createProfile(id: string, data: CreateProfileDto) {
     // Don't allow the same account to create multiple profiles.
-    const existingUser = await this.findById(id);
-
-    if (existingUser) {
+    // Prisma P2025 will be thrown if user already exists, handled by global filter
+    try {
+      await this.findById(id);
       throw new ConflictException('Profile already exists');
+    } catch (error) {
+      // If it's P2025 (not found), that's expected - continue to create
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        // User doesn't exist, proceed with creation
+      } else if (error instanceof ConflictException) {
+        throw error;
+      } else {
+        throw error;
+      }
     }
 
     // Get trusted account information from Clerk.
@@ -72,9 +81,7 @@ export class UsersService {
     });
   }
   async deleteAccount(id: string) {
-    const user = await this.findById(id);
-    if (!user) throw new NotFoundException('User not found');
-
+    // Prisma P2025 will be thrown if user doesn't exist, handled by global filter
     await clerkClient.users.deleteUser(id); // delete in Clerk first
     await this.prisma.user.deleteMany({ where: { id } }); // then locally
   }

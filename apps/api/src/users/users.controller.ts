@@ -18,6 +18,7 @@ import { UpdateMeDto } from './dto/update-me.dto';
 import { CreateProfileDto } from './dto/create-profile.dto';
 import { UserResponse, PaginatedResponse } from 'shared-types';
 import { PaginationDto } from '../common/decorators/pagination.dto';
+import { mapUserToResponse } from './utils/user.mapper';
 
 @Controller()
 export class UsersController {
@@ -28,17 +29,7 @@ export class UsersController {
   async getMe(@CurrentUser() userId: string): Promise<UserResponse> {
     const user = await this.usersService.findById(userId);
 
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    return {
-      id: user.id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      username: user.username,
-      avatarUrl: user.avatarUrl,
-    };
+    return mapUserToResponse(user);
   }
 
   @Post('me/profile')
@@ -49,13 +40,7 @@ export class UsersController {
   ): Promise<UserResponse> {
     const user = await this.usersService.createProfile(userId, dto);
 
-    return {
-      id: user.id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      username: user.username,
-      avatarUrl: user.avatarUrl,
-    };
+    return mapUserToResponse(user);
   }
 
   @Patch('me')
@@ -63,13 +48,7 @@ export class UsersController {
   async updateMe(@CurrentUser() userId: string, @Body() dto: UpdateMeDto): Promise<UserResponse> {
     const user = await this.usersService.update(userId, dto);
 
-    return {
-      id: user.id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      username: user.username,
-      avatarUrl: user.avatarUrl,
-    };
+    return mapUserToResponse(user);
   }
 
   @Delete('me')
@@ -84,32 +63,19 @@ export class UsersController {
   async findById(@Param('id') id: string): Promise<UserResponse> {
     const user = await this.usersService.findById(id);
 
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    return {
-      id: user.id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      username: user.username,
-      avatarUrl: user.avatarUrl,
-    };
+    return mapUserToResponse(user);
   }
 
   @Get('users')
   @UseGuards(ClerkAuthGuard)
-  async listUsers(@Query() pagination: PaginationDto): Promise<PaginatedResponse<UserResponse>> {
+  async listUsers(
+    @CurrentUser() _userId: string,
+    @Query() pagination: PaginationDto,
+  ): Promise<PaginatedResponse<UserResponse>> {
     const result = await this.usersService.listUsers(pagination);
 
     return {
-      items: result.items.map((user) => ({
-        id: user.id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        username: user.username,
-        avatarUrl: user.avatarUrl,
-      })),
+      items: result.items.map(mapUserToResponse),
       nextCursor: result.nextCursor,
     };
   }

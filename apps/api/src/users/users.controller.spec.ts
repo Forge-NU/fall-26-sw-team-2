@@ -1,7 +1,8 @@
-import { NotFoundException } from '@nestjs/common';
+import { Prisma } from '../generated/prisma/client';
 import { Test, TestingModule } from '@nestjs/testing';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
+import { mapUserToResponse } from './utils/user.mapper';
 
 describe('UsersController', () => {
   let controller: UsersController;
@@ -46,23 +47,21 @@ describe('UsersController', () => {
     it('returns the current user profile', async () => {
       mockUsersService.findById.mockResolvedValue(mockUser);
 
-      await expect(controller.getMe('user_123')).resolves.toEqual({
-        id: 'user_123',
-        firstName: 'Test',
-        lastName: 'User',
-        username: 'testuser',
-        avatarUrl: null,
-      });
+      await expect(controller.getMe('user_123')).resolves.toEqual(
+        mapUserToResponse(mockUser),
+      );
 
       expect(mockUsersService.findById).toHaveBeenCalledWith('user_123');
     });
 
-    it('throws NotFoundException when the current user does not exist', async () => {
-      mockUsersService.findById.mockResolvedValue(null);
-
-      await expect(controller.getMe('user_123')).rejects.toBeInstanceOf(
-        NotFoundException,
+    it('propagates Prisma P2025 when user does not exist (handled by global filter)', async () => {
+      const prismaError = new Prisma.PrismaClientKnownRequestError(
+        'Record not found',
+        { code: 'P2025', clientVersion: 'test' },
       );
+      mockUsersService.findById.mockRejectedValue(prismaError);
+
+      await expect(controller.getMe('user_123')).rejects.toThrow(prismaError);
     });
   });
 
@@ -73,25 +72,23 @@ describe('UsersController', () => {
 
       mockUsersService.update.mockResolvedValue(updatedUser);
 
-      await expect(controller.updateMe('user_123', dto)).resolves.toEqual({
-        id: 'user_123',
-        firstName: 'Test',
-        lastName: 'User',
-        username: 'updateduser',
-        avatarUrl: null,
-      });
+      await expect(controller.updateMe('user_123', dto)).resolves.toEqual(
+        mapUserToResponse(updatedUser),
+      );
 
       expect(mockUsersService.update).toHaveBeenCalledWith('user_123', dto);
     });
 
-    it('propagates errors from the service', async () => {
-      mockUsersService.update.mockRejectedValue(
-        new NotFoundException('User not found'),
+    it('propagates Prisma errors from the service (handled by global filter)', async () => {
+      const prismaError = new Prisma.PrismaClientKnownRequestError(
+        'Record not found',
+        { code: 'P2025', clientVersion: 'test' },
       );
+      mockUsersService.update.mockRejectedValue(prismaError);
 
       await expect(
         controller.updateMe('user_123', { username: 'updateduser' }),
-      ).rejects.toBeInstanceOf(NotFoundException);
+      ).rejects.toThrow(prismaError);
     });
   });
 
@@ -104,13 +101,10 @@ describe('UsersController', () => {
     });
 
     it('propagates errors from account deletion', async () => {
-      mockUsersService.deleteAccount.mockRejectedValue(
-        new NotFoundException('User not found'),
-      );
+      const error = new Error('Clerk deletion failed');
+      mockUsersService.deleteAccount.mockRejectedValue(error);
 
-      await expect(controller.deleteMe('user_123')).rejects.toBeInstanceOf(
-        NotFoundException,
-      );
+      await expect(controller.deleteMe('user_123')).rejects.toThrow(error);
     });
   });
 
@@ -118,23 +112,21 @@ describe('UsersController', () => {
     it('returns a user profile by ID', async () => {
       mockUsersService.findById.mockResolvedValue(mockUser);
 
-      await expect(controller.findById('user_123')).resolves.toEqual({
-        id: 'user_123',
-        firstName: 'Test',
-        lastName: 'User',
-        username: 'testuser',
-        avatarUrl: null,
-      });
+      await expect(controller.findById('user_123')).resolves.toEqual(
+        mapUserToResponse(mockUser),
+      );
 
       expect(mockUsersService.findById).toHaveBeenCalledWith('user_123');
     });
 
-    it('throws NotFoundException when the user does not exist', async () => {
-      mockUsersService.findById.mockResolvedValue(null);
-
-      await expect(controller.findById('missing')).rejects.toBeInstanceOf(
-        NotFoundException,
+    it('propagates Prisma P2025 when user does not exist (handled by global filter)', async () => {
+      const prismaError = new Prisma.PrismaClientKnownRequestError(
+        'Record not found',
+        { code: 'P2025', clientVersion: 'test' },
       );
+      mockUsersService.findById.mockRejectedValue(prismaError);
+
+      await expect(controller.findById('missing')).rejects.toThrow(prismaError);
     });
   });
 
@@ -150,23 +142,8 @@ describe('UsersController', () => {
         nextCursor: 'dXNlcl80NTY=',
       });
 
-      await expect(controller.listUsers({})).resolves.toEqual({
-        items: [
-          {
-            id: 'user_123',
-            firstName: 'Test',
-            lastName: 'User',
-            username: 'testuser',
-            avatarUrl: null,
-          },
-          {
-            id: 'user_456',
-            firstName: 'Test',
-            lastName: 'User',
-            username: 'testuser2',
-            avatarUrl: null,
-          },
-        ],
+      await expect(controller.listUsers('user_123', {})).resolves.toEqual({
+        items: mockUsers.map(mapUserToResponse),
         nextCursor: 'dXNlcl80NTY=',
       });
 
@@ -179,7 +156,7 @@ describe('UsersController', () => {
         nextCursor: null,
       });
 
-      await expect(controller.listUsers({})).resolves.toEqual({
+      await expect(controller.listUsers('user_123', {})).resolves.toEqual({
         items: [],
         nextCursor: null,
       });
@@ -191,7 +168,7 @@ describe('UsersController', () => {
         nextCursor: null,
       });
 
-      await controller.listUsers({ cursor: 'abc123', limit: 10 });
+      await controller.listUsers('user_123', { cursor: 'abc123', limit: 10 });
 
       expect(mockUsersService.listUsers).toHaveBeenCalledWith({
         cursor: 'abc123',

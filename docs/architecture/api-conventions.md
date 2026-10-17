@@ -158,7 +158,7 @@ import { UserResponse } from 'shared-types';
 export type { UserResponse };
 ```
 
-The mobile app's `tsconfig.json` is configured to resolve `shared-types` to the source directory for development.
+The mobile app's `tsconfig.json` is configured to resolve `shared-types` to the source directory for development. Type changes in `shared-types` will cause type errors in both apps where they are misused.
 
 ## Authentication
 
@@ -195,6 +195,36 @@ export class UsersController {
   async getMe() { }
 }
 ```
+
+## Workspace Setup
+
+The project uses npm workspaces to manage the monorepo structure with three packages:
+
+- `apps/api` - NestJS backend
+- `apps/mobile` - Expo React Native app
+- `apps/shared-types` - Shared TypeScript types
+
+### Dependencies
+
+Both apps reference `shared-types` as a workspace dependency:
+
+```json
+// apps/api/package.json
+{
+  "dependencies": {
+    "shared-types": "*"
+  }
+}
+
+// apps/mobile/package.json
+{
+  "dependencies": {
+    "shared-types": "*"
+  }
+}
+```
+
+This ensures npm links the packages correctly during development.
 
 ## Adding a New Endpoint
 
@@ -247,19 +277,27 @@ async createPost(userId: string, data: CreatePostDto) {
 }
 ```
 
-### 4. Add Controller Endpoint
+### 4. Create Response Mapper (if needed)
+
+For complex response types, create a mapper function in your service's utils folder:
 
 ```typescript
-import { UserResponse, PostResponse } from 'shared-types';
+// posts/utils/post.mapper.ts
+import { PostResponse } from 'shared-types';
 
-@Post('posts')
-@UseGuards(ClerkAuthGuard)
-async createPost(
-  @CurrentUser() userId: string,
-  @Body() dto: CreatePostDto,
-): Promise<PostResponse> {
-  const post = await this.postsService.createPost(userId, dto);
-
+export function mapPostToResponse(post: {
+  id: string;
+  content: string;
+  imageUrl: string | null;
+  createdAt: Date;
+  user: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    username: string;
+    avatarUrl: string | null;
+  };
+}): PostResponse {
   return {
     id: post.id,
     content: post.content,
@@ -273,6 +311,24 @@ async createPost(
       avatarUrl: post.user.avatarUrl,
     },
   };
+}
+```
+
+### 5. Add Controller Endpoint
+
+```typescript
+import { UserResponse, PostResponse } from 'shared-types';
+import { mapPostToResponse } from './utils/post.mapper';
+
+@Post('posts')
+@UseGuards(ClerkAuthGuard)
+async createPost(
+  @CurrentUser() userId: string,
+  @Body() dto: CreatePostDto,
+): Promise<PostResponse> {
+  const post = await this.postsService.createPost(userId, dto);
+
+  return mapPostToResponse(post);
 }
 ```
 
@@ -297,6 +353,7 @@ This endpoint demonstrates all the conventions together:
 - Uses `@CurrentUser()` for auth
 - Uses `PaginationDto` for pagination
 - Returns `PaginatedResponse<UserResponse>` using shared types
+- Uses response mapper to avoid duplication
 - Relies on global exception filter for error handling
 - Uses global `/api` prefix
 
@@ -310,13 +367,7 @@ async listUsers(
   const result = await this.usersService.listUsers(pagination);
 
   return {
-    items: result.items.map((user) => ({
-      id: user.id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      username: user.username,
-      avatarUrl: user.avatarUrl,
-    })),
+    items: result.items.map(mapUserToResponse),
     nextCursor: result.nextCursor,
   };
 }
@@ -329,6 +380,7 @@ When adding a new endpoint:
 - [ ] Add types to `shared-types`
 - [ ] Create DTO with validation decorators
 - [ ] Implement service method
+- [ ] Create response mapper (if response is complex/repeated)
 - [ ] Use `@CurrentUser()` for authenticated endpoints
 - [ ] Use `PaginationDto` for list endpoints
 - [ ] Return typed responses from `shared-types`
