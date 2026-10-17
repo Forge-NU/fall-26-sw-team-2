@@ -43,11 +43,15 @@ export function DayAtAGlance({ places }: { places: DayPlace[] }) {
           return (
             <View key={place.id} style={styles.place}>
               <View style={styles.placeHeader}>
-                <View style={styles.timeChip}>
-                  <AppText variant="bold" size={10}>
-                    {place.time}
-                  </AppText>
-                </View>
+                {place.time ? (
+                  <View style={styles.timeChip}>
+                    <AppText variant="bold" size={10}>
+                      {place.time}
+                    </AppText>
+                  </View>
+                ) : (
+                  <View />
+                )}
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={isAdded ? `Remove ${place.name}` : `Add ${place.name}`}
