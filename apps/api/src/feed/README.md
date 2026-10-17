@@ -63,9 +63,9 @@ The cursor carries a session id. Each page records what it served
 (`PreviouslyServedFilter`), so pages never repeat even if scores change mid-scroll. A
 request without a cursor starts a new session.
 
-Because a page is marked served as soon as it's returned, asking for the same cursor
-twice gives an empty page. Clients shouldn't retry a cursor; start a new session
-(no cursor) instead.
+A page is marked served as soon as it's returned, so asking for the same cursor again
+gives the session's next unserved trips, not the same page. If a response is lost on
+the way to the app, its trips are skipped for the rest of that session.
 
 Served history is kept in memory (`served-history.store.ts`). It has to move to Redis or
 Postgres before we run more than one API instance.
