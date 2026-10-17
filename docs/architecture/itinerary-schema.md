@@ -417,7 +417,7 @@ Request:
 - `visitedOn`: required, within the trip's dates. The app fills it in with today if today is within the trip's dates, otherwise the trip's start date.
 - `caption`: optional, up to 2,200 characters.
 - Location: exactly one of `locationId` (an existing location row, from #37's endpoint) and `customLocationName` (1 to 100 characters).
-- `media`: 1 to 30 items, in carousel order. Each `s3Key` has to be one of the current user's post uploads (it starts with `users/{userId}/posts/`, the key scheme from #38), can't appear twice, and can't already belong to another post. `width` and `height` (1 to 20,000 px) and `durationMs` (up to 60,000) are optional.
+- `media`: 1 to 30 items, in carousel order. Each `s3Key` has to be one of the current user's post uploads (it starts with `users/{userId}/posts/`, the key scheme from #38), can't appear twice, and can't already belong to another post. `width` and `height` (1 to 20,000 px) are optional. `durationMs` (up to 60,000) is required for videos and not allowed on images.
 
 The app only calls this after every upload has succeeded.
 
