@@ -1,9 +1,9 @@
 import type { FeedAction } from '../feed.types';
 
 export interface FypConfig {
-  // Baseline P(action) per impression, used for itineraries without much data yet.
+  // Baseline P(action) per impression, used for trips without much data yet.
   actionPriors: Record<FeedAction, number>;
-  // How many impressions' worth of weight the prior gets against an itinerary's own data.
+  // How many impressions' worth of weight the prior gets against a trip's own data.
   priorStrength: number;
   // Multiply predicted probabilities, not raw counts. Negative for negative actions.
   actionWeights: Record<FeedAction, number>;
@@ -41,7 +41,7 @@ export const DEFAULT_FYP_CONFIG: FypConfig = {
     hide: -20,
     report: -100,
   },
-  // Itineraries stay useful for a long time, so decay slowly and never below half.
+  // Trips stay useful for a long time, so decay slowly and never below half.
   recency: { halfLifeDays: 30, floor: 0.5 },
   authorDiversity: { decay: 0.6, floor: 0.25 },
   newAuthorSlot: { impressionThreshold: 500, position: 2 },
@@ -58,3 +58,4 @@ export const FYP_FILTERS = Symbol('FYP_FILTERS');
 export const FYP_SCORERS = Symbol('FYP_SCORERS');
 export const FYP_SELECTOR = Symbol('FYP_SELECTOR');
 export const FYP_SIDE_EFFECTS = Symbol('FYP_SIDE_EFFECTS');
+export const FYP_CARD_LOADER = Symbol('FYP_CARD_LOADER');

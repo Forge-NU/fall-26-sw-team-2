@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 
-// Which itineraries each feed session has been served.
+// Which trips each feed session has been served.
 export interface ServedHistoryStore {
   get(sessionId: string): Promise<ReadonlySet<string>>;
-  add(sessionId: string, itineraryIds: readonly string[]): Promise<void>;
+  add(sessionId: string, tripIds: readonly string[]): Promise<void>;
 }
 
 export const SERVED_HISTORY_STORE = Symbol('SERVED_HISTORY_STORE');
@@ -26,9 +26,9 @@ export class InMemoryServedHistoryStore implements ServedHistoryStore {
     return Promise.resolve(new Set(this.liveSession(sessionId)?.ids));
   }
 
-  add(sessionId: string, itineraryIds: readonly string[]): Promise<void> {
+  add(sessionId: string, tripIds: readonly string[]): Promise<void> {
     const ids = this.liveSession(sessionId)?.ids ?? new Set<string>();
-    itineraryIds.forEach((id) => ids.add(id));
+    tripIds.forEach((id) => ids.add(id));
 
     this.sessions.delete(sessionId);
     this.sessions.set(sessionId, {

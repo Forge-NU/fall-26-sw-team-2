@@ -8,6 +8,7 @@ import type {
   CandidateSelector,
   CandidateSource,
   FeedCandidate,
+  FeedCardLoader,
   FeedPage,
   FeedSideEffect,
   ViewerContext,
@@ -15,6 +16,7 @@ import type {
 } from '../feed.types';
 import {
   FYP_CANDIDATE_HYDRATORS,
+  FYP_CARD_LOADER,
   FYP_CONFIG,
   FYP_FILTERS,
   FYP_SCORERS,
@@ -45,6 +47,7 @@ export class FypFeedService {
     @Inject(FYP_SCORERS) private readonly scorers: CandidateScorer[],
     @Inject(FYP_SELECTOR) private readonly selector: CandidateSelector,
     @Inject(FYP_SIDE_EFFECTS) private readonly sideEffects: FeedSideEffect[],
+    @Inject(FYP_CARD_LOADER) private readonly cardLoader: FeedCardLoader,
   ) {}
 
   // Each page is the best of what this session hasn't been served yet, so pages never
@@ -88,14 +91,17 @@ export class FypFeedService {
     }
 
     const page = this.selector.select(candidates, context, size);
-    await this.runSideEffects(context, page);
+
+    // A trip deleted since it was retrieved has no card; it's dropped.
+    const cards = await this.cardLoader.load(page.map((c) => c.tripId));
+    const served = page.filter((candidate) => cards.has(candidate.tripId));
+    await this.runSideEffects(context, served);
 
     return {
-      items: page.map(({ itineraryId, authorId, score, sources }) => ({
-        itineraryId,
-        authorId,
-        score,
-        sources,
+      items: served.map((candidate) => ({
+        ...cards.get(candidate.tripId)!,
+        score: candidate.score,
+        sources: candidate.sources,
       })),
       nextCursor:
         candidates.length > page.length ? encodeCursor(sessionId) : null,
@@ -120,7 +126,7 @@ export class FypFeedService {
   }
 
   // A failing source shouldn't empty the feed, so drop it and keep the rest. An
-  // itinerary returned by several sources keeps the first source's copy.
+  // trip returned by several sources keeps the first source's copy.
   private async retrieve(viewer: ViewerContext): Promise<FeedCandidate[]> {
     const results = await Promise.allSettled(
       this.sources.map((source) =>
@@ -138,11 +144,11 @@ export class FypFeedService {
         return;
       }
       for (const candidate of result.value) {
-        const existing = byId.get(candidate.itineraryId);
+        const existing = byId.get(candidate.tripId);
         if (existing) {
           existing.sources.push(sourceName);
         } else {
-          byId.set(candidate.itineraryId, {
+          byId.set(candidate.tripId, {
             ...candidate,
             sources: [sourceName],
             predictions: {},

@@ -1,11 +1,11 @@
 import type { FeedCandidate } from '../feed.types';
 
-// Highest score first; ties go to the newer itinerary, then by id so order is stable.
+// Highest score first; ties go to the newer trip, then by id so order is stable.
 export function compareByScore(a: FeedCandidate, b: FeedCandidate): number {
   return (
     b.score - a.score ||
-    b.createdAt.getTime() - a.createdAt.getTime() ||
-    a.itineraryId.localeCompare(b.itineraryId)
+    b.publishedAt.getTime() - a.publishedAt.getTime() ||
+    a.tripId.localeCompare(b.tripId)
   );
 }
 

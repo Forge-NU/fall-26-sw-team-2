@@ -22,9 +22,9 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 function candidate(overrides: Partial<FeedCandidate> = {}): FeedCandidate {
   return {
-    itineraryId: 'a',
+    tripId: 'a',
     authorId: 'author-a',
-    createdAt: now,
+    publishedAt: now,
     sources: ['test'],
     predictions: {},
     score: 0,
@@ -33,7 +33,7 @@ function candidate(overrides: Partial<FeedCandidate> = {}): FeedCandidate {
 }
 
 function ids(candidates: FeedCandidate[]): string[] {
-  return candidates.map((c) => c.itineraryId);
+  return candidates.map((c) => c.tripId);
 }
 
 describe('applyMultiplier', () => {
@@ -47,7 +47,7 @@ describe('applyMultiplier', () => {
 describe('EngagementRateScorer', () => {
   const scorer = new EngagementRateScorer(config);
 
-  it('falls back to the priors for an itinerary without stats', async () => {
+  it('falls back to the priors for a trip without stats', async () => {
     const [scored] = await scorer.score([candidate()]);
 
     for (const action of FEED_ACTIONS) {
@@ -93,11 +93,11 @@ describe('RecencyScorer', () => {
     now.getTime() - config.recency.halfLifeDays * DAY_MS,
   );
 
-  it('decays older itineraries toward the floor', async () => {
+  it('decays older trips toward the floor', async () => {
     const scored = await scorer.score(
       [
         candidate({ score: 2 }),
-        candidate({ score: 2, createdAt: halfLifeAgo }),
+        candidate({ score: 2, publishedAt: halfLifeAgo }),
       ],
       viewer,
     );
@@ -108,7 +108,7 @@ describe('RecencyScorer', () => {
 
   it('pushes negative scores further down as they age', async () => {
     const [scored] = await scorer.score(
-      [candidate({ score: -1, createdAt: halfLifeAgo })],
+      [candidate({ score: -1, publishedAt: halfLifeAgo })],
       viewer,
     );
 
@@ -119,13 +119,13 @@ describe('RecencyScorer', () => {
 describe('AuthorDiversityScorer', () => {
   const scorer = new AuthorDiversityScorer(config);
 
-  it("decays each author's later itineraries down to a floor, keeping input order", async () => {
+  it("decays each author's later trips down to a floor, keeping input order", async () => {
     const scored = await scorer.score([
-      candidate({ itineraryId: 'y1', authorId: 'y', score: 0.8 }),
-      candidate({ itineraryId: 'x2', authorId: 'x', score: 0.9 }),
-      candidate({ itineraryId: 'x1', authorId: 'x', score: 1 }),
-      candidate({ itineraryId: 'x3', authorId: 'x', score: 0.5 }),
-      candidate({ itineraryId: 'x4', authorId: 'x', score: 0.4 }),
+      candidate({ tripId: 'y1', authorId: 'y', score: 0.8 }),
+      candidate({ tripId: 'x2', authorId: 'x', score: 0.9 }),
+      candidate({ tripId: 'x1', authorId: 'x', score: 1 }),
+      candidate({ tripId: 'x3', authorId: 'x', score: 0.5 }),
+      candidate({ tripId: 'x4', authorId: 'x', score: 0.4 }),
     ]);
 
     expect(ids(scored)).toEqual(['y1', 'x2', 'x1', 'x3', 'x4']);
@@ -137,16 +137,16 @@ describe('AuthorDiversityScorer', () => {
 
 describe('TopKSelector', () => {
   const selector = new TopKSelector(config);
-  const established = (itineraryId: string, score: number) =>
+  const established = (tripId: string, score: number) =>
     candidate({
-      itineraryId,
-      authorId: `author-${itineraryId}`,
+      tripId,
+      authorId: `author-${tripId}`,
       authorImpressions: 10_000,
       score,
     });
   const newcomer = (score: number) =>
     candidate({
-      itineraryId: 'new',
+      tripId: 'new',
       authorId: 'author-new',
       authorImpressions: 10,
       score,
@@ -168,7 +168,7 @@ describe('TopKSelector', () => {
     expect(ids(page)).toEqual(['b', 'c']);
   });
 
-  it('moves the best new-author itinerary into the reserved slot', () => {
+  it('moves the best new-author trip into the reserved slot', () => {
     const page = selector.select([...ranked, newcomer(0.1)], viewer, 4);
 
     expect(ids(page)).toEqual(['a1', 'a2', 'new', 'a3']);
@@ -181,7 +181,7 @@ describe('TopKSelector', () => {
   });
 
   it('does not boost authors whose impressions are unknown', () => {
-    const unknown = candidate({ itineraryId: 'unknown', score: 0.1 });
+    const unknown = candidate({ tripId: 'unknown', score: 0.1 });
 
     const page = selector.select([...ranked, unknown], viewer, 4);
 
@@ -197,7 +197,7 @@ describe('served history', () => {
   it('filters out what earlier pages in the session served', async () => {
     const store = new InMemoryServedHistoryStore();
     await new UpdateServedHistorySideEffect(store).run(viewer, [
-      candidate({ itineraryId: 'a' }),
+      candidate({ tripId: 'a' }),
     ]);
 
     const hydrated = {
@@ -205,7 +205,7 @@ describe('served history', () => {
       ...(await new ServedHistoryHydrator(store).hydrate(viewer)),
     };
     const kept = await new PreviouslyServedFilter().apply(
-      [candidate({ itineraryId: 'a' }), candidate({ itineraryId: 'b' })],
+      [candidate({ tripId: 'a' }), candidate({ tripId: 'b' })],
       hydrated,
     );
 

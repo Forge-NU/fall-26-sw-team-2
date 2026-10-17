@@ -8,7 +8,7 @@ import {
 import { FYP_CONFIG, type FypConfig } from '../fyp/fyp.config';
 
 // Stand-in for a trained model (X: PhoenixScorer). Estimates P(action) from the
-// itinerary's own engagement rate, smoothed toward a baseline prior so an itinerary
+// trip's own engagement rate, smoothed toward a baseline prior so a trip
 // with a handful of impressions isn't judged on them alone:
 //   P(action) = (count + prior × strength) / (impressions + strength)
 // Not personalized yet: every viewer gets the same estimate.

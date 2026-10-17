@@ -15,6 +15,6 @@ export class ServedHistoryHydrator implements ViewerHydrator {
   ) {}
 
   async hydrate(viewer: ViewerContext): Promise<ViewerData> {
-    return { servedItineraryIds: await this.store.get(viewer.sessionId) };
+    return { servedTripIds: await this.store.get(viewer.sessionId) };
   }
 }

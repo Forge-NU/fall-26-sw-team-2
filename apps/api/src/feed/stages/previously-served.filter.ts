@@ -5,7 +5,7 @@ import type {
   ViewerContext,
 } from '../feed.types';
 
-// Drops itineraries served earlier in this feed session, so pages never repeat
+// Drops trips served earlier in this feed session, so pages never repeat
 // (X: PreviouslyServedPostsFilter).
 @Injectable()
 export class PreviouslyServedFilter implements CandidateFilter {
@@ -15,10 +15,10 @@ export class PreviouslyServedFilter implements CandidateFilter {
     candidates: readonly FeedCandidate[],
     viewer: ViewerContext,
   ): Promise<FeedCandidate[]> {
-    const served = viewer.servedItineraryIds;
+    const served = viewer.servedTripIds;
     return Promise.resolve(
       served
-        ? candidates.filter((candidate) => !served.has(candidate.itineraryId))
+        ? candidates.filter((candidate) => !served.has(candidate.tripId))
         : [...candidates],
     );
   }

@@ -3,8 +3,8 @@ import type { CandidateScorer, FeedCandidate } from '../feed.types';
 import { FYP_CONFIG, type FypConfig } from '../fyp/fyp.config';
 import { applyMultiplier, compareByScore } from './score-utils';
 
-// Demotes repeat itineraries from the same author (X: author diversity in
-// RankingScorer). In score order, an author's nth itinerary (counting from 0) is
+// Demotes repeat trips from the same author (X: author diversity in
+// RankingScorer). In score order, an author's nth trip (counting from 0) is
 // multiplied by max(floor, decay^n). Run it last so it sees final scores.
 @Injectable()
 export class AuthorDiversityScorer implements CandidateScorer {

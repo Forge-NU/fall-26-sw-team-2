@@ -1,23 +1,23 @@
-import { Controller, Get, Headers, ParseIntPipe, Query } from '@nestjs/common';
-import { FeedPage } from './feed.types';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import {
+  OptionalClerkAuthGuard,
+  ViewerId,
+} from '../auth/optional-clerk-auth.guard';
+import { FypQueryDto } from './dto/fyp-query.dto';
+import type { FeedPage } from './feed.types';
 import { FypFeedService } from './fyp/fyp-feed.service';
 
-@Controller('feed')
+@Controller('api/feed')
 export class FeedController {
   constructor(private readonly fypFeed: FypFeedService) {}
 
-  // TODO(auth): read the viewer from the authenticated user. The header is a stand-in
-  // and can be spoofed, so don't rely on it for anything beyond personalization.
+  // Signed-out viewers get the FYP too; signing in only personalizes it.
   @Get('fyp')
+  @UseGuards(OptionalClerkAuthGuard)
   getFyp(
-    @Headers('x-user-id') viewerId: string | undefined,
-    @Query('cursor') cursor: string | undefined,
-    @Query('limit', new ParseIntPipe({ optional: true }))
-    limit: number | undefined,
+    @ViewerId() viewerId: string | null,
+    @Query() query: FypQueryDto,
   ): Promise<FeedPage> {
-    return this.fypFeed.getPage(
-      { viewerId: viewerId ?? null, now: new Date() },
-      { cursor, limit },
-    );
+    return this.fypFeed.getPage({ viewerId, now: new Date() }, query);
   }
 }

@@ -9,9 +9,9 @@ import { applyMultiplier } from './score-utils';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
-// Demotes older itineraries, but only down to a floor:
+// Demotes older trips, but only down to a floor:
 //   multiplier = floor + (1 - floor) × 0.5^(age / halfLife)
-// X drops posts older than 48 hours instead; itineraries age much more slowly.
+// X drops posts older than 48 hours instead; trips age much more slowly.
 @Injectable()
 export class RecencyScorer implements CandidateScorer {
   readonly name = 'recency';
@@ -28,7 +28,7 @@ export class RecencyScorer implements CandidateScorer {
       candidates.map((candidate) => {
         const ageMs = Math.max(
           0,
-          viewer.now.getTime() - candidate.createdAt.getTime(),
+          viewer.now.getTime() - candidate.publishedAt.getTime(),
         );
         const multiplier = floor + (1 - floor) * 0.5 ** (ageMs / halfLifeMs);
         return {

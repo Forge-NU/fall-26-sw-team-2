@@ -9,7 +9,7 @@ import { compareByScore } from './score-utils';
 
 // Sorts by score and keeps the top `size` (X: TopKScoreSelector), with one slot held
 // for a new author (a simpler take on X's new-author boost): if none of the first
-// `position + 1` itineraries is from an author under `impressionThreshold` impressions,
+// `position + 1` trips is from an author under `impressionThreshold` impressions,
 // the best-scoring one further down moves up into `position`.
 @Injectable()
 export class TopKSelector implements CandidateSelector {

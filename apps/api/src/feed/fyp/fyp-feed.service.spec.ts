@@ -3,13 +3,16 @@ import type {
   CandidateHydrator,
   CandidateSource,
   EngagementStats,
+  FeedCardLoader,
   FeedPage,
   SourcedCandidate,
+  TripCard,
 } from '../feed.types';
 import { InMemoryServedHistoryStore } from '../served-history.store';
+import type { TripResponse } from '../../trips/trip.types';
 import { AuthorDiversityScorer } from '../stages/author-diversity.scorer';
 import { EngagementRateScorer } from '../stages/engagement-rate.scorer';
-import { ExcludeOwnItinerariesFilter } from '../stages/exclude-own-itineraries.filter';
+import { ExcludeOwnTripsFilter } from '../stages/exclude-own-trips.filter';
 import { PreviouslyServedFilter } from '../stages/previously-served.filter';
 import { RecencyScorer } from '../stages/recency.scorer';
 import { ServedHistoryHydrator } from '../stages/served-history.hydrator';
@@ -24,13 +27,13 @@ const viewer = { viewerId: 'viewer-1', now };
 const config = DEFAULT_FYP_CONFIG;
 
 function candidate(
-  itineraryId: string,
+  tripId: string,
   overrides: Partial<SourcedCandidate> = {},
 ): SourcedCandidate {
   return {
-    itineraryId,
-    authorId: `author-${itineraryId}`,
-    createdAt: now,
+    tripId,
+    authorId: `author-${tripId}`,
+    publishedAt: now,
     ...overrides,
   };
 }
@@ -46,9 +49,19 @@ function sourceOf(
   return { name, fetch: () => Promise.resolve(candidates) };
 }
 
+function card(tripId: string): TripCard {
+  return { trip: { id: tripId } as TripResponse, posts: [] };
+}
+
+const loadEveryCard: FeedCardLoader = {
+  load: (tripIds) =>
+    Promise.resolve(new Map(tripIds.map((id) => [id, card(id)]))),
+};
+
 function buildService(
   sources: CandidateSource[],
   candidateHydrators: CandidateHydrator[] = [],
+  cardLoader: FeedCardLoader = loadEveryCard,
 ): FypFeedService {
   const servedHistory = new InMemoryServedHistoryStore();
   return new FypFeedService(
@@ -56,7 +69,7 @@ function buildService(
     [new ServedHistoryHydrator(servedHistory)],
     sources,
     candidateHydrators,
-    [new ExcludeOwnItinerariesFilter(), new PreviouslyServedFilter()],
+    [new ExcludeOwnTripsFilter(), new PreviouslyServedFilter()],
     [
       new EngagementRateScorer(config),
       new WeightedActionScorer(config),
@@ -65,11 +78,12 @@ function buildService(
     ],
     new TopKSelector(config),
     [new UpdateServedHistorySideEffect(servedHistory)],
+    cardLoader,
   );
 }
 
 function ids(page: FeedPage): string[] {
-  return page.items.map((item) => item.itineraryId);
+  return page.items.map((item) => item.trip.id);
 }
 
 describe('FypFeedService', () => {
@@ -85,6 +99,34 @@ describe('FypFeedService', () => {
     const page = await buildService([]).getPage(viewer);
 
     expect(page).toEqual({ items: [], nextCursor: null });
+  });
+
+  it('returns each trip with its card, score and sources', async () => {
+    const page = await buildService([
+      sourceOf('test', [candidate('a')]),
+    ]).getPage(viewer);
+
+    expect(page.items).toEqual([
+      { ...card('a'), score: expect.any(Number) as number, sources: ['test'] },
+    ]);
+  });
+
+  it('drops a trip deleted between ranking and loading its card', async () => {
+    const missingB: FeedCardLoader = {
+      load: (tripIds) =>
+        Promise.resolve(
+          new Map(
+            tripIds.filter((id) => id !== 'b').map((id) => [id, card(id)]),
+          ),
+        ),
+    };
+    const service = buildService(
+      [sourceOf('test', [candidate('a'), candidate('b')])],
+      [],
+      missingB,
+    );
+
+    expect(ids(await service.getPage(viewer))).toEqual(['a']);
   });
 
   it('ranks by predicted actions, with negative actions pulling items down', async () => {
@@ -111,7 +153,7 @@ describe('FypFeedService', () => {
       hydrate: (candidates) =>
         Promise.resolve(
           candidates.map((c) =>
-            c.itineraryId === 'b' ? { ...c, stats: saves(20) } : c,
+            c.tripId === 'b' ? { ...c, stats: saves(20) } : c,
           ),
         ),
     };
@@ -136,7 +178,7 @@ describe('FypFeedService', () => {
     expect(ids(await service.getPage(viewer))).toEqual(['a']);
   });
 
-  it('merges an itinerary returned by more than one source', async () => {
+  it('merges a trip returned by more than one source', async () => {
     const service = buildService([
       sourceOf('popular', [candidate('a')]),
       sourceOf('taste', [candidate('a')]),
@@ -157,7 +199,7 @@ describe('FypFeedService', () => {
     expect(ids(await service.getPage(viewer))).toEqual(['a']);
   });
 
-  it("excludes the viewer's own itineraries", async () => {
+  it("excludes the viewer's own trips", async () => {
     const service = buildService([
       sourceOf('test', [
         candidate('mine', { authorId: 'viewer-1' }),
@@ -168,8 +210,8 @@ describe('FypFeedService', () => {
     expect(ids(await service.getPage(viewer))).toEqual(['theirs']);
   });
 
-  it('never repeats an itinerary across pages, even when scores change', async () => {
-    const itineraryIds = ['i0', 'i1', 'i2', 'i3', 'i4'];
+  it('never repeats a trip across pages, even when scores change', async () => {
+    const tripIds = ['i0', 'i1', 'i2', 'i3', 'i4'];
     let fetches = 0;
     const shifting: CandidateSource = {
       name: 'shifting',
@@ -177,7 +219,7 @@ describe('FypFeedService', () => {
         // First fetch ranks i0 highest; later fetches rank i4 highest.
         const reversed = fetches++ > 0;
         return Promise.resolve(
-          itineraryIds.map((id, i) =>
+          tripIds.map((id, i) =>
             candidate(id, { stats: saves(reversed ? i * 5 : (4 - i) * 5) }),
           ),
         );

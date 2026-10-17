@@ -1,4 +1,7 @@
 import { Module } from '@nestjs/common';
+import { PostsModule } from '../posts/posts.module';
+import { PrismaModule } from '../prisma/prisma.module';
+import { TripsModule } from '../trips/trips.module';
 import { FeedController } from './feed.controller';
 import type {
   CandidateFilter,
@@ -12,6 +15,7 @@ import { FypFeedService } from './fyp/fyp-feed.service';
 import {
   DEFAULT_FYP_CONFIG,
   FYP_CANDIDATE_HYDRATORS,
+  FYP_CARD_LOADER,
   FYP_CONFIG,
   FYP_FILTERS,
   FYP_SCORERS,
@@ -26,15 +30,18 @@ import {
 } from './served-history.store';
 import { AuthorDiversityScorer } from './stages/author-diversity.scorer';
 import { EngagementRateScorer } from './stages/engagement-rate.scorer';
-import { ExcludeOwnItinerariesFilter } from './stages/exclude-own-itineraries.filter';
+import { ExcludeOwnTripsFilter } from './stages/exclude-own-trips.filter';
 import { PreviouslyServedFilter } from './stages/previously-served.filter';
 import { RecencyScorer } from './stages/recency.scorer';
+import { RecentlyPublishedSource } from './stages/recently-published.source';
 import { ServedHistoryHydrator } from './stages/served-history.hydrator';
 import { TopKSelector } from './stages/top-k.selector';
 import { UpdateServedHistorySideEffect } from './stages/update-served-history.side-effect';
 import { WeightedActionScorer } from './stages/weighted-action.scorer';
+import { TripCardLoader } from './trip-card.loader';
 
 @Module({
+  imports: [PrismaModule, TripsModule, PostsModule],
   controllers: [FeedController],
   providers: [
     { provide: FYP_CONFIG, useValue: DEFAULT_FYP_CONFIG },
@@ -50,9 +57,15 @@ import { WeightedActionScorer } from './stages/weighted-action.scorer';
       inject: [ServedHistoryHydrator],
     },
 
-    // TODO(ingest): register CandidateSource implementations here once itinerary data
-    // exists. Until then the FYP is always empty.
-    { provide: FYP_SOURCES, useValue: [] satisfies CandidateSource[] },
+    // TODO(ingest): add sources for popular trips, same school and taste match.
+    RecentlyPublishedSource,
+    {
+      provide: FYP_SOURCES,
+      useFactory: (
+        recentlyPublished: RecentlyPublishedSource,
+      ): CandidateSource[] => [recentlyPublished],
+      inject: [RecentlyPublishedSource],
+    },
 
     // TODO(ingest): load engagement stats and author impressions onto candidates.
     {
@@ -60,15 +73,15 @@ import { WeightedActionScorer } from './stages/weighted-action.scorer';
       useValue: [] satisfies CandidateHydrator[],
     },
 
-    ExcludeOwnItinerariesFilter,
+    ExcludeOwnTripsFilter,
     PreviouslyServedFilter,
     {
       provide: FYP_FILTERS,
       useFactory: (
-        ownItineraries: ExcludeOwnItinerariesFilter,
+        ownTrips: ExcludeOwnTripsFilter,
         previouslyServed: PreviouslyServedFilter,
-      ): CandidateFilter[] => [ownItineraries, previouslyServed],
-      inject: [ExcludeOwnItinerariesFilter, PreviouslyServedFilter],
+      ): CandidateFilter[] => [ownTrips, previouslyServed],
+      inject: [ExcludeOwnTripsFilter, PreviouslyServedFilter],
     },
 
     // Order matters: predict actions, combine them, then adjust the combined score.
@@ -108,6 +121,7 @@ import { WeightedActionScorer } from './stages/weighted-action.scorer';
       inject: [UpdateServedHistorySideEffect],
     },
 
+    { provide: FYP_CARD_LOADER, useClass: TripCardLoader },
     FypFeedService,
   ],
 })

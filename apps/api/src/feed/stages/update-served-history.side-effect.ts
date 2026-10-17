@@ -22,7 +22,7 @@ export class UpdateServedHistorySideEffect implements FeedSideEffect {
   run(viewer: ViewerContext, served: readonly FeedCandidate[]): Promise<void> {
     return this.store.add(
       viewer.sessionId,
-      served.map((candidate) => candidate.itineraryId),
+      served.map((candidate) => candidate.tripId),
     );
   }
 }

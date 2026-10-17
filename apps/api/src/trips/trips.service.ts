@@ -264,6 +264,17 @@ export class TripsService {
     return { items: await Promise.all(trips.map((t) => this.toResponse(t))) };
   }
 
+  // Published trips with these ids, for feed cards. Ids that aren't published or
+  // no longer exist are left out.
+  async findPublishedByIds(ids: readonly string[]): Promise<TripResponse[]> {
+    const trips = await this.prisma.trip.findMany({
+      where: { id: { in: [...ids] }, status: 'published' },
+      include: tripInclude,
+    });
+
+    return Promise.all(trips.map((trip) => this.toResponse(trip)));
+  }
+
   private async toResponse(trip: TripWithDetails): Promise<TripResponse> {
     const coverKey = trip.posts[0]?.media[0]?.s3Key;
 
