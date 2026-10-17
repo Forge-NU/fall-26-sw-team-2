@@ -11,7 +11,7 @@ The product rules come from DOC-1 (#33): [`docs/product/mvp-decisions.md`](../pr
 
 Related work:
 - #15 Auth/Users: defines `User`. Every user reference here is the Clerk user ID (a string like `user_123`).
-- #37 LOC-1: validates the `locations` table against Mapbox and adds the endpoint that creates location rows.
+- #37 LOC-1: validates the `locations` table against Mapbox and adds the endpoint that creates location rows. See [`locations.md`](locations.md).
 - #38 MEDIA-1: the presigned upload endpoint that produces the S3 keys posts reference.
 - #23 STORY-1: stories link to trips and use the active-trip rule below.
 - #9 / #41 trip screens, #8 / #42 post composer, #12 / #27 feed: the screens these contracts support.
@@ -201,7 +201,7 @@ Check constraints: `locations_latitude_check` and `locations_longitude_check` fo
 
 Indexes: `(provider, provider_place_id)` unique, `(latitude, longitude)` for map bounding-box queries. We can move to PostGIS later if we need radius search.
 
-Mapbox's storage terms are still pending #37. If we can't store coordinates permanently, this table changes.
+#37 reviewed this table and it needs no changes. Mapbox's storage terms are recorded in [DOC-1](../product/mvp-decisions.md#locations): storing POI coordinates isn't allowed as-is, and that decision is still open. If the outcome is that we can't store coordinates, this table changes. Rows are created by `POST /api/locations/resolve` ([`locations.md`](locations.md)).
 
 ## Visibility
 
@@ -416,7 +416,7 @@ Request:
 - `tripId`: required. Only the trip's owner can add posts to it.
 - `visitedOn`: required, within the trip's dates. The app fills it in with today if today is within the trip's dates, otherwise the trip's start date.
 - `caption`: optional, up to 2,200 characters.
-- Location: exactly one of `locationId` (an existing location row, from #37's endpoint) and `customLocationName` (1 to 100 characters).
+- Location: exactly one of `locationId` (an existing location row, from `POST /api/locations/resolve`) and `customLocationName` (1 to 100 characters).
 - `media`: 1 to 30 items, in carousel order. Each `s3Key` has to be one of the current user's post uploads (it starts with `users/{userId}/posts/`, the key scheme from #38), can't appear twice, and can't already belong to another post. `width` and `height` (1 to 20,000 px) and `durationMs` (up to 60,000) are optional.
 
 The app only calls this after every upload has succeeded.
