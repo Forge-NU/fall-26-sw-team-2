@@ -1,9 +1,8 @@
-import { Image } from 'expo-image';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/app-text';
 import { Icon } from '@/components/icon';
-import { Palette, Radius } from '@/constants/theme';
+import { Avatar } from '@/components/ui/avatar';
 import type { Traveler } from '@/data/mock';
 
 type PostAuthorProps = {
@@ -16,7 +15,7 @@ type PostAuthorProps = {
 export function PostAuthor({ author, meta, onShare }: PostAuthorProps) {
   return (
     <View style={styles.row}>
-      <Image source={author.avatar} style={styles.avatar} />
+      <Avatar name={author.name} url={author.avatarUrl} size={36} />
       <View style={styles.details}>
         <View style={styles.identity}>
           <AppText variant="bold" size={13}>
@@ -48,12 +47,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-  },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: Radius.pill,
-    backgroundColor: Palette.border,
   },
   details: {
     flex: 1,

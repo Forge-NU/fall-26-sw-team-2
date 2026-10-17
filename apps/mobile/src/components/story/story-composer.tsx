@@ -1,4 +1,3 @@
-import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
@@ -9,6 +8,7 @@ import { Icon, IconName } from '@/components/icon';
 import { LocationSheet } from '@/components/story/location-sheet';
 import { StoryDateSheet } from '@/components/story/story-date-sheet';
 import { TripChooserSheet } from '@/components/story/trip-chooser-sheet';
+import { Media } from '@/components/ui/media';
 import { Toggle } from '@/components/ui/toggle';
 import { FontFamily, Palette, Radius, ScreenGutter } from '@/constants/theme';
 import { ActiveTrips, NearbyPlaces, StoryDraft, type NearbyPlace } from '@/data/mock';
@@ -70,7 +70,12 @@ export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; 
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
         <View style={styles.media}>
-          <Image source={StoryDraft.media} style={StyleSheet.absoluteFill} contentFit="cover" />
+          <Media
+            seed="story-draft"
+            url={StoryDraft.mediaUrl}
+            iconSize={36}
+            style={StyleSheet.absoluteFill}
+          />
           <LinearGradient
             colors={['rgba(23,26,33,0.13)', 'rgba(23,26,33,0)', 'rgba(23,26,33,0.56)']}
             locations={[0, 0.5, 1]}
@@ -274,7 +279,6 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: Radius.sm,
     overflow: 'hidden',
-    backgroundColor: Palette.border,
   },
   mediaControls: {
     flexDirection: 'row',

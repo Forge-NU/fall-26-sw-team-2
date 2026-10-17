@@ -1,7 +1,7 @@
-import { Image } from 'expo-image';
 import { Pressable, ScrollView, StyleSheet } from 'react-native';
 
 import { AppText } from '@/components/app-text';
+import { Avatar } from '@/components/ui/avatar';
 import { Palette, Radius, ScreenGutter } from '@/constants/theme';
 import type { StoryBubble } from '@/data/mock';
 
@@ -17,7 +17,7 @@ export function StoriesRow({ stories }: { stories: StoryBubble[] }) {
           accessibilityRole="button"
           accessibilityLabel={`${story.label} story`}
           style={styles.bubble}>
-          <Image source={story.avatar} style={styles.avatar} />
+          <Avatar name={story.label} url={story.avatarUrl} size={24} />
           <AppText variant="bold" size={11}>
             {story.label}
           </AppText>
@@ -43,11 +43,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Palette.border,
     backgroundColor: Palette.surface,
-  },
-  avatar: {
-    width: 24,
-    height: 24,
-    borderRadius: Radius.pill,
-    backgroundColor: Palette.border,
   },
 });

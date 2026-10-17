@@ -1,4 +1,3 @@
-import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
@@ -9,6 +8,7 @@ import { Icon } from '@/components/icon';
 import { DayAtAGlance } from '@/components/itinerary/day-at-a-glance';
 import { DayMoments } from '@/components/itinerary/day-moments';
 import { PostAuthor } from '@/components/post-author';
+import { Avatar } from '@/components/ui/avatar';
 import { YujiLogo } from '@/components/yuji-header';
 import { Palette, Radius, ScreenGutter } from '@/constants/theme';
 import { getItinerary } from '@/data/mock';
@@ -80,10 +80,12 @@ export default function ItineraryDayScreen() {
                 Participants
               </AppText>
               <View style={styles.avatars}>
-                {itinerary.participants.map((avatar, index) => (
-                  <Image
-                    key={index}
-                    source={avatar}
+                {itinerary.participants.map((participant, index) => (
+                  <Avatar
+                    key={participant.id}
+                    name={participant.name}
+                    url={participant.avatarUrl}
+                    size={20}
                     style={[styles.participant, index > 0 && styles.overlap]}
                   />
                 ))}
@@ -192,12 +194,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   participant: {
-    width: 20,
-    height: 20,
     borderWidth: 1,
     borderColor: Palette.surface,
-    borderRadius: Radius.pill,
-    backgroundColor: Palette.border,
   },
   overlap: {
     marginLeft: -8,

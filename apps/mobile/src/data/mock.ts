@@ -1,37 +1,31 @@
 /**
  * Mock data for the Yuji wireframe screens. Shapes loosely follow the trips /
  * posts / locations models in apps/api so they can be swapped for API calls.
+ *
+ * Media fields are optional URLs, matching what the API will return. The mock
+ * data leaves them empty, so <Avatar> and <Media> draw placeholders in code and
+ * no sample images live in the repo.
  */
-import type { ImageSourcePropType } from 'react-native';
-
-// Mock media is loaded from placeholder services so no sample photos live in the repo.
-// Real media will come from the posts API (S3 read URLs).
-const photo = (seed: string): ImageSourcePropType => ({
-  uri: `https://picsum.photos/seed/yuji-${seed}/800/600`,
-});
-const avatar = (seed: string): ImageSourcePropType => ({
-  uri: `https://i.pravatar.cc/120?u=yuji-${seed}`,
-});
 
 export type FeedTab = 'local' | 'friends' | 'fyp';
 
 export type Traveler = {
   id: string;
   name: string;
-  avatar: ImageSourcePropType;
+  avatarUrl?: string;
   verified?: boolean;
 };
 
 export type StoryBubble = {
   id: string;
   label: string;
-  avatar: ImageSourcePropType;
+  avatarUrl?: string;
 };
 
 export type Moment = {
   id: string;
   kind: 'photo' | 'video';
-  image: ImageSourcePropType;
+  imageUrl?: string;
   caption: string;
   /** Only the lead moment of a day shows a title. */
   title?: string;
@@ -49,7 +43,7 @@ export type TripDay = {
   day: number;
   title: string;
   summary: string;
-  cover: ImageSourcePropType;
+  coverUrl?: string;
   moments: Moment[];
   places: DayPlace[];
 };
@@ -63,7 +57,7 @@ export type Itinerary = {
   postKind: string;
   stops: number;
   author: Traveler;
-  participants: ImageSourcePropType[];
+  participants: Traveler[];
   days: TripDay[];
   likes: number;
   comments: number;
@@ -91,49 +85,20 @@ export type NearbyPlace = {
 };
 
 export const Travelers = {
-  maya: {
-    id: 'maya',
-    name: 'Maya Chen',
-    avatar: avatar('maya'),
-    verified: true,
-  },
-  priya: {
-    id: 'priya',
-    name: 'Priya Shah',
-    avatar: avatar('priya'),
-    verified: true,
-  },
+  maya: { id: 'maya', name: 'Maya Chen', verified: true },
+  priya: { id: 'priya', name: 'Priya Shah', verified: true },
+  noah: { id: 'noah', name: 'Noah Kim' },
+  jordan: { id: 'jordan', name: 'Jordan Lee' },
+  sam: { id: 'sam', name: 'Sam Ortiz' },
 } satisfies Record<string, Traveler>;
 
 export const Stories: StoryBubble[] = [
-  { id: 'maya', label: 'Maya', avatar: avatar('maya') },
-  { id: 'priya', label: 'Priya', avatar: avatar('priya') },
-  { id: 'lisbon', label: 'Lisbon', avatar: photo('lisbon') },
-  {
-    id: 'copenhagen',
-    label: 'Copenhagen',
-    avatar: photo('copenhagen'),
-  },
-  { id: 'yuji', label: 'Yuji', avatar: require('@/assets/images/yuji/logo.png') },
+  { id: 'maya', label: 'Maya' },
+  { id: 'priya', label: 'Priya' },
+  { id: 'lisbon', label: 'Lisbon' },
+  { id: 'copenhagen', label: 'Copenhagen' },
+  { id: 'yuji', label: 'Yuji' },
 ];
-
-const lisbonPhotos = {
-  day1: photo('lisbon-day1'),
-  day2: photo('lisbon-day2'),
-  day3: photo('lisbon-day3'),
-  day4: photo('lisbon-day4'),
-  day5: photo('lisbon-day5'),
-  belem: photo('moment-belem'),
-  pastry: photo('moment-pastry'),
-  tram: photo('moment-tram'),
-  alfama: photo('moment-alfama'),
-};
-
-const copenhagenPhotos = {
-  day1: photo('copenhagen-day1'),
-  day2: photo('copenhagen-day2'),
-  day3: photo('copenhagen-day3'),
-};
 
 export const Itineraries: Itinerary[] = [
   {
@@ -146,12 +111,7 @@ export const Itineraries: Itinerary[] = [
     postKind: 'Sharing itinerary',
     stops: 24,
     author: Travelers.maya,
-    participants: [
-      avatar('participant-1'),
-      avatar('participant-2'),
-      avatar('participant-3'),
-      avatar('participant-4'),
-    ],
+    participants: [Travelers.noah, Travelers.priya, Travelers.jordan, Travelers.sam],
     likes: 248,
     comments: 31,
     saves: 84,
@@ -163,33 +123,28 @@ export const Itineraries: Itinerary[] = [
         day: 1,
         title: 'Belém & Alfama',
         summary: 'Tarts, tram rides & a golden-hour finish.',
-        cover: lisbonPhotos.day1,
         moments: [
           {
             id: 'l1-sunset',
             kind: 'photo',
-            image: lisbonPhotos.day1,
             title: 'Golden hour at Portas do Sol',
             caption: 'Sunset, right on schedule 🌞',
           },
-          { id: 'l1-belem', kind: 'photo', image: lisbonPhotos.belem, caption: 'Belém by the water' },
+          { id: 'l1-belem', kind: 'photo', caption: 'Belém by the water' },
           {
             id: 'l1-pastry',
             kind: 'photo',
-            image: lisbonPhotos.pastry,
             caption: 'Worth the pastry queue',
           },
           {
             id: 'l1-tram',
             kind: 'video',
-            image: lisbonPhotos.tram,
             caption: 'Tram 28, window seat',
             duration: '0:12',
           },
           {
             id: 'l1-alfama',
             kind: 'video',
-            image: lisbonPhotos.alfama,
             caption: 'Lost in Alfama',
             duration: '0:08',
           },
@@ -210,12 +165,10 @@ export const Itineraries: Itinerary[] = [
         day: 2,
         title: 'Chiado & LX Factory',
         summary: 'Bookshops, rooftops & a warehouse market.',
-        cover: lisbonPhotos.day2,
         moments: [
           {
             id: 'l2-chiado',
             kind: 'photo',
-            image: lisbonPhotos.day2,
             title: 'Morning in Chiado',
             caption: 'Yellow trams everywhere 💛',
           },
@@ -229,12 +182,10 @@ export const Itineraries: Itinerary[] = [
         day: 3,
         title: 'Sintra day trip',
         summary: 'Palaces in the fog and a long lunch.',
-        cover: lisbonPhotos.day3,
         moments: [
           {
             id: 'l3-sintra',
             kind: 'photo',
-            image: lisbonPhotos.day3,
             title: 'Coffee before the climb',
             caption: 'Fuel for Pena Palace ☕',
           },
@@ -248,12 +199,10 @@ export const Itineraries: Itinerary[] = [
         day: 4,
         title: 'More to explore',
         summary: 'Riverside markets and a slow evening.',
-        cover: lisbonPhotos.day4,
         moments: [
           {
             id: 'l4-river',
             kind: 'photo',
-            image: lisbonPhotos.day4,
             title: 'Down by the Tagus',
             caption: 'Boats, bikes & no plans',
           },
@@ -267,12 +216,10 @@ export const Itineraries: Itinerary[] = [
         day: 5,
         title: 'One last wander',
         summary: 'Backstreets, souvenirs & goodbye.',
-        cover: lisbonPhotos.day5,
         moments: [
           {
             id: 'l5-street',
             kind: 'photo',
-            image: lisbonPhotos.day5,
             title: 'Last stroll',
             caption: 'Already planning the return',
           },
@@ -304,12 +251,10 @@ export const Itineraries: Itinerary[] = [
         day: 1,
         title: 'Nyhavn & Strøget',
         summary: 'Harbour colours and a long walk.',
-        cover: copenhagenPhotos.day1,
         moments: [
           {
             id: 'c1-nyhavn',
             kind: 'photo',
-            image: copenhagenPhotos.day1,
             title: 'Nyhavn at noon',
             caption: 'Every house a different colour',
           },
@@ -323,12 +268,10 @@ export const Itineraries: Itinerary[] = [
         day: 2,
         title: 'Tivoli & Freetown',
         summary: 'Rides, lights & Christiania.',
-        cover: copenhagenPhotos.day2,
         moments: [
           {
             id: 'c2-tivoli',
             kind: 'photo',
-            image: copenhagenPhotos.day2,
             title: 'Tivoli lights',
             caption: 'Better after dark ✨',
           },
@@ -342,12 +285,10 @@ export const Itineraries: Itinerary[] = [
         day: 3,
         title: 'Castles & Design',
         summary: 'Rosenborg and the Design Museum.',
-        cover: copenhagenPhotos.day3,
         moments: [
           {
             id: 'c3-castle',
             kind: 'photo',
-            image: copenhagenPhotos.day3,
             title: 'Rosenborg Castle',
             caption: 'Crown jewels in the basement',
           },
@@ -386,7 +327,8 @@ export const ActiveTrips: ActiveTrip[] = [
 
 /** Draft the story composer opens with, as if picked from the camera roll. */
 export const StoryDraft = {
-  media: lisbonPhotos.day1,
+  /** Picked from the camera roll in the real flow. */
+  mediaUrl: undefined as string | undefined,
   text: 'Sunset, right on schedule ☀️',
   song: { title: 'Golden · Harry Styles', detail: 'Music added · 15 sec' },
   capturedAt: { date: '2026-10-13', time: '18:45 WEST' },

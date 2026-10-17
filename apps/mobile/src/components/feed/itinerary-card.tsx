@@ -1,4 +1,3 @@
-import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -8,6 +7,7 @@ import { ActionButton } from '@/components/action-button';
 import { AppText } from '@/components/app-text';
 import { Icon, IconName } from '@/components/icon';
 import { PostAuthor } from '@/components/post-author';
+import { Media } from '@/components/ui/media';
 import { Palette, PaletteColor, Radius, ScreenGutter } from '@/constants/theme';
 import type { Itinerary } from '@/data/mock';
 
@@ -50,7 +50,12 @@ export function ItineraryCard({ itinerary }: { itinerary: Itinerary }) {
           accessibilityLabel={`View day ${featured.day}, ${featured.title}`}
           onPress={() => openDay(featured.day)}
           style={styles.featured}>
-          <Image source={featured.cover} style={StyleSheet.absoluteFill} contentFit="cover" />
+          <Media
+            seed={`${itinerary.id}-day${featured.day}`}
+            url={featured.coverUrl}
+            iconSize={36}
+            style={StyleSheet.absoluteFill}
+          />
           <LinearGradient
             colors={['rgba(45,47,69,0)', 'rgba(45,47,69,0.8)']}
             locations={[0.35, 1]}
@@ -78,7 +83,11 @@ export function ItineraryCard({ itinerary }: { itinerary: Itinerary }) {
               onPress={() => openDay(day.day)}
               style={styles.dayPreview}>
               <View style={styles.dayImage}>
-                <Image source={day.cover} style={StyleSheet.absoluteFill} contentFit="cover" />
+                <Media
+                  seed={`${itinerary.id}-day${day.day}`}
+                  url={day.coverUrl}
+                  style={StyleSheet.absoluteFill}
+                />
                 <View style={styles.dayLabel}>
                   <AppText variant="bold" size={10} color="surface">
                     Day {day.day}
@@ -177,7 +186,6 @@ const styles = StyleSheet.create({
     height: 188,
     borderRadius: Radius.md,
     overflow: 'hidden',
-    backgroundColor: Palette.border,
   },
   featuredCaption: {
     position: 'absolute',
@@ -208,7 +216,6 @@ const styles = StyleSheet.create({
     height: 86,
     borderRadius: Radius.sm,
     overflow: 'hidden',
-    backgroundColor: Palette.border,
   },
   dayLabel: {
     position: 'absolute',

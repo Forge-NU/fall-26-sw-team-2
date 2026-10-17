@@ -1,8 +1,8 @@
-import { Image } from 'expo-image';
 import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/app-text';
 import { Icon } from '@/components/icon';
+import { Media } from '@/components/ui/media';
 import { Palette, Radius, ScreenGutter } from '@/constants/theme';
 import type { Moment, TripDay } from '@/data/mock';
 
@@ -33,7 +33,7 @@ export function DayMoments({ day }: { day: TripDay }) {
 
       {lead && (
         <View style={styles.lead}>
-          <Image source={lead.image} style={styles.leadImage} contentFit="cover" />
+          <Media seed={lead.id} url={lead.imageUrl} iconSize={36} style={styles.leadImage} />
           <View style={styles.leadCaption}>
             {lead.title && (
               <AppText variant="bold" size={14}>
@@ -52,7 +52,7 @@ export function DayMoments({ day }: { day: TripDay }) {
           {row.map((moment) => (
             <View key={moment.id} style={styles.moment}>
               <View style={styles.thumb}>
-                <Image source={moment.image} style={StyleSheet.absoluteFill} contentFit="cover" />
+                <Media seed={moment.id} url={moment.imageUrl} style={StyleSheet.absoluteFill} />
                 {moment.kind === 'video' && (
                   <>
                     <View style={styles.play}>
@@ -98,7 +98,6 @@ const styles = StyleSheet.create({
   leadImage: {
     height: 220,
     borderRadius: Radius.md,
-    backgroundColor: Palette.border,
   },
   leadCaption: {
     gap: 3,
@@ -115,7 +114,6 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: Radius.sm,
     overflow: 'hidden',
-    backgroundColor: Palette.border,
   },
   play: {
     position: 'absolute',
