@@ -36,6 +36,14 @@ export class UsersService {
   async createProfile(id: string, data: CreateProfileDto) {
     // Don't allow the same account to create multiple profiles.
     // Prisma P2025 will be thrown if user already exists, handled by global filter
+
+    const existingUser = await this.prisma.user.findUnique({
+      where: { id },
+    });
+
+    if (existingUser) {
+      throw new ConflictException('Profile already exists');
+    }
     try {
       await this.findById(id);
       throw new ConflictException('Profile already exists');

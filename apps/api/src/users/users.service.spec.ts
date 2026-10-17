@@ -26,6 +26,7 @@ describe('UsersService', () => {
   const mockPrismaService = {
     user: {
       findFirstOrThrow: jest.fn(),
+      findUnique: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
       deleteMany: jest.fn(),

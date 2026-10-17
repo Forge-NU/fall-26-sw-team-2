@@ -137,4 +137,84 @@ describe('HttpExceptionFilter', () => {
     );
     filter.catch(conflict, createMockHost('/api/me', checkShape));
   });
+
+  it('should handle 401 Unauthorized with a consistent response', () => {
+  const exception = new HttpException(
+    'Unauthorized',
+    HttpStatus.UNAUTHORIZED,
+  );
+
+  filter.catch(exception, createMockHost('/api/me', (data) => {
+    expect(data.statusCode).toBe(401);
+    expect(data.error).toBe('Unauthorized');
+    expect(data.message).toBe('Unauthorized');
+    expect(data.path).toBe('/api/me');
+    expect(typeof data.timestamp).toBe('string');
+  }));
+});
+
+it('should hide internal details from 500 HttpExceptions', () => {
+  const exception = new HttpException(
+    'Sensitive internal details',
+    HttpStatus.INTERNAL_SERVER_ERROR,
+  );
+
+  filter.catch(exception, createMockHost('/api/me', (data) => {
+    expect(data.statusCode).toBe(500);
+    expect(data.error).toBe('Internal Server Error');
+    expect(data.message).toBe('Internal server error');
+    expect(data.message).not.toContain('Sensitive internal details');
+  }));
+});
+
+it('should return a generic 500 response for unexpected errors', () => {
+  const exception = new Error('Unexpected database failure');
+
+  filter.catch(exception, createMockHost('/api/users', (data) => {
+    expect(data.statusCode).toBe(500);
+    expect(data.error).toBe('Internal Server Error');
+    expect(data.message).toBe('Internal server error');
+    expect(data.message).not.toContain('Unexpected database failure');
+    expect(data.path).toBe('/api/users');
+    expect(data).toHaveProperty('timestamp');
+  }));
+});
+
+  it('should sanitize unexpected errors into a generic 500 response', () => {
+    const exception = new Error('Database connection details must not leak');
+
+    filter.catch(
+      exception,
+      createMockHost('/api/users', (data) => {
+        expect(data.statusCode).toBe(500);
+        expect(data.error).toBe('Internal Server Error');
+        expect(data.message).toBe('Internal server error');
+        expect(data.path).toBe('/api/users');
+        expect(typeof data.timestamp).toBe('string');
+        expect(JSON.stringify(data)).not.toContain(
+          'Database connection details must not leak',
+        );
+      }),
+    );
+  });
+  it('should sanitize server-side HttpExceptions into a generic 500 response', () => {
+    const exception = new HttpException(
+      'Internal database details must not leak',
+      HttpStatus.INTERNAL_SERVER_ERROR,
+    );
+
+    filter.catch(
+      exception,
+      createMockHost('/api/me', (data) => {
+        expect(data.statusCode).toBe(500);
+        expect(data.error).toBe('Internal Server Error');
+        expect(data.message).toBe('Internal server error');
+        expect(data.path).toBe('/api/me');
+        expect(typeof data.timestamp).toBe('string');
+        expect(JSON.stringify(data)).not.toContain(
+          'Internal database details must not leak',
+        );
+      }),
+    );
+  });
 });
