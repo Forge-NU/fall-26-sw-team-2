@@ -2,10 +2,12 @@ import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
+import { FollowsService } from '../follows/follows.service';
 import { mapUserToResponse } from './utils/user.mapper';
 
 describe('UsersController', () => {
   let controller: UsersController;
+  const mockFollowsService = { getCounts: jest.fn() };
 
   const mockUsersService = {
     findById: jest.fn(),
@@ -28,10 +30,15 @@ describe('UsersController', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    mockFollowsService.getCounts.mockResolvedValue({
+      followerCount: 3,
+      followingCount: 2,
+    });
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [UsersController],
       providers: [
+        { provide: FollowsService, useValue: mockFollowsService },
         {
           provide: UsersService,
           useValue: mockUsersService,
@@ -50,9 +57,11 @@ describe('UsersController', () => {
     it('returns the current user profile', async () => {
       mockUsersService.findById.mockResolvedValue(mockUser);
 
-      await expect(controller.getMe(userId)).resolves.toEqual(
-        mapUserToResponse(mockUser),
-      );
+      await expect(controller.getMe(userId)).resolves.toEqual({
+        followerCount: 3,
+        followingCount: 2,
+        ...mapUserToResponse(mockUser),
+      });
 
       expect(mockUsersService.findById).toHaveBeenCalledWith('user_123');
     });
@@ -73,9 +82,11 @@ describe('UsersController', () => {
 
       mockUsersService.createProfile.mockResolvedValue(createdUser);
 
-      await expect(controller.createProfile(userId, dto)).resolves.toEqual(
-        mapUserToResponse(mockUser),
-      );
+      await expect(controller.createProfile(userId, dto)).resolves.toEqual({
+        followerCount: 3,
+        followingCount: 2,
+        ...mapUserToResponse(mockUser),
+      });
 
       expect(mockUsersService.createProfile).toHaveBeenCalledWith(
         'user_123',
@@ -106,6 +117,8 @@ describe('UsersController', () => {
       mockUsersService.update.mockResolvedValue(updatedUser);
 
       await expect(controller.updateMe(userId, dto)).resolves.toEqual({
+        followerCount: 3,
+        followingCount: 2,
         id: 'user_123',
         firstName: 'Test',
         lastName: 'User',
@@ -152,11 +165,9 @@ describe('UsersController', () => {
       mockUsersService.findById.mockResolvedValue(mockUser);
 
       await expect(controller.findById('user_123')).resolves.toEqual({
-        id: 'user_123',
-        firstName: 'Test',
-        lastName: 'User',
-        username: 'testuser',
-        avatarUrl: null,
+        followerCount: 3,
+        followingCount: 2,
+        ...mapUserToResponse(mockUser),
       });
 
       expect(mockUsersService.findById).toHaveBeenCalledWith('user_123');

@@ -16,13 +16,17 @@ import { ClerkAuthGuard } from '../auth/clerk-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { UpdateMeDto } from './dto/update-me.dto';
 import { CreateProfileDto } from './dto/create-profile.dto';
+import { FollowsService } from '../follows/follows.service';
 import { UserResponse, PaginatedResponse } from 'shared-types';
 import { PaginationDto } from '../common/decorators/pagination.dto';
 import { mapUserToResponse } from './utils/user.mapper';
 
 @Controller()
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly followsService: FollowsService,
+  ) {}
 
   @Get('me')
   @UseGuards(ClerkAuthGuard)
@@ -33,7 +37,10 @@ export class UsersController {
       throw new NotFoundException('User not found');
     }
 
-    return mapUserToResponse(user);
+    return {
+      ...(await this.followsService.getCounts(user.id)),
+      ...mapUserToResponse(user),
+    };
   }
 
   @Post('me/profile')
@@ -44,7 +51,10 @@ export class UsersController {
   ): Promise<UserResponse> {
     const user = await this.usersService.createProfile(userId, dto);
 
-    return mapUserToResponse(user);
+    return {
+      ...(await this.followsService.getCounts(user.id)),
+      ...mapUserToResponse(user),
+    };
   }
 
   @Patch('me')
@@ -55,7 +65,10 @@ export class UsersController {
   ): Promise<UserResponse> {
     const user = await this.usersService.update(userId, dto);
 
-    return mapUserToResponse(user);
+    return {
+      ...(await this.followsService.getCounts(user.id)),
+      ...mapUserToResponse(user),
+    };
   }
 
   @Delete('me')
@@ -74,7 +87,10 @@ export class UsersController {
       throw new NotFoundException('User not found');
     }
 
-    return mapUserToResponse(user);
+    return {
+      ...(await this.followsService.getCounts(user.id)),
+      ...mapUserToResponse(user),
+    };
   }
 
   @Get('users')
