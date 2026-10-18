@@ -55,20 +55,24 @@ export function useStoryComposer() {
   const canPost =
     photo !== null && photoStatus !== 'preparing' && text.trim().length <= STORY_TEXT_MAX;
 
-  async function pickPhoto(source: 'camera' | 'library') {
+  async function pickPhoto(
+    source: 'camera' | 'library',
+  ): Promise<'picked' | 'canceled' | 'denied' | 'failed'> {
     const result = source === 'camera' ? await takePhoto() : await choosePhoto();
-    if (result.status === 'canceled') return;
+    if (result.status === 'canceled') return 'canceled';
     if (result.status === 'denied') {
       setPhotoStatus('denied');
-      return;
+      return 'denied';
     }
 
     setPhotoStatus('preparing');
     try {
       setPhoto(await preparePhoto(result.photo));
       setPhotoStatus('idle');
+      return 'picked';
     } catch {
       setPhotoStatus('failed');
+      return 'failed';
     }
   }
 
@@ -127,6 +131,7 @@ export function useStoryComposer() {
     tripsError: activeTrips.error,
     reloadTrips: activeTrips.reload,
     trip,
+    suggestedTripId: activeTrips.suggestedTrip?.id ?? null,
     isSuggestedTrip: trip !== null && trip.id === activeTrips.suggestedTrip?.id,
     selectTrip,
     keepOnTrip,
