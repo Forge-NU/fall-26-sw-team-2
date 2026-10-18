@@ -9,78 +9,75 @@ import {
   Patch,
   Post,
   Query,
-  Req,
   UseGuards,
 } from '@nestjs/common';
-import { Request } from 'express';
 import { ClerkAuthGuard } from '../auth/clerk-auth.guard';
+import { CurrentUser } from '../auth/current-user.decorator';
 import { PaginationQueryDto } from '../common/pagination';
 import { TripsService } from './trips.service';
 import { CreateTripDto } from './dto/create-trip.dto';
 import { UpdateTripDto } from './dto/update-trip.dto';
 import { ActiveTripsQueryDto } from './dto/active-trips-query.dto';
 
-type AuthedRequest = Request & { user: { userId: string } };
-
-@Controller('api')
+@Controller()
 @UseGuards(ClerkAuthGuard)
 export class TripsController {
   constructor(private readonly tripsService: TripsService) {}
 
   @Post('trips')
-  create(@Req() request: AuthedRequest, @Body() dto: CreateTripDto) {
-    return this.tripsService.create(request.user.userId, dto);
+  create(@CurrentUser() userId: string, @Body() dto: CreateTripDto) {
+    return this.tripsService.create(userId, dto);
   }
 
   @Get('me/trips/active')
   listActive(
-    @Req() request: AuthedRequest,
+    @CurrentUser() userId: string,
     @Query() query: ActiveTripsQueryDto,
   ) {
-    return this.tripsService.listActive(request.user.userId, query.date);
+    return this.tripsService.listActive(userId, query.date);
   }
 
   @Get('users/:userId/trips')
   listForUser(
-    @Req() request: AuthedRequest,
+    @CurrentUser() currentUserId: string,
     @Param('userId') userId: string,
     @Query() query: PaginationQueryDto,
   ) {
-    return this.tripsService.listForUser(request.user.userId, userId, query);
+    return this.tripsService.listForUser(currentUserId, userId, query);
   }
 
   @Get('trips/:id')
   findOne(
-    @Req() request: AuthedRequest,
+    @CurrentUser() userId: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.tripsService.findOne(request.user.userId, id);
+    return this.tripsService.findOne(userId, id);
   }
 
   @Patch('trips/:id')
   update(
-    @Req() request: AuthedRequest,
+    @CurrentUser() userId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateTripDto,
   ) {
-    return this.tripsService.update(request.user.userId, id, dto);
+    return this.tripsService.update(userId, id, dto);
   }
 
   @Delete('trips/:id')
   @HttpCode(204)
   async remove(
-    @Req() request: AuthedRequest,
+    @CurrentUser() userId: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    await this.tripsService.remove(request.user.userId, id);
+    await this.tripsService.remove(userId, id);
   }
 
   @Post('trips/:id/publish')
   @HttpCode(200)
   publish(
-    @Req() request: AuthedRequest,
+    @CurrentUser() userId: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.tripsService.publish(request.user.userId, id);
+    return this.tripsService.publish(userId, id);
   }
 }

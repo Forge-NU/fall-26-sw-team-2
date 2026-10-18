@@ -47,5 +47,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Rebuild native modules
+        run: npm rebuild
+
       - name: Build check
         run: npx expo export --platform all
