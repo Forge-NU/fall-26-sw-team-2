@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { FollowsService } from '../follows/follows.service';
+import { mapUserToResponse } from './utils/user.mapper';
 
 describe('UsersController', () => {
   let controller: UsersController;
@@ -10,8 +11,10 @@ describe('UsersController', () => {
 
   const mockUsersService = {
     findById: jest.fn(),
+    createProfile: jest.fn(),
     update: jest.fn(),
     deleteAccount: jest.fn(),
+    listUsers: jest.fn(),
   };
 
   const mockUser = {
@@ -23,9 +26,7 @@ describe('UsersController', () => {
     avatarUrl: null,
   };
 
-  const request = {
-    user: { userId: 'user_123' },
-  } as never;
+  const userId = 'user_123';
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -56,14 +57,10 @@ describe('UsersController', () => {
     it('returns the current user profile', async () => {
       mockUsersService.findById.mockResolvedValue(mockUser);
 
-      await expect(controller.getMe(request)).resolves.toEqual({
+      await expect(controller.getMe(userId)).resolves.toEqual({
         followerCount: 3,
         followingCount: 2,
-        id: 'user_123',
-        firstName: 'Test',
-        lastName: 'User',
-        username: 'testuser',
-        avatarUrl: null,
+        ...mapUserToResponse(mockUser),
       });
 
       expect(mockUsersService.findById).toHaveBeenCalledWith('user_123');
@@ -72,9 +69,43 @@ describe('UsersController', () => {
     it('throws NotFoundException when the current user does not exist', async () => {
       mockUsersService.findById.mockResolvedValue(null);
 
-      await expect(controller.getMe(request)).rejects.toBeInstanceOf(
+      await expect(controller.getMe(userId)).rejects.toBeInstanceOf(
         NotFoundException,
       );
+    });
+  });
+
+  describe('createProfile', () => {
+    it('creates and returns the user profile', async () => {
+      const dto = { firstName: 'Test', lastName: 'User', username: 'testuser' };
+      const createdUser = { ...mockUser };
+
+      mockUsersService.createProfile.mockResolvedValue(createdUser);
+
+      await expect(controller.createProfile(userId, dto)).resolves.toEqual({
+        followerCount: 3,
+        followingCount: 2,
+        ...mapUserToResponse(mockUser),
+      });
+
+      expect(mockUsersService.createProfile).toHaveBeenCalledWith(
+        'user_123',
+        dto,
+      );
+    });
+
+    it('propagates errors from the service', async () => {
+      mockUsersService.createProfile.mockRejectedValue(
+        new NotFoundException('User not found'),
+      );
+
+      await expect(
+        controller.createProfile(userId, {
+          firstName: 'Test',
+          lastName: 'User',
+          username: 'testuser',
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 
@@ -85,7 +116,9 @@ describe('UsersController', () => {
 
       mockUsersService.update.mockResolvedValue(updatedUser);
 
-      await expect(controller.updateMe(request, dto)).resolves.toEqual({
+      await expect(controller.updateMe(userId, dto)).resolves.toEqual({
+        followerCount: 3,
+        followingCount: 2,
         id: 'user_123',
         firstName: 'Test',
         lastName: 'User',
@@ -102,7 +135,7 @@ describe('UsersController', () => {
       );
 
       await expect(
-        controller.updateMe(request, { username: 'updateduser' }),
+        controller.updateMe(userId, { username: 'updateduser' }),
       ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
@@ -111,7 +144,7 @@ describe('UsersController', () => {
     it('deletes the current user account', async () => {
       mockUsersService.deleteAccount.mockResolvedValue(undefined);
 
-      await expect(controller.deleteMe(request)).resolves.toBeUndefined();
+      await expect(controller.deleteMe(userId)).resolves.toBeUndefined();
 
       expect(mockUsersService.deleteAccount).toHaveBeenCalledWith('user_123');
     });
@@ -121,7 +154,7 @@ describe('UsersController', () => {
         new NotFoundException('User not found'),
       );
 
-      await expect(controller.deleteMe(request)).rejects.toBeInstanceOf(
+      await expect(controller.deleteMe(userId)).rejects.toBeInstanceOf(
         NotFoundException,
       );
     });
@@ -134,11 +167,7 @@ describe('UsersController', () => {
       await expect(controller.findById('user_123')).resolves.toEqual({
         followerCount: 3,
         followingCount: 2,
-        id: 'user_123',
-        firstName: 'Test',
-        lastName: 'User',
-        username: 'testuser',
-        avatarUrl: null,
+        ...mapUserToResponse(mockUser),
       });
 
       expect(mockUsersService.findById).toHaveBeenCalledWith('user_123');
@@ -150,6 +179,57 @@ describe('UsersController', () => {
       await expect(controller.findById('missing')).rejects.toBeInstanceOf(
         NotFoundException,
       );
+    });
+  });
+
+  describe('listUsers', () => {
+    it('returns a paginated list of users', async () => {
+      const mockUsers = [
+        mockUser,
+        { ...mockUser, id: 'user_456', username: 'testuser2' },
+      ];
+
+      mockUsersService.listUsers.mockResolvedValue({
+        items: mockUsers,
+        nextCursor: 'dXNlcl80NTY=',
+      });
+
+      await expect(controller.listUsers({})).resolves.toEqual({
+        items: mockUsers.map(mapUserToResponse),
+        nextCursor: 'dXNlcl80NTY=',
+      });
+
+      expect(mockUsersService.listUsers).toHaveBeenCalledWith({});
+    });
+
+    it('returns empty list when no users exist', async () => {
+      mockUsersService.listUsers.mockResolvedValue({
+        items: [],
+        nextCursor: null,
+      });
+
+      await expect(controller.listUsers({})).resolves.toEqual({
+        items: [],
+        nextCursor: null,
+      });
+
+      expect(mockUsersService.listUsers).toHaveBeenCalledWith({});
+    });
+
+    it('passes pagination params to service', async () => {
+      mockUsersService.listUsers.mockResolvedValue({
+        items: [],
+        nextCursor: null,
+      });
+
+      const pagination = {
+        cursor: 'abc123',
+        limit: 10,
+      };
+
+      await controller.listUsers(pagination);
+
+      expect(mockUsersService.listUsers).toHaveBeenCalledWith(pagination);
     });
   });
 });

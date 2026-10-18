@@ -7,18 +7,21 @@ import {
   NotFoundException,
   Param,
   Patch,
-  Req,
+  Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
-import { Request } from 'express';
 import { UsersService } from './users.service';
 import { ClerkAuthGuard } from '../auth/clerk-auth.guard';
+import { CurrentUser } from '../auth/current-user.decorator';
 import { UpdateMeDto } from './dto/update-me.dto';
+import { CreateProfileDto } from './dto/create-profile.dto';
 import { FollowsService } from '../follows/follows.service';
+import { UserResponse, PaginatedResponse } from 'shared-types';
+import { PaginationDto } from '../common/decorators/pagination.dto';
+import { mapUserToResponse } from './utils/user.mapper';
 
-type AuthedRequest = Request & { user: { userId: string } };
-
-@Controller('api')
+@Controller()
 export class UsersController {
   constructor(
     private readonly usersService: UsersService,
@@ -27,8 +30,8 @@ export class UsersController {
 
   @Get('me')
   @UseGuards(ClerkAuthGuard)
-  async getMe(@Req() request: AuthedRequest) {
-    const user = await this.usersService.findById(request.user.userId);
+  async getMe(@CurrentUser() userId: string): Promise<UserResponse> {
+    const user = await this.usersService.findById(userId);
 
     if (!user) {
       throw new NotFoundException('User not found');
@@ -36,38 +39,48 @@ export class UsersController {
 
     return {
       ...(await this.followsService.getCounts(user.id)),
-      id: user.id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      username: user.username,
-      avatarUrl: user.avatarUrl,
+      ...mapUserToResponse(user),
+    };
+  }
+
+  @Post('me/profile')
+  @UseGuards(ClerkAuthGuard)
+  async createProfile(
+    @CurrentUser() userId: string,
+    @Body() dto: CreateProfileDto,
+  ): Promise<UserResponse> {
+    const user = await this.usersService.createProfile(userId, dto);
+
+    return {
+      ...(await this.followsService.getCounts(user.id)),
+      ...mapUserToResponse(user),
     };
   }
 
   @Patch('me')
   @UseGuards(ClerkAuthGuard)
-  async updateMe(@Req() request: AuthedRequest, @Body() dto: UpdateMeDto) {
-    const user = await this.usersService.update(request.user.userId, dto);
+  async updateMe(
+    @CurrentUser() userId: string,
+    @Body() dto: UpdateMeDto,
+  ): Promise<UserResponse> {
+    const user = await this.usersService.update(userId, dto);
 
     return {
-      id: user.id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      username: user.username,
-      avatarUrl: user.avatarUrl,
+      ...(await this.followsService.getCounts(user.id)),
+      ...mapUserToResponse(user),
     };
   }
 
   @Delete('me')
   @HttpCode(204)
   @UseGuards(ClerkAuthGuard)
-  async deleteMe(@Req() request: AuthedRequest) {
-    await this.usersService.deleteAccount(request.user.userId);
+  async deleteMe(@CurrentUser() userId: string): Promise<void> {
+    await this.usersService.deleteAccount(userId);
   }
 
   @Get('users/:id')
   @UseGuards(ClerkAuthGuard)
-  async findById(@Param('id') id: string) {
+  async findById(@Param('id') id: string): Promise<UserResponse> {
     const user = await this.usersService.findById(id);
 
     if (!user) {
@@ -76,11 +89,20 @@ export class UsersController {
 
     return {
       ...(await this.followsService.getCounts(user.id)),
-      id: user.id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      username: user.username,
-      avatarUrl: user.avatarUrl,
+      ...mapUserToResponse(user),
+    };
+  }
+
+  @Get('users')
+  @UseGuards(ClerkAuthGuard)
+  async listUsers(
+    @Query() pagination: PaginationDto,
+  ): Promise<PaginatedResponse<UserResponse>> {
+    const result = await this.usersService.listUsers(pagination);
+
+    return {
+      items: result.items.map(mapUserToResponse),
+      nextCursor: result.nextCursor,
     };
   }
 }
