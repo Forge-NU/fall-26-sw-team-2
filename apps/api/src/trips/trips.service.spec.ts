@@ -51,6 +51,7 @@ describe('TripsService', () => {
     },
     post: { count: jest.fn() },
     postMedia: { findMany: jest.fn() },
+    story: { findMany: jest.fn() },
     user: { findUnique: jest.fn() },
     $transaction: jest.fn(),
     $queryRaw: jest.fn(),
@@ -65,6 +66,7 @@ describe('TripsService', () => {
     prisma.$transaction.mockImplementation(
       (fn: (tx: typeof prisma) => unknown) => fn(prisma),
     );
+    prisma.story.findMany.mockResolvedValue([]);
 
     const module = await Test.createTestingModule({
       providers: [
@@ -260,6 +262,27 @@ describe('TripsService', () => {
       expect(storage.deleteObjects).toHaveBeenCalledWith([
         'users/user_owner/posts/a.jpg',
         'users/user_owner/posts/b.jpg',
+      ]);
+    });
+
+    it("also deletes the S3 objects of the trip's stories", async () => {
+      prisma.trip.findUnique.mockResolvedValue(makeTrip());
+      prisma.postMedia.findMany.mockResolvedValue([
+        { s3Key: 'users/user_owner/posts/a.jpg' },
+      ]);
+      prisma.story.findMany.mockResolvedValue([
+        { s3Key: 'users/user_owner/stories/s.jpg' },
+      ]);
+
+      await service.remove(owner.id, makeTrip().id);
+
+      expect(prisma.story.findMany).toHaveBeenCalledWith({
+        where: { tripId: makeTrip().id },
+        select: { s3Key: true },
+      });
+      expect(storage.deleteObjects).toHaveBeenCalledWith([
+        'users/user_owner/posts/a.jpg',
+        'users/user_owner/stories/s.jpg',
       ]);
     });
   });

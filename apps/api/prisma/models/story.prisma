@@ -3,6 +3,9 @@
 // deletes the row and its S3 object. A kept story stays on its trip's page.
 // The API sets created_at and expires_at from the database's clock, the one
 // reads compare against. The expires_at default covers direct inserts.
+// story_date is the day the story is from (within its trip's dates, or today
+// without a trip). It only orders kept stories on the trip page; expiry is
+// still 24 hours after created_at.
 // Check constraints (added in the migration):
 // - keep_on_trip requires trip_id
 // - at most one of location_id and custom_location_name is set
@@ -15,6 +18,7 @@ model Story {
   s3Key              String   @unique @map("s3_key")
   text               String?  @db.VarChar(200)
   keepOnTrip         Boolean  @default(false) @map("keep_on_trip")
+  storyDate          DateTime @map("story_date") @db.Date
   expiresAt          DateTime @default(dbgenerated("(now() + '24:00:00'::interval)")) @map("expires_at")
   createdAt          DateTime @default(now()) @map("created_at")
 
@@ -23,7 +27,7 @@ model Story {
   location Location? @relation(fields: [locationId], references: [id], onDelete: Restrict)
 
   @@index([ownerId, expiresAt])
-  @@index([tripId, createdAt])
+  @@index([tripId, storyDate, createdAt])
   @@index([expiresAt])
   @@map("stories")
 }

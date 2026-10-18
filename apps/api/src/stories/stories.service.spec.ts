@@ -51,6 +51,7 @@ function makeStory(overrides: Record<string, unknown> = {}) {
     s3Key: `users/${ownerId}/stories/a.jpg`,
     text: null,
     keepOnTrip: false,
+    storyDate: new Date('2026-10-13T00:00:00Z'),
     expiresAt: new Date('2026-10-14T12:00:00Z'),
     createdAt: new Date('2026-10-13T12:00:00Z'),
     owner,
@@ -123,6 +124,7 @@ describe('StoriesService', () => {
       expect(createdData()).toEqual({
         createdAt: dbNow,
         expiresAt: new Date('2026-10-18T10:00:00Z'),
+        storyDate: today,
         ownerId,
         tripId: null,
         s3Key: `users/${ownerId}/stories/a.jpg`,
@@ -134,6 +136,7 @@ describe('StoriesService', () => {
       expect(prisma.trip.findUnique).not.toHaveBeenCalled();
       expect(story.imageUrl).toBe(`https://s3/users/${ownerId}/stories/a.jpg`);
       expect(story.owner).toEqual(owner);
+      expect(story.storyDate).toBe('2026-10-13');
     });
 
     it('links an active trip, locking it first', async () => {
@@ -221,6 +224,59 @@ describe('StoriesService', () => {
       await expect(
         service.create(ownerId, createDto({ keepOnTrip: true })),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    describe('storyDate', () => {
+      const date = (n: number) => formatDateOnly(daysFromToday(n));
+
+      it('accepts an earlier day of the trip, like when the photo was taken', async () => {
+        prisma.trip.findUnique.mockResolvedValue(
+          makeTrip({ startDate: daysFromToday(-3), endDate: daysFromToday(1) }),
+        );
+
+        await service.create(
+          ownerId,
+          createDto({ tripId, storyDate: date(-3) }),
+        );
+
+        expect(createdData()).toMatchObject({ storyDate: daysFromToday(-3) });
+      });
+
+      it("rejects a day before the trip's start", async () => {
+        prisma.trip.findUnique.mockResolvedValue(
+          makeTrip({ startDate: daysFromToday(-1), endDate: daysFromToday(1) }),
+        );
+
+        await expect(
+          service.create(ownerId, createDto({ tripId, storyDate: date(-2) })),
+        ).rejects.toThrow("storyDate must be within the trip's dates");
+        expect(prisma.story.create).not.toHaveBeenCalled();
+      });
+
+      it('rejects a future day, even within the trip', async () => {
+        await expect(
+          service.create(ownerId, createDto({ tripId, storyDate: date(1) })),
+        ).rejects.toThrow("storyDate can't be in the future");
+      });
+
+      it('only allows today without a trip', async () => {
+        await expect(
+          service.create(ownerId, createDto({ storyDate: date(-1) })),
+        ).rejects.toThrow('Without a trip, storyDate has to be today');
+
+        await service.create(ownerId, createDto({ storyDate: date(0) }));
+        expect(createdData()).toMatchObject({ storyDate: today });
+      });
+
+      it("defaults to the user's local today", async () => {
+        prisma.trip.findUnique.mockResolvedValue(
+          makeTrip({ startDate: daysFromToday(-3), endDate: daysFromToday(1) }),
+        );
+
+        await service.create(ownerId, createDto({ tripId, date: date(-1) }));
+
+        expect(createdData()).toMatchObject({ storyDate: daysFromToday(-1) });
+      });
     });
 
     it('rejects both locationId and customLocationName', async () => {
@@ -317,6 +373,22 @@ describe('StoriesService', () => {
   describe('listFeed', () => {
     const dbNow = new Date('2026-10-14T00:00:00Z');
 
+    it('only looks at the viewer and the users they follow', async () => {
+      prisma.$queryRaw.mockResolvedValue([]);
+
+      await service.listFeed(ownerId, {});
+
+      const [[strings, ...values]] = prisma.$queryRaw.mock.calls as [
+        [string[], ...unknown[]],
+      ];
+      const sql = strings.join('?');
+      expect(sql).toContain('owner_id = ?');
+      expect(sql).toContain(
+        'SELECT following_id FROM follows WHERE follower_id = ?',
+      );
+      expect(values.slice(0, 2)).toEqual([ownerId, ownerId]);
+    });
+
     it('groups active stories by user, in the order the query returns users', async () => {
       prisma.$queryRaw.mockResolvedValue([
         {
@@ -337,7 +409,7 @@ describe('StoriesService', () => {
         makeStory({ id: 's3' }),
       ]);
 
-      const page = await service.listFeed({});
+      const page = await service.listFeed(ownerId, {});
 
       expect(page.items.map((g) => g.owner.id)).toEqual([otherId, ownerId]);
       expect(page.items[1].stories.map((s) => s.id)).toEqual(['s1', 's3']);
@@ -361,7 +433,7 @@ describe('StoriesService', () => {
       ]);
       prisma.story.findMany.mockResolvedValue([makeStory()]);
 
-      const page = await service.listFeed({ limit: 1 });
+      const page = await service.listFeed(ownerId, { limit: 1 });
 
       expect(page.items).toHaveLength(1);
       expect(decodeFeedCursor(page.nextCursor!)).toEqual({
@@ -373,7 +445,7 @@ describe('StoriesService', () => {
     it('returns an empty page without a second query', async () => {
       prisma.$queryRaw.mockResolvedValue([]);
 
-      await expect(service.listFeed({})).resolves.toEqual({
+      await expect(service.listFeed(ownerId, {})).resolves.toEqual({
         items: [],
         nextCursor: null,
       });
@@ -386,17 +458,17 @@ describe('StoriesService', () => {
       ]);
       prisma.story.findMany.mockResolvedValue([]);
 
-      const page = await service.listFeed({});
+      const page = await service.listFeed(ownerId, {});
 
       expect(page.items).toEqual([]);
     });
 
     it('rejects a cursor it did not make', async () => {
-      await expect(service.listFeed({ cursor: 'nope' })).rejects.toThrow(
-        BadRequestException,
-      );
       await expect(
-        service.listFeed({
+        service.listFeed(ownerId, { cursor: 'nope' }),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.listFeed(ownerId, {
           cursor: Buffer.from('["not a date","x"]').toString('base64url'),
         }),
       ).rejects.toThrow(BadRequestException);
@@ -416,7 +488,10 @@ describe('StoriesService', () => {
 
       expect(page.items).toHaveLength(1);
       expect(prisma.story.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { tripId, keepOnTrip: true } }),
+        expect.objectContaining({
+          where: { tripId, keepOnTrip: true },
+          orderBy: [{ storyDate: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
+        }),
       );
     });
 

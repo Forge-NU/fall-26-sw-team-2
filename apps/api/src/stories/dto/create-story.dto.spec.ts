@@ -24,6 +24,7 @@ describe('CreateStoryDto', () => {
         text: 'Hello',
         customLocationName: 'Somewhere',
         date: '2026-10-17',
+        storyDate: '2026-10-15',
       }),
     ).toEqual([]);
   });
@@ -51,7 +52,8 @@ describe('CreateStoryDto', () => {
         tripId: 'not-a-uuid',
         keepOnTrip: 'yes',
         date: '10/17/2026',
+        storyDate: '2026-10-17T10:00:00Z',
       }),
-    ).toEqual(['tripId', 'keepOnTrip', 'date']);
+    ).toEqual(['tripId', 'keepOnTrip', 'date', 'storyDate']);
   });
 });

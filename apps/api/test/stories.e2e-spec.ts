@@ -29,16 +29,26 @@ describe('Stories (e2e)', () => {
   let prisma: PrismaService;
   let owner: User;
   let other: User;
+  // Nobody follows them
+  let stranger: User;
 
   beforeAll(async () => {
     ({ app, prisma } = await createTestApp());
     owner = await createTestUser(prisma, 'owner');
     other = await createTestUser(prisma, 'other');
+    stranger = await createTestUser(prisma, 'stranger');
+    // owner and other follow each other
+    await prisma.follow.createMany({
+      data: [
+        { followerId: owner.id, followingId: other.id },
+        { followerId: other.id, followingId: owner.id },
+      ],
+    });
   });
 
   afterAll(async () => {
     await prisma.user.deleteMany({
-      where: { id: { in: [owner.id, other.id] } },
+      where: { id: { in: [owner.id, other.id, stranger.id] } },
     });
     await app.close();
   });
@@ -70,14 +80,21 @@ describe('Stories (e2e)', () => {
     });
   }
 
-  // Inserts a story directly, `hoursAgo` hours old, the way the seed does
+  // Inserts a story directly, `hoursAgo` hours old, the way the seed does.
+  // storyDate defaults to the day it was created.
   function insertStory(
     user: User,
     {
       hoursAgo = 0,
       tripId = null,
       keepOnTrip = false,
-    }: { hoursAgo?: number; tripId?: string | null; keepOnTrip?: boolean } = {},
+      storyDate,
+    }: {
+      hoursAgo?: number;
+      tripId?: string | null;
+      keepOnTrip?: boolean;
+      storyDate?: string;
+    } = {},
   ) {
     const createdAt = new Date(Date.now() - hoursAgo * HOUR_MS);
     return prisma.story.create({
@@ -88,6 +105,7 @@ describe('Stories (e2e)', () => {
         s3Key: key(user),
         createdAt,
         expiresAt: new Date(createdAt.getTime() + 24 * HOUR_MS),
+        storyDate: new Date(storyDate ?? createdAt.toISOString().slice(0, 10)),
       },
     });
   }
@@ -140,6 +158,7 @@ describe('Stories (e2e)', () => {
         location: null,
         keepOnTrip: false,
         imageUrl: `https://s3.test/${s3Key}`,
+        storyDate: isoDate(0),
       });
       const lifetime =
         new Date(story.expiresAt).getTime() -
@@ -193,13 +212,42 @@ describe('Stories (e2e)', () => {
     it('rejects text over 200 characters', async () => {
       await createStory(owner, { text: 'a'.repeat(201) }).expect(400);
     });
+
+    it("takes a storyDate within the trip's dates, but not in the future", async () => {
+      const trip = await createTrip(owner, { start: -3, end: 2 });
+
+      const res = await createStory(owner, {
+        tripId: trip.id,
+        storyDate: isoDate(-3),
+      }).expect(201);
+      expect((res.body as StoryResponse).storyDate).toBe(isoDate(-3));
+
+      await createStory(owner, {
+        tripId: trip.id,
+        storyDate: isoDate(-4),
+      }).expect(400);
+      await createStory(owner, {
+        tripId: trip.id,
+        storyDate: isoDate(1),
+      }).expect(400);
+    });
+
+    it('only takes today as the storyDate without a trip', async () => {
+      await createStory(owner, { storyDate: isoDate(-1) }).expect(400);
+      await createStory(owner, { storyDate: isoDate(0) }).expect(201);
+    });
   });
 
   describe('database constraints', () => {
     it('rejects keep_on_trip without a trip', async () => {
       await expect(
         prisma.story.create({
-          data: { ownerId: owner.id, s3Key: key(owner), keepOnTrip: true },
+          data: {
+            ownerId: owner.id,
+            s3Key: key(owner),
+            keepOnTrip: true,
+            storyDate: new Date(isoDate(0)),
+          },
         }),
       ).rejects.toThrow(/stories_keep_on_trip_check/);
     });
@@ -213,6 +261,29 @@ describe('Stories (e2e)', () => {
       await expect(
         prisma.story.findUnique({ where: { id: story.id } }),
       ).resolves.toBeNull();
+    });
+
+    it('deleting a trip through the API also deletes its stories and their S3 objects', async () => {
+      const trip = await createTrip(owner);
+      const kept = await insertStory(owner, {
+        tripId: trip.id,
+        keepOnTrip: true,
+      });
+      const active = await insertStory(owner, { tripId: trip.id });
+
+      await request(app.getHttpServer())
+        .delete(`/api/trips/${trip.id}`)
+        .set(as(owner))
+        .expect(204);
+
+      const left = await prisma.story.count({
+        where: { id: { in: [kept.id, active.id] } },
+      });
+      expect(left).toBe(0);
+      const deletedKeys = storageMock.deleteObjects.mock.calls.flat(2);
+      expect(deletedKeys).toEqual(
+        expect.arrayContaining([kept.s3Key, active.s3Key]),
+      );
     });
 
     it('deletes stories with their owner', async () => {
@@ -240,6 +311,23 @@ describe('Stories (e2e)', () => {
       const allIds = [...feed.values()].flat();
       expect(allIds).not.toContain(SEEDED_EXPIRED_STORY_ID);
       expect(allIds).not.toContain(expired.id);
+    });
+
+    it('shows the viewer and the users they follow, and nobody else', async () => {
+      const mine = await insertStory(owner);
+      const followed = await insertStory(other);
+      const strangers = await insertStory(stranger);
+
+      const feed = await readFeed(owner);
+
+      expect(feed.get(owner.id)).toContain(mine.id);
+      expect(feed.get(other.id)).toContain(followed.id);
+      expect(feed.has(stranger.id)).toBe(false);
+      expect([...feed.values()].flat()).not.toContain(strangers.id);
+      // The stranger still sees their own
+      expect((await readFeed(stranger)).get(stranger.id)).toContain(
+        strangers.id,
+      );
     });
 
     it("lists each user's stories oldest first", async () => {
@@ -285,6 +373,33 @@ describe('Stories (e2e)', () => {
 
       const page = res.body as TripStoriesResponse;
       expect(page.items.map((s) => s.id)).toEqual([kept.id]);
+    });
+
+    it('orders kept stories by storyDate, not by when they were posted', async () => {
+      const trip = await createTrip(owner, { start: -3, end: 1 });
+      // Posted first, but from a later day of the trip
+      const later = await insertStory(owner, {
+        tripId: trip.id,
+        keepOnTrip: true,
+        hoursAgo: 2,
+        storyDate: isoDate(0),
+      });
+      const earlier = await insertStory(owner, {
+        tripId: trip.id,
+        keepOnTrip: true,
+        hoursAgo: 1,
+        storyDate: isoDate(-2),
+      });
+
+      const res = await request(app.getHttpServer())
+        .get(`/api/trips/${trip.id}/stories`)
+        .set(as(owner))
+        .expect(200);
+
+      expect((res.body as TripStoriesResponse).items.map((s) => s.id)).toEqual([
+        earlier.id,
+        later.id,
+      ]);
     });
 
     it("hides a draft trip's stories from everyone but the owner", async () => {

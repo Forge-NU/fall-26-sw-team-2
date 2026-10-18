@@ -330,11 +330,14 @@ type SeedStory = {
   customLocationName?: string;
   keepOnTrip: boolean;
   createdAt: Date;
+  // The day the story is from. Defaults to the day it was created.
+  storyDate?: Date;
 };
 
 const stories: SeedStory[] = [
   {
-    // On Alex's active trip, kept with "Add to trip"
+    // On Alex's active trip, kept with "Add to trip". Photo from yesterday,
+    // the trip's first day.
     id: '00000000-0000-4000-c000-000000000001',
     ownerId: 'user_seed_alex',
     tripId: trips[3].id,
@@ -342,6 +345,7 @@ const stories: SeedStory[] = [
     locationId: locations[4].id,
     keepOnTrip: true,
     createdAt: hoursAgo(3),
+    storyDate: daysFromToday(-1),
   },
   {
     // On Alex's active trip, not kept, so it goes after 24 hours
@@ -446,6 +450,8 @@ async function main() {
       s3Key: `users/${story.ownerId}/stories/${id}.jpg`,
       locationId: story.locationId ?? null,
       customLocationName: story.customLocationName ?? null,
+      storyDate:
+        story.storyDate ?? new Date(story.createdAt.toISOString().slice(0, 10)),
       // Set explicitly (normally the database default) to match createdAt
       expiresAt: new Date(
         story.createdAt.getTime() + DAY_HOURS * 60 * 60 * 1000,

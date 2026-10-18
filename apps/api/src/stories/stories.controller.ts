@@ -31,8 +31,8 @@ export class StoriesController {
   }
 
   @Get('stories/feed')
-  listFeed(@Query() query: StoriesFeedQueryDto) {
-    return this.storiesService.listFeed(query);
+  listFeed(@Req() request: AuthedRequest, @Query() query: StoriesFeedQueryDto) {
+    return this.storiesService.listFeed(request.user.userId, query);
   }
 
   @Delete('stories/:id')

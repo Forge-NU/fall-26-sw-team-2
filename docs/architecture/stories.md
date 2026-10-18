@@ -15,20 +15,19 @@ The rules, in short:
 - Every story is visible to everyone for 24 hours. The server enforces this.
 - **Add to trip** (`keepOnTrip`) keeps the story on the trip page after it expires. Any other story is deleted after 24 hours, along with its S3 object.
 - The owner can delete a story at any time. Deleting a trip deletes its stories, and deleting an account deletes the user's stories.
+- **Story date** (approved 2026-10-18, from the post-story wireframe; not in mvp-decisions.md yet): every story has the day it's from, such as when the photo was taken. With a trip, it can be any day within the trip's dates up to today. Without a trip, it's always today. It only decides where a kept story sits on the trip page. Expiry is still 24 hours after posting.
 
 Related work:
 - #3 DB-1 / #56 TRIP-1: `trips`, and the active-trip and visibility rules (`trips/trip-rules.ts`).
 - #38 MEDIA-1: the presigned upload that produces the S3 keys stories reference.
-- #10 FOL-1: the `follows` table. The stories bar is waiting on it (see [the stories bar](#get-apistoriesfeed)).
+- #10 FOL-1 / #16: the `follows` table the stories bar is filtered by.
 - #34 INF-1: the AWS setup for the cleanup schedule (see [Cleanup job](#cleanup-job)).
-
-Shared code is copied unchanged from Duke's open PRs (#56, #57) until they merge: `common/` (dates, character length, trim, user summary, pagination), `storage/`, `trips/trip-rules.ts`, `trips/trip-locks.ts`, and `test/utils/test-app.ts`.
 
 ## Data model
 
 ### stories
 
-Model: `apps/api/prisma/models/story.prisma`. Migration: `20261017050559_add_stories`.
+Model: `apps/api/prisma/models/story.prisma`. Migrations: `20261017050559_add_stories`, then `20261018011117_add_story_date` (adds `story_date`, filled in from `created_at` for existing rows).
 
 | Column | Type | Null | Default | Notes |
 |---|---|---|---|---|
@@ -40,6 +39,7 @@ Model: `apps/api/prisma/models/story.prisma`. Migration: `20261017050559_add_sto
 | `s3_key` | String | No | | Unique. Under `users/{ownerId}/stories/` |
 | `text` | VARCHAR(200) | Yes | | |
 | `keep_on_trip` | Boolean | No | `false` | "Add to trip" |
+| `story_date` | Date | No | | The day the story is from. Set by the API (see [`POST /api/stories`](#post-apistories)) |
 | `expires_at` | Timestamp | No | `now() + 24 hours` | |
 | `created_at` | Timestamp | No | `now()` | |
 
@@ -48,9 +48,9 @@ Check constraints (raw SQL at the end of the migration):
 - `stories_location_check`: `location_id IS NULL OR custom_location_name IS NULL`. At most one kind of location.
 
 Indexes:
-- `(owner_id, expires_at)`: one user's active stories. The stories bar uses it once it's limited to followed users.
-- `(trip_id, created_at)`: kept stories on a trip page.
-- `(expires_at)`: the stories bar while it lists everyone, and the cleanup job.
+- `(owner_id, expires_at)`: active stories from the viewer and the users they follow, for the stories bar.
+- `(trip_id, story_date, created_at)`: kept stories on a trip page, in order.
+- `(expires_at)`: the cleanup job.
 - `s3_key` unique: two stories can never share an object, so deleting one never removes another's photo.
 
 #### Timestamps
@@ -69,12 +69,12 @@ Columns are `timestamp without time zone` in UTC, the same as the rest of the sc
 
 Cascades remove rows, not S3 objects. Every delete that removes stories has to delete their objects too:
 - `DELETE /api/stories/:id` and the cleanup job do this.
-- **Trip delete (#56):** needs to read the trip's `stories.s3_key` values before deleting, alongside the `post_media` keys. Whichever of #56 and this PR merges second adds it.
+- **Trip delete** (`TripsService.remove()`, #56) reads the trip's `stories.s3_key` values alongside its `post_media` keys before deleting, then deletes both sets of objects. This PR added that.
 - **Account delete (#15):** doesn't delete any S3 objects yet. The prefix delete of `users/{userId}/` suggested in [data-model.md](data-model.md#account-deletion) would cover stories.
 
 ## Visibility
 
-- **Active story** (`expires_at > now()`): visible to everyone in the stories bar, including when its trip is still a draft.
+- **Active story** (`expires_at > now()`): public, including when its trip is still a draft. It shows in the stories bar of its owner and everyone who follows them.
 - **Expired and kept:** visible only on its trip's page, to whoever can see the trip (`canViewTrip`: anyone once the trip is published, otherwise only the owner).
 - **Expired and not kept:** never returned. The cleanup job deletes it.
 
@@ -98,6 +98,7 @@ type StoryResponse = {
   customLocationName: string | null;
   imageUrl: string;              // presigned S3 GET URL, valid for 1 hour
   keepOnTrip: boolean;
+  storyDate: string;             // YYYY-MM-DD, the day the story is from
   expiresAt: string;             // ISO 8601
   createdAt: string;
 };
@@ -119,7 +120,8 @@ Creates a story. Returns `201` with a `StoryResponse`.
   "keepOnTrip": true,
   "text": "Pena Palace in the fog",
   "locationId": "…",
-  "date": "2026-10-17"
+  "date": "2026-10-17",
+  "storyDate": "2026-10-15"
 }
 ```
 
@@ -128,10 +130,11 @@ Creates a story. Returns `201` with a `StoryResponse`.
 - `keepOnTrip` (optional, default `false`): needs a `tripId`.
 - `text` (optional): up to 200 characters, counted the way Postgres counts them. An empty string is stored as null.
 - `locationId` or `customLocationName` (optional): at most one. `customLocationName` is 1 to 100 characters after trimming.
-- `date` (optional): the user's local date (`YYYY-MM-DD`), used for "today" in the active-trip check. It has to be within a day of the server's UTC date. Without it, the server's UTC date is used.
+- `date` (optional): the user's local date (`YYYY-MM-DD`), used for "today" in the active-trip and `storyDate` checks. It has to be within a day of the server's UTC date. Without it, the server's UTC date is used.
+- `storyDate` (optional, `YYYY-MM-DD`, defaults to today): the day the story is from. The app defaults it to the photo's taken date when that's within the trip, and the user can change it. With a trip, it has to be within the trip's dates and not after today. Without a trip, it has to be today.
 
 Errors:
-- `400`: bad fields, both location fields sent, `keepOnTrip` without a trip, a key outside the user's stories prefix or already in use, an unknown `locationId`, or a trip that isn't active (published, or today outside its dates).
+- `400`: bad fields, both location fields sent, `keepOnTrip` without a trip, a key outside the user's stories prefix or already in use, an unknown `locationId`, a trip that isn't active (published, or today outside its dates), or a `storyDate` that breaks the rules above.
 - `403`: someone else's published trip.
 - `404`: a trip that doesn't exist, or someone else's draft trip.
 
@@ -141,14 +144,13 @@ Owner only. Deletes the story and its S3 object. Returns `204`. Anyone else gets
 
 ### `GET /api/stories/feed`
 
-The stories bar. Returns `StoriesFeedResponse`: users with active stories, the user with the most recent story first, each with their active stories oldest first (the order a viewer taps through them).
+The stories bar. Returns `StoriesFeedResponse`: the viewer and the users they follow who have active stories, the user with the most recent story first, each with their active stories oldest first (the order a viewer taps through them). The viewer's own stories are included and sorted the same way as everyone else's.
 
-- **Waiting for FOL-1 (#10):** this lists everyone's active stories for now, which is acceptable because everything is public. Once the `follows` table lands, it should be limited to the viewer and the users they follow. The spot is marked `TODO(FOL-1 #10)` in `stories.service.ts`.
 - Pages through users, not stories: `?limit=<1-50, default 20>&cursor=<nextCursor>`. The cursor is an opaque string. A cursor the API didn't produce returns `400`.
 
 ### `GET /api/trips/:id/stories`
 
-Stories kept on a trip, oldest first, including ones that have expired. Returns `TripStoriesResponse`. Returns `404` if the trip doesn't exist or the viewer can't see it (someone else's draft). It uses the standard pagination: `?cursor=<story id>&limit=<1-50>`.
+Stories kept on a trip, including ones that have expired, ordered by `storyDate`, then by when they were posted. Returns `TripStoriesResponse`. Returns `404` if the trip doesn't exist or the viewer can't see it (someone else's draft). It uses the standard pagination: `?cursor=<story id>&limit=<1-50>`.
 
 ## Cleanup job
 
@@ -183,22 +185,23 @@ Running hourly means a non-kept story's object can outlive the story by up to an
 ## Seed data
 
 `prisma/seed.ts` adds 4 stories, timed relative to when the seed runs:
-- Alex: 2 stories on the active trip "Sintra and the coast", one kept and one not.
+- Alex: 2 stories on the active trip "Sintra and the coast", one kept (story date: yesterday, the trip's first day) and one not.
 - Priya: 1 story with no trip, with a custom location.
 - Maya: 1 story created **25 hours ago**, not kept (`00000000-0000-4000-c000-000000000004`). It never shows in the stories bar, and the cleanup job deletes it. Run the seed again to bring it back.
 
 ## Tests
 
 - **Unit** (`npm test`, run in CI):
-  - `stories.service.spec.ts`: trip linking (active, published, outside its dates, the user's local date, other users' trips), keys, locations, delete, feed grouping and cursors, and trip-page visibility.
+  - `stories.service.spec.ts`: trip linking (active, published, outside its dates, the user's local date, other users' trips), story date rules, keys, locations, delete, the follows filter, feed grouping and cursors, and trip-page visibility and order.
+  - `trips.service.spec.ts`: trip delete also deletes its stories' S3 objects.
   - `stories-cleanup.service.spec.ts`: what gets deleted, batching, and stopping.
   - `create-story.dto.spec.ts`: field validation.
 - **E2E** (`npm run test:e2e`, against the local Postgres from `docker compose up -d`; not run in CI yet) in `test/stories.e2e-spec.ts`:
   - **Acceptance criteria:** a story created 25 hours ago never appears in the stories bar; the cleanup job removes both the row and the S3 object; and linking a published trip, or one whose dates don't include today, is rejected.
-  - **Also:** the check constraint, cascades from trip and user deletes, kept stories on the trip page, delete permissions, and feed pagination.
+  - **Also:** the check constraint, cascades from trip and user deletes, trip delete through the API removing story objects, story date rules, the stories bar showing only the viewer and the users they follow, kept stories on the trip page in story date order, delete permissions, and feed pagination.
 
 ## Not in the MVP
 
 - Video stories, and tracking who viewed a story
-- Limiting the stories bar to followed users (waiting for #10, not a product cut)
+- Music on stories (shown in the wireframe, planned for later)
 - Checking that an uploaded object exists, and sweeping uploads that never became a story (#38)

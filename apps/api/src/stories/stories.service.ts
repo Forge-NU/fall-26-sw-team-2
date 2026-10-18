@@ -15,6 +15,7 @@ import {
   toPage,
 } from '../common/pagination';
 import { toUserSummary, userSummarySelect } from '../common/user-summary';
+import { formatDateOnly, parseDateOnly } from '../common/dates';
 import { canViewTrip, isActiveTrip, resolveToday } from '../trips/trip-rules';
 import { lockTripForShare } from '../trips/trip-locks';
 import { CreateStoryDto } from './dto/create-story.dto';
@@ -38,6 +39,13 @@ type StoryWithDetails = Prisma.StoryGetPayload<{
 
 // Oldest first, the order a viewer taps through them
 const STORY_ORDER = [
+  { createdAt: 'asc' },
+  { id: 'asc' },
+] satisfies Prisma.StoryOrderByWithRelationInput[];
+
+// Trip page order: by story date, then the order they were posted
+const TRIP_STORY_ORDER = [
+  { storyDate: 'asc' },
   { createdAt: 'asc' },
   { id: 'asc' },
 ] satisfies Prisma.StoryOrderByWithRelationInput[];
@@ -69,6 +77,17 @@ export class StoriesService {
     }
     const today = resolveToday(dto.date);
     const tripId = dto.tripId;
+    // The day the story is from (defaults to today). Without a trip it's
+    // always today; with one it's checked against the trip's dates below.
+    const storyDate = dto.storyDate ? parseDateOnly(dto.storyDate) : today;
+    if (storyDate > today) {
+      throw new BadRequestException("storyDate can't be in the future");
+    }
+    if (!tripId && storyDate.getTime() !== today.getTime()) {
+      throw new BadRequestException(
+        'Without a trip, storyDate has to be today',
+      );
+    }
 
     const story = await withStoryKeyCheck(() =>
       this.prisma.$transaction(async (tx) => {
@@ -90,6 +109,11 @@ export class StoriesService {
               'Stories can only be linked to an active trip (a draft, with today within its dates)',
             );
           }
+          if (storyDate < trip.startDate || storyDate > trip.endDate) {
+            throw new BadRequestException(
+              "storyDate must be within the trip's dates",
+            );
+          }
         }
 
         // Both times come from the database's clock, the one reads compare
@@ -100,6 +124,7 @@ export class StoriesService {
           data: {
             createdAt: now,
             expiresAt: new Date(now.getTime() + STORY_LIFETIME_MS),
+            storyDate,
             ownerId: userId,
             tripId: tripId ?? null,
             s3Key: dto.s3Key,
@@ -134,12 +159,13 @@ export class StoriesService {
     }
   }
 
-  // The stories bar: users with active stories, the most recent first, each
-  // with their active stories oldest first. Pages through users.
-  // TODO(FOL-1 #10): waiting for the follows table. Until then this shows
-  // everyone's stories (everything is public); once it lands, limit it to
-  // the viewer and the users they follow.
-  async listFeed(query: StoriesFeedQueryDto): Promise<StoriesFeedResponse> {
+  // The stories bar: the viewer and the users they follow who have active
+  // stories, the most recent first, each with their active stories oldest
+  // first. Pages through users.
+  async listFeed(
+    viewerId: string,
+    query: StoriesFeedQueryDto,
+  ): Promise<StoriesFeedResponse> {
     const limit = query.limit ?? DEFAULT_PAGE_SIZE;
     const cursor = query.cursor ? decodeFeedCursor(query.cursor) : null;
 
@@ -150,6 +176,12 @@ export class StoriesService {
       SELECT owner_id, max(created_at) AS latest, now() AS now
       FROM stories
       WHERE expires_at > now()
+        AND (
+          owner_id = ${viewerId}
+          OR owner_id IN (
+            SELECT following_id FROM follows WHERE follower_id = ${viewerId}
+          )
+        )
       GROUP BY owner_id
       ${
         cursor
@@ -202,8 +234,8 @@ export class StoriesService {
     };
   }
 
-  // Stories kept on a trip ("Add to trip"), including after they expire.
-  // Visible to whoever can see the trip.
+  // Stories kept on a trip ("Add to trip"), including after they expire, in
+  // story date order. Visible to whoever can see the trip.
   async listForTrip(
     viewerId: string,
     tripId: string,
@@ -228,7 +260,7 @@ export class StoriesService {
     const stories = await this.prisma.story.findMany({
       where,
       include: storyInclude,
-      orderBy: STORY_ORDER,
+      orderBy: TRIP_STORY_ORDER,
       ...pageArgs(query),
     });
 
@@ -255,6 +287,7 @@ export class StoriesService {
       customLocationName: story.customLocationName,
       imageUrl: await this.storage.getReadUrl(story.s3Key),
       keepOnTrip: story.keepOnTrip,
+      storyDate: formatDateOnly(story.storyDate),
       expiresAt: story.expiresAt.toISOString(),
       createdAt: story.createdAt.toISOString(),
     };

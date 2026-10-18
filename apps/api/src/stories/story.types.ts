@@ -27,6 +27,7 @@ export type StoryResponse = {
   customLocationName: string | null;
   imageUrl: string;
   keepOnTrip: boolean;
+  storyDate: string; // YYYY-MM-DD, the day the story is from
   expiresAt: string;
   createdAt: string;
 };

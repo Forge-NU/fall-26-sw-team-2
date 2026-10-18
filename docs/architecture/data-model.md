@@ -107,6 +107,7 @@ erDiagram
         string s3_key UK
         string text "nullable"
         boolean keep_on_trip
+        date story_date
         timestamp expires_at
     }
     post_likes {
@@ -207,7 +208,8 @@ Only the rules that cross features are listed here. Column types and lengths fol
   - `expires_at` is `created_at + 24 hours`. Reads filter on it, so a story disappears on time even before the cleanup job deletes it.
 - **Suggestion (Christian):** use the same location approach as posts, but optional. At most one of `location_id` and `custom_location_name` is set, enforced by `NOT (location_id IS NOT NULL AND custom_location_name IS NOT NULL)`.
 - **Suggestion (Christian):** index `(owner_id, expires_at)` for the stories bar and `(trip_id)` for kept stories on a trip page.
-- Built in #23 ([`stories.md`](stories.md)) with both suggestions. The indexes are `(owner_id, expires_at)`, `(trip_id, created_at)` so the trip page doesn't sort, and `(expires_at)` for the cleanup job and the stories bar until follows land.
+- Built in #23 ([`stories.md`](stories.md)) with both suggestions. The indexes are `(owner_id, expires_at)` for the stories bar, `(trip_id, story_date, created_at)` so the trip page doesn't sort, and `(expires_at)` for the cleanup job.
+- `story_date` (approved 2026-10-18, from the post-story wireframe): the day a story is from. With a trip, any day within its dates up to today; without one, today. It orders kept stories on the trip page and doesn't change expiry. mvp-decisions.md doesn't cover it yet.
 
 ### post_likes, post_saves, trip_saves
 

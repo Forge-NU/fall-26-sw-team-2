@@ -49,4 +49,12 @@ export class CreateStoryDto {
   @Matches(DATE_ONLY, { message: 'date must be YYYY-MM-DD' })
   @IsISO8601({ strict: true })
   date?: string;
+
+  // The day the story is from, e.g. when the photo was taken. Defaults to
+  // today. With a trip: within its dates and not in the future. Without a
+  // trip: today only.
+  @IsOptional()
+  @Matches(DATE_ONLY, { message: 'storyDate must be YYYY-MM-DD' })
+  @IsISO8601({ strict: true })
+  storyDate?: string;
 }
