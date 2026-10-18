@@ -32,7 +32,7 @@ jobs:
         run: npm run build
 
       - name: Generate Prisma client
-        run: npm exec prisma generate
+        run: npm exec --no-install prisma generate
 
       - name: Lint
         run: npm run lint
