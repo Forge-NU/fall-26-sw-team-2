@@ -8,6 +8,7 @@
  *
  * 🟢 You can import this file directly.
  */
+export type * from './models/Follow'
 export type * from './models/Location'
 export type * from './models/PostMedia'
 export type * from './models/Post'
