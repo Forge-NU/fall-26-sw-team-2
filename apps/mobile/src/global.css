@@ -7,3 +7,9 @@
   --font-rounded: 'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif;
   --font-serif: Georgia, 'Times New Roman', serif;
 }
+
+[data-testid='app-input-field'] input:focus,
+[data-testid='app-input-field'] textarea:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}

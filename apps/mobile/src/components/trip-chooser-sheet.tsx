@@ -1,31 +1,40 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { AppText } from '@/components/app-text';
+import { AppText } from '@/components/ui/app-text';
 import { BottomSheet } from '@/components/bottom-sheet';
 import { Icon } from '@/components/icon';
-import { Palette, Radius } from '@/constants/theme';
+import { Palette, Radii } from '@/constants/theme';
 import type { ActiveTrip } from '@/data/mock';
 import { formatRange } from '@/utils/dates';
 
 type TripChooserSheetProps = {
   visible: boolean;
+  title?: string;
   trips: ActiveTrip[];
   selectedId: string | null;
-  onSelect: (tripId: string | null) => void;
+  onSelect: (tripId: string) => void;
+  /** Status line under each trip's dates. */
+  describe: (trip: ActiveTrip) => string;
+  /** Shows the "Post without a trip" row when provided. */
+  onPostWithoutTrip?: () => void;
   onCreateTrip: () => void;
   onClose: () => void;
 };
 
+/** Pick one of your trips. Used by the story composer and by "Add places to itinerary". */
 export function TripChooserSheet({
   visible,
+  title = 'Choose a trip',
   trips,
   selectedId,
   onSelect,
+  describe,
+  onPostWithoutTrip,
   onCreateTrip,
   onClose,
 }: TripChooserSheetProps) {
   return (
-    <BottomSheet visible={visible} onClose={onClose} title="Choose a trip">
+    <BottomSheet visible={visible} onClose={onClose} title={title}>
       <View style={styles.content}>
         <View style={styles.trips}>
           {trips.map((trip) => {
@@ -39,14 +48,14 @@ export function TripChooserSheet({
                 style={[styles.trip, selected && styles.tripSelected]}>
                 <Icon name="calendar-days" size={22} />
                 <View style={styles.tripDetails}>
-                  <AppText variant="bold" size={13} leading={1.35}>
+                  <AppText variant="label">
                     {trip.title}
                   </AppText>
-                  <AppText size={11} color="inkMuted" leading={1.35}>
+                  <AppText variant="caption" color="placeholderGray">
                     {formatRange(trip.startDate, trip.endDate)} · {trip.status}
                   </AppText>
-                  <AppText variant="bold" size={9} color="inkMuted">
-                    {trip.suggested ? 'Suggested · active today' : 'Active today'}
+                  <AppText variant="caption" color="placeholderGray">
+                    {describe(trip)}
                   </AppText>
                 </View>
                 <View style={[styles.radio, selected && styles.radioSelected]}>
@@ -57,22 +66,24 @@ export function TripChooserSheet({
           })}
         </View>
 
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => onSelect(null)}
-          style={styles.withoutTrip}>
-          <Icon name="circle-minus" size={20} />
-          <AppText variant="bold" size={12} leading={1.35} style={styles.grow}>
-            Post without a trip
-          </AppText>
-          <Icon name="chevron-right" />
-        </Pressable>
+        {onPostWithoutTrip && (
+          <Pressable
+            accessibilityRole="button"
+            onPress={onPostWithoutTrip}
+            style={styles.withoutTrip}>
+            <Icon name="circle-minus" size={20} />
+            <AppText variant="caption" style={styles.grow}>
+              Post without a trip
+            </AppText>
+            <Icon name="chevron-right" />
+          </Pressable>
+        )}
 
         <Pressable accessibilityRole="button" onPress={onCreateTrip} style={styles.createTrip}>
           <View style={styles.createSymbol}>
             <Icon name="plus" size={20} color="coral" />
           </View>
-          <AppText variant="bold" size={12} leading={1.35} style={styles.grow}>
+          <AppText variant="caption" style={styles.grow}>
             Create trip
           </AppText>
           <Icon name="chevron-right" />
@@ -95,14 +106,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     padding: 12,
-    borderRadius: Radius.sm,
+    borderRadius: Radii.small,
     borderWidth: 1,
-    borderColor: Palette.border,
-    backgroundColor: Palette.surface,
+    borderColor: Palette.lightPink,
+    backgroundColor: Palette.warmWhite,
   },
   tripSelected: {
     borderColor: Palette.coral,
-    backgroundColor: Palette.coralSoft,
+    backgroundColor: Palette.peach,
   },
   tripDetails: {
     flex: 1,
@@ -115,7 +126,7 @@ const styles = StyleSheet.create({
     gap: 10,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: Palette.border,
+    borderColor: Palette.lightPink,
   },
   createTrip: {
     flexDirection: 'row',
@@ -128,12 +139,12 @@ const styles = StyleSheet.create({
   radio: {
     width: 18,
     height: 18,
-    borderRadius: Radius.pill,
+    borderRadius: Radii.circle,
     borderWidth: 1.5,
-    borderColor: Palette.borderStrong,
+    borderColor: Palette.placeholderGray,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Palette.surface,
+    backgroundColor: Palette.warmWhite,
   },
   radioSelected: {
     borderColor: Palette.coral,
@@ -141,15 +152,15 @@ const styles = StyleSheet.create({
   radioDot: {
     width: 8,
     height: 8,
-    borderRadius: Radius.pill,
+    borderRadius: Radii.circle,
     backgroundColor: Palette.coral,
   },
   createSymbol: {
     width: 32,
     height: 32,
-    borderRadius: Radius.sm,
+    borderRadius: Radii.small,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Palette.coralSoft,
+    backgroundColor: Palette.peach,
   },
 });

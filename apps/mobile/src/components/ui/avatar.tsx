@@ -1,48 +1,72 @@
-import { Image } from 'expo-image';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useState } from 'react';
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 
-import { AppText } from '@/components/app-text';
-import { initialsFor, tintFor } from '@/utils/placeholder';
+import {
+  AvatarTokens,
+  type AvatarSize,
+} from '@/constants/avatar-tokens';
 
-type AvatarProps = {
-  name: string;
-  /** Profile photo; initials are drawn when it is missing or fails to load. */
-  url?: string;
-  size: number;
-  style?: StyleProp<ViewStyle>;
+export type AvatarProps = {
+  name?: string;
+  uri?: string | null;
+  size?: AvatarSize;
 };
 
-export function Avatar({ name, url, size, style }: AvatarProps) {
-  const [failedUrl, setFailedUrl] = useState<string>();
-  const frame = { width: size, height: size, borderRadius: size / 2 };
-  const showImage = url && url !== failedUrl;
+export function Avatar({
+  name = '',
+  uri,
+  size = 'medium',
+}: AvatarProps) {
+  const [failedUri, setFailedUri] = useState<string | null>(null);
+  const dimensions = AvatarTokens.sizes[size];
+  const imageUri = uri?.trim();
+  const showImage = Boolean(imageUri && imageUri !== failedUri);
 
   return (
     <View
       accessible
-      accessibilityLabel={name}
-      style={[styles.frame, frame, { backgroundColor: tintFor(name) }, style]}>
+      accessibilityRole="image"
+      accessibilityLabel={
+        name.trim() ? `${name.trim()} avatar` : 'User avatar'
+      }
+      style={[
+        styles.container,
+        {
+          width: dimensions.diameter,
+          height: dimensions.diameter,
+          borderRadius: dimensions.diameter / 2,
+        },
+      ]}>
       {showImage ? (
         <Image
-          source={{ uri: url }}
-          style={StyleSheet.absoluteFill}
-          onError={() => setFailedUrl(url)}
+          key={imageUri}
+          source={{ uri: imageUri }}
+          resizeMode="cover"
+          style={styles.image}
+          onError={() => setFailedUri(imageUri ?? null)}
         />
-      ) : (
-        // Tiny avatars only have room for one letter.
-        <AppText variant="bold" size={Math.round(size * 0.4)}>
-          {initialsFor(name, size < 24 ? 1 : 2)}
-        </AppText>
-      )}
+      ) : size !== 'compact' ? (
+        <Ionicons
+          name="person-outline"
+          size={dimensions.diameter * 0.55}
+          color={AvatarTokens.iconColor}
+          accessible={false}
+        />
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  frame: {
-    overflow: 'hidden',
+  container: {
+    backgroundColor: AvatarTokens.background,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  image: {
+    width: '100%',
+    height: '100%',
   },
 });

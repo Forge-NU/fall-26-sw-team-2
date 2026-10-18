@@ -3,18 +3,21 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Share, StyleSheet, View } from 'react-native';
 
-import { ActionButton } from '@/components/action-button';
-import { AppText } from '@/components/app-text';
 import { Icon, IconName } from '@/components/icon';
+import { AddToTripSheet } from '@/components/itinerary/add-to-trip-sheet';
 import { PostAuthor } from '@/components/post-author';
+import { AppText } from '@/components/ui/app-text';
+import { Button } from '@/components/ui/button';
 import { Media } from '@/components/ui/media';
-import { Palette, PaletteColor, Radius, ScreenGutter } from '@/constants/theme';
+import { Palette, Radii, Spacing } from '@/constants/theme';
 import type { Itinerary } from '@/data/mock';
 
 export function ItineraryCard({ itinerary }: { itinerary: Itinerary }) {
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [addingPlaces, setAddingPlaces] = useState(false);
   const [featured, ...rest] = itinerary.days;
+  const placeCount = itinerary.days.reduce((total, day) => total + day.places.length, 0);
 
   const openDay = (day: number) =>
     router.push({ pathname: '/itinerary/[id]', params: { id: itinerary.id, day: String(day) } });
@@ -29,17 +32,17 @@ export function ItineraryCard({ itinerary }: { itinerary: Itinerary }) {
 
       <View style={styles.identity}>
         <View style={styles.metaRow}>
-          <AppText variant="bold" size={11}>
+          <AppText variant="caption">
             ITINERARY
           </AppText>
-          <AppText size={11} color="inkMuted">
+          <AppText variant="caption" color="placeholderGray">
             {itinerary.days.length} days · {itinerary.stops} stops
           </AppText>
         </View>
-        <AppText variant="display" size={24} leading={1.15}>
+        <AppText variant="heading">
           {itinerary.title}
         </AppText>
-        <AppText size={12} color="inkMuted" leading={1.45}>
+        <AppText variant="caption" color="placeholderGray">
           {itinerary.summary}
         </AppText>
       </View>
@@ -62,10 +65,10 @@ export function ItineraryCard({ itinerary }: { itinerary: Itinerary }) {
             style={StyleSheet.absoluteFill}
           />
           <View style={styles.featuredCaption}>
-            <AppText variant="bold" size={11} color="surface">
+            <AppText variant="caption" color="warmWhite">
               Day {featured.day} · View day
             </AppText>
-            <AppText variant="display" size={20} color="surface">
+            <AppText variant="heading" color="warmWhite">
               {featured.title}
             </AppText>
           </View>
@@ -89,12 +92,12 @@ export function ItineraryCard({ itinerary }: { itinerary: Itinerary }) {
                   style={StyleSheet.absoluteFill}
                 />
                 <View style={styles.dayLabel}>
-                  <AppText variant="bold" size={10} color="surface">
+                  <AppText variant="caption" color="warmWhite">
                     Day {day.day}
                   </AppText>
                 </View>
               </View>
-              <AppText variant="semibold" size={11} leading={1.3}>
+              <AppText variant="caption">
                 {day.title}
               </AppText>
             </Pressable>
@@ -122,21 +125,25 @@ export function ItineraryCard({ itinerary }: { itinerary: Itinerary }) {
       </View>
 
       <View style={styles.caption}>
-        <AppText size={12} leading={1.45}>
+        <AppText variant="caption">
           {itinerary.caption}
         </AppText>
-        <AppText size={10} color="inkMuted">
+        <AppText variant="caption" color="placeholderGray">
           {itinerary.lovedBy}
         </AppText>
       </View>
 
-      <ActionButton
-        label="Add places to itinerary"
-        tone="teal"
-        height={48}
-        fontSize={13}
-        leadingIcon="plus"
-        onPress={() => openDay(featured.day)}
+      <Button
+        title="Add places to itinerary"
+        variant="teal"
+        style={styles.fullWidth}
+        onPress={() => setAddingPlaces(true)}
+      />
+
+      <AddToTripSheet
+        visible={addingPlaces}
+        placeCount={placeCount}
+        onClose={() => setAddingPlaces(false)}
       />
     </View>
   );
@@ -150,7 +157,7 @@ function CountAction({
   onPress,
 }: {
   icon: IconName;
-  color?: PaletteColor;
+  color?: keyof typeof Palette;
   label: string;
   accessibilityLabel: string;
   onPress?: () => void;
@@ -162,7 +169,7 @@ function CountAction({
       onPress={onPress}
       style={styles.countAction}>
       <Icon name={icon} size={22} color={color} />
-      <AppText size={12}>{label}</AppText>
+      <AppText variant="caption">{label}</AppText>
     </Pressable>
   );
 }
@@ -170,7 +177,7 @@ function CountAction({
 const styles = StyleSheet.create({
   card: {
     gap: 16,
-    padding: ScreenGutter,
+    padding: Spacing.three,
   },
   identity: {
     gap: 7,
@@ -184,7 +191,7 @@ const styles = StyleSheet.create({
   },
   featured: {
     height: 188,
-    borderRadius: Radius.md,
+    borderRadius: Radii.medium,
     overflow: 'hidden',
   },
   featuredCaption: {
@@ -199,10 +206,10 @@ const styles = StyleSheet.create({
     bottom: 17,
     width: 32,
     height: 32,
-    borderRadius: Radius.sm,
+    borderRadius: Radii.small,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Palette.surface,
+    backgroundColor: Palette.warmWhite,
   },
   moreDays: {
     flexDirection: 'row',
@@ -214,7 +221,7 @@ const styles = StyleSheet.create({
   },
   dayImage: {
     height: 86,
-    borderRadius: Radius.sm,
+    borderRadius: Radii.small,
     overflow: 'hidden',
   },
   dayLabel: {
@@ -224,7 +231,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 4,
     borderRadius: 3,
-    backgroundColor: Palette.ink,
+    backgroundColor: Palette.black,
   },
   actions: {
     flexDirection: 'row',
@@ -242,5 +249,8 @@ const styles = StyleSheet.create({
   },
   caption: {
     gap: 5,
+  },
+  fullWidth: {
+    alignSelf: 'stretch',
   },
 });

@@ -1,9 +1,9 @@
 import { StyleSheet, View } from 'react-native';
 
-import { AppText } from '@/components/app-text';
+import { AppText } from '@/components/ui/app-text';
 import { Icon } from '@/components/icon';
 import { Media } from '@/components/ui/media';
-import { Palette, Radius, ScreenGutter } from '@/constants/theme';
+import { Palette, Radii, Spacing } from '@/constants/theme';
 import type { Moment, TripDay } from '@/data/mock';
 
 function countLabel(moments: Moment[]) {
@@ -23,10 +23,10 @@ export function DayMoments({ day }: { day: TripDay }) {
   return (
     <View style={styles.section}>
       <View style={styles.heading}>
-        <AppText variant="bold" size={18}>
+        <AppText variant="subheading">
           Day {day.day} in moments
         </AppText>
-        <AppText size={11} color="inkMuted">
+        <AppText variant="caption" color="placeholderGray">
           {countLabel(day.moments)}
         </AppText>
       </View>
@@ -36,11 +36,11 @@ export function DayMoments({ day }: { day: TripDay }) {
           <Media seed={lead.id} url={lead.imageUrl} iconSize={36} style={styles.leadImage} />
           <View style={styles.leadCaption}>
             {lead.title && (
-              <AppText variant="bold" size={14}>
+              <AppText variant="label">
                 {lead.title}
               </AppText>
             )}
-            <AppText size={11} color="inkMuted">
+            <AppText variant="caption" color="placeholderGray">
               {lead.caption}
             </AppText>
           </View>
@@ -56,11 +56,11 @@ export function DayMoments({ day }: { day: TripDay }) {
                 {moment.kind === 'video' && (
                   <>
                     <View style={styles.play}>
-                      <Icon name="play" size={16} color="surface" />
+                      <Icon name="play" size={16} color="warmWhite" />
                     </View>
                     {moment.duration && (
                       <View style={styles.duration}>
-                        <AppText variant="semibold" size={10} color="surface">
+                        <AppText variant="caption" color="warmWhite">
                           {moment.duration}
                         </AppText>
                       </View>
@@ -68,7 +68,7 @@ export function DayMoments({ day }: { day: TripDay }) {
                   </>
                 )}
               </View>
-              <AppText size={11} color="inkMuted" leading={1.3}>
+              <AppText variant="caption" color="placeholderGray">
                 {moment.caption}
               </AppText>
             </View>
@@ -84,7 +84,7 @@ export function DayMoments({ day }: { day: TripDay }) {
 const styles = StyleSheet.create({
   section: {
     gap: 14,
-    paddingHorizontal: ScreenGutter,
+    paddingHorizontal: Spacing.three,
     paddingBottom: 16,
   },
   heading: {
@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
   },
   leadImage: {
     height: 220,
-    borderRadius: Radius.md,
+    borderRadius: Radii.medium,
   },
   leadCaption: {
     gap: 3,
@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
   },
   thumb: {
     height: 120,
-    borderRadius: Radius.sm,
+    borderRadius: Radii.small,
     overflow: 'hidden',
   },
   play: {
@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
     height: 36,
     marginTop: -18,
     marginLeft: -18,
-    borderRadius: Radius.pill,
+    borderRadius: Radii.circle,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(22, 42, 42, 0.5)',
@@ -135,6 +135,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
     paddingVertical: 3,
     borderRadius: 3,
-    backgroundColor: Palette.ink,
+    backgroundColor: Palette.black,
   },
 });

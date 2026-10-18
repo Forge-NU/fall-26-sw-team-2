@@ -1,9 +1,9 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { AppText } from '@/components/app-text';
+import { AppText } from '@/components/ui/app-text';
 import { BottomSheet } from '@/components/bottom-sheet';
 import { Icon, IconName } from '@/components/icon';
-import { Palette, Radius } from '@/constants/theme';
+import { Palette, Radii } from '@/constants/theme';
 
 type PostChooserSheetProps = {
   visible: boolean;
@@ -23,7 +23,6 @@ export function PostChooserSheet({
       visible={visible}
       onClose={onClose}
       title="Post"
-      titleSize={28}
       subtitle="Plan a new trip or share a moment.">
       <View style={styles.options}>
         <PostOption
@@ -64,9 +63,9 @@ function PostOption({
         pressed && styles.pressed,
       ]}>
       <View style={[styles.symbol, { backgroundColor: Palette[tone] }]}>
-        <Icon name={icon} size={23} color="surface" />
+        <Icon name={icon} size={23} color="warmWhite" />
       </View>
-      <AppText variant="bold" size={16} style={styles.label}>
+      <AppText variant="subheading" style={styles.label}>
         {label}
       </AppText>
       <Icon name="chevron-right" color={tone} />
@@ -85,9 +84,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     padding: 14,
-    borderRadius: Radius.sm,
+    borderRadius: Radii.small,
     borderWidth: 1,
-    backgroundColor: Palette.coralSoft,
+    backgroundColor: Palette.peach,
   },
   pressed: {
     opacity: 0.8,
@@ -95,7 +94,7 @@ const styles = StyleSheet.create({
   symbol: {
     width: 44,
     height: 44,
-    borderRadius: Radius.sm,
+    borderRadius: Radii.small,
     alignItems: 'center',
     justifyContent: 'center',
   },

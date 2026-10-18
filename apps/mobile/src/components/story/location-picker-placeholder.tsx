@@ -10,9 +10,9 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
-import { AppText } from '@/components/app-text';
+import { AppText } from '@/components/ui/app-text';
 import { Icon } from '@/components/icon';
-import { FontFamily, Palette, Radius } from '@/constants/theme';
+import { Palette, Radii, Typography } from '@/constants/theme';
 import { NearbyPlaces, type NearbyPlace } from '@/data/mock';
 
 type LocationPickerPlaceholderProps = {
@@ -40,7 +40,7 @@ export function LocationPickerPlaceholder({ value, onChange }: LocationPickerPla
           value={query}
           onChangeText={setQuery}
           placeholder="Search places"
-          placeholderTextColor={Palette.disabled}
+          placeholderTextColor={Palette.placeholderGray}
           style={styles.input}
           returnKeyType="search"
         />
@@ -51,7 +51,7 @@ export function LocationPickerPlaceholder({ value, onChange }: LocationPickerPla
         )}
       </View>
 
-      <AppText size={11} color="inkMuted" leading={1.35}>
+      <AppText variant="caption" color="placeholderGray">
         Places near your photo · Lisbon
       </AppText>
 
@@ -65,17 +65,17 @@ export function LocationPickerPlaceholder({ value, onChange }: LocationPickerPla
               accessibilityState={{ checked: selected }}
               onPress={() => onChange(place)}
               style={[styles.result, selected && styles.resultSelected]}>
-              <Icon name="map-pin" size={20} color={selected ? 'coral' : 'ink'} />
+              <Icon name="map-pin" size={20} color={selected ? 'coral' : 'black'} />
               <View style={styles.resultDetails}>
-                <AppText variant="bold" size={11} leading={1.35}>
+                <AppText variant="caption">
                   {place.name}
                 </AppText>
-                <AppText size={9} color="inkMuted" leading={1.35}>
+                <AppText variant="caption" color="placeholderGray">
                   {place.detail}
                 </AppText>
               </View>
               <View style={styles.resultMeta}>
-                <AppText size={9} color="inkMuted" leading={1.35}>
+                <AppText variant="caption" color="placeholderGray">
                   {place.distance}
                 </AppText>
                 {selected && <Icon name="check" size={16} color="coral" />}
@@ -84,7 +84,7 @@ export function LocationPickerPlaceholder({ value, onChange }: LocationPickerPla
           );
         })}
         {results.length === 0 && (
-          <AppText size={11} color="inkMuted">
+          <AppText variant="caption" color="placeholderGray">
             No places match “{query}”.
           </AppText>
         )}
@@ -92,13 +92,13 @@ export function LocationPickerPlaceholder({ value, onChange }: LocationPickerPla
 
       {value && (
         <View style={styles.selected}>
-          <AppText variant="bold" size={9} leading={1.35}>
+          <AppText variant="caption">
             SELECTED LOCATION
           </AppText>
-          <AppText variant="bold" size={12} leading={1.35}>
+          <AppText variant="caption">
             {value.name}
           </AppText>
-          <AppText size={10} color="inkMuted" leading={1.35}>
+          <AppText variant="caption" color="placeholderGray">
             Optional
           </AppText>
         </View>
@@ -117,15 +117,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     paddingHorizontal: 12,
-    borderRadius: Radius.sm,
+    borderRadius: Radii.small,
     borderWidth: 1,
-    borderColor: Palette.border,
+    borderColor: Palette.lightPink,
   },
   input: {
     flex: 1,
-    fontFamily: FontFamily.regular,
+    fontFamily: Typography.body.fontFamily,
     fontSize: 12,
-    color: Palette.ink,
+    color: Palette.black,
     paddingVertical: 0,
   },
   results: {
@@ -137,14 +137,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     paddingHorizontal: 10,
-    borderRadius: Radius.sm,
+    borderRadius: Radii.small,
     borderWidth: 1,
-    borderColor: Palette.border,
-    backgroundColor: Palette.surface,
+    borderColor: Palette.lightPink,
+    backgroundColor: Palette.warmWhite,
   },
   resultSelected: {
     borderColor: Palette.coral,
-    backgroundColor: Palette.coralSoft,
+    backgroundColor: Palette.peach,
   },
   resultDetails: {
     flex: 1,
@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
   selected: {
     gap: 4,
     padding: 12,
-    borderRadius: Radius.sm,
-    backgroundColor: Palette.tealSoft,
+    borderRadius: Radii.small,
+    backgroundColor: Palette.lightTeal,
   },
 });

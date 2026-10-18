@@ -2,15 +2,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
-import { ActionButton } from '@/components/action-button';
-import { AppText } from '@/components/app-text';
+import { AppText } from '@/components/ui/app-text';
+import { Button } from '@/components/ui/button';
 import { Icon, IconName } from '@/components/icon';
 import { LocationSheet } from '@/components/story/location-sheet';
 import { StoryDateSheet } from '@/components/story/story-date-sheet';
-import { TripChooserSheet } from '@/components/story/trip-chooser-sheet';
+import { TripChooserSheet } from '@/components/trip-chooser-sheet';
 import { Media } from '@/components/ui/media';
 import { Toggle } from '@/components/ui/toggle';
-import { FontFamily, Palette, Radius, ScreenGutter } from '@/constants/theme';
+import { Palette, Radii, Spacing, Typography } from '@/constants/theme';
 import { ActiveTrips, NearbyPlaces, StoryDraft, type NearbyPlace } from '@/data/mock';
 import { formatDay, formatRange, isWithin, tripDayNumber } from '@/utils/dates';
 
@@ -56,11 +56,11 @@ export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; 
       <View style={styles.nav}>
         <Pressable accessibilityRole="button" accessibilityLabel="Discard story" onPress={onDismiss} style={styles.dismiss}>
           <Icon name="x" />
-          <AppText variant="display" size={22}>
+          <AppText variant="heading">
             Post story
           </AppText>
         </Pressable>
-        <AppText variant="bold" size={11} color="inkMuted">
+        <AppText variant="caption" color="placeholderGray">
           {StoryDraft.audience}
         </AppText>
       </View>
@@ -100,14 +100,14 @@ export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; 
               />
             ) : (
               text.length > 0 && (
-                <AppText variant="display" size={22} color="surface">
+                <AppText variant="heading" color="warmWhite">
                   {text}
                 </AppText>
               )
             )}
             <Pressable accessibilityRole="button" onPress={() => setEditingText(true)} style={styles.editText}>
-              <Icon name="pencil" size={12} color="surface" />
-              <AppText variant="semibold" size={10} color="surface">
+              <Icon name="pencil" size={12} color="warmWhite" />
+              <AppText variant="caption" color="warmWhite">
                 Edit text · optional
               </AppText>
             </Pressable>
@@ -119,10 +119,10 @@ export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; 
             <Icon name="music" size={17} color="coral" />
           </View>
           <View style={styles.grow}>
-            <AppText variant="bold" size={12} leading={1.35}>
+            <AppText variant="caption">
               {StoryDraft.song.title}
             </AppText>
-            <AppText size={10} color="inkMuted" leading={1.35}>
+            <AppText variant="caption" color="placeholderGray">
               {StoryDraft.song.detail}
             </AppText>
           </View>
@@ -132,25 +132,25 @@ export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; 
         <Pressable accessibilityRole="button" onPress={() => setSheet('location')} style={styles.location}>
           <Icon name="map-pin" />
           <View style={styles.grow}>
-            <AppText variant="bold" size={12} leading={1.35}>
+            <AppText variant="caption">
               {location?.name ?? 'Add a location'}
             </AppText>
-            <AppText size={10} color="inkMuted" leading={1.35}>
+            <AppText variant="caption" color="placeholderGray">
               Location · optional
             </AppText>
           </View>
-          <AppText variant="bold" size={11} leading={1.35}>
+          <AppText variant="caption">
             {location ? 'Change' : 'Add'}
           </AppText>
         </Pressable>
 
         <View style={styles.field}>
           <View style={styles.fieldLabel}>
-            <AppText variant="bold" size={11} color="inkMuted" leading={1.35}>
+            <AppText variant="caption" color="placeholderGray">
               Trip · optional
             </AppText>
             {trip?.suggested && (
-              <AppText variant="bold" size={9} color="inkMuted">
+              <AppText variant="caption" color="placeholderGray">
                 Suggested active trip
               </AppText>
             )}
@@ -158,10 +158,10 @@ export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; 
           <Pressable accessibilityRole="button" onPress={() => setSheet('trip')} style={styles.selectedTrip}>
             <Icon name="calendar-days" size={19} />
             <View style={styles.grow}>
-              <AppText variant="bold" size={13} leading={1.35}>
+              <AppText variant="label">
                 {trip?.title ?? 'No trip'}
               </AppText>
-              <AppText size={10} color="inkMuted" leading={1.35}>
+              <AppText variant="caption" color="placeholderGray">
                 {trip ? `${formatRange(trip.startDate, trip.endDate)} · ${trip.status}` : 'Posting without a trip'}
               </AppText>
             </View>
@@ -171,7 +171,7 @@ export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; 
 
         {trip && (
           <View style={styles.addToTrip}>
-            <AppText variant="bold" size={12}>
+            <AppText variant="caption">
               Add to trip
             </AppText>
             <Toggle value={addToTrip} onValueChange={setAddToTrip} accessibilityLabel="Add to trip" />
@@ -179,16 +179,16 @@ export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; 
         )}
 
         <View style={styles.field}>
-          <AppText variant="bold" size={11} color="inkMuted" leading={1.35}>
+          <AppText variant="caption" color="placeholderGray">
             Story date · optional
           </AppText>
           <Pressable accessibilityRole="button" onPress={() => setSheet('date')} style={styles.dateDropdown}>
             <Icon name="calendar" size={16} color="coral" />
             <View style={styles.grow}>
-              <AppText variant="bold" size={12} leading={1.35}>
+              <AppText variant="caption">
                 {dateTitle}
               </AppText>
-              <AppText size={9} color="inkMuted" leading={1.35}>
+              <AppText variant="caption" color="placeholderGray">
                 {dateDetail}
               </AppText>
             </View>
@@ -196,7 +196,7 @@ export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; 
           </Pressable>
         </View>
 
-        <ActionButton label="Post story" trailingIcon="arrow-right" onPress={onPosted} />
+        <Button title="Post story" style={styles.fullWidth} onPress={onPosted} />
       </ScrollView>
 
       <TripChooserSheet
@@ -204,6 +204,8 @@ export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; 
         trips={ActiveTrips}
         selectedId={tripId}
         onSelect={selectTrip}
+        describe={(trip) => (trip.suggested ? 'Suggested · active today' : 'Active today')}
+        onPostWithoutTrip={() => selectTrip(null)}
         onCreateTrip={() => {
           setSheet(null);
           comingSoon('Create trip');
@@ -238,7 +240,7 @@ function MediaAction({ icon, label, onPress }: { icon: IconName; label: string; 
   return (
     <Pressable accessibilityRole="button" onPress={onPress} style={styles.mediaAction}>
       <Icon name={icon} size={14} />
-      <AppText variant="bold" size={10} leading={1.35}>
+      <AppText variant="caption">
         {label}
       </AppText>
     </Pressable>
@@ -248,7 +250,7 @@ function MediaAction({ icon, label, onPress }: { icon: IconName; label: string; 
 function ChangeButton({ onPress }: { onPress: () => void }) {
   return (
     <Pressable accessibilityRole="button" onPress={onPress} hitSlop={8}>
-      <AppText variant="bold" size={11} leading={1.35}>
+      <AppText variant="caption">
         Change
       </AppText>
     </Pressable>
@@ -256,12 +258,15 @@ function ChangeButton({ onPress }: { onPress: () => void }) {
 }
 
 const styles = StyleSheet.create({
+  fullWidth: {
+    alignSelf: 'stretch',
+  },
   nav: {
     height: 40,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: ScreenGutter,
+    paddingHorizontal: Spacing.three,
   },
   dismiss: {
     flexDirection: 'row',
@@ -270,14 +275,14 @@ const styles = StyleSheet.create({
   },
   editor: {
     gap: 16,
-    paddingHorizontal: ScreenGutter,
+    paddingHorizontal: Spacing.three,
     paddingVertical: 8,
   },
   media: {
     height: 188,
     justifyContent: 'space-between',
     padding: 12,
-    borderRadius: Radius.sm,
+    borderRadius: Radii.small,
     overflow: 'hidden',
   },
   mediaControls: {
@@ -290,16 +295,16 @@ const styles = StyleSheet.create({
     gap: 5,
     paddingHorizontal: 8,
     paddingVertical: 7,
-    borderRadius: Radius.sm,
-    backgroundColor: Palette.surface,
+    borderRadius: Radii.small,
+    backgroundColor: Palette.warmWhite,
   },
   textOverlay: {
     gap: 4,
   },
   textInput: {
-    fontFamily: FontFamily.display,
+    fontFamily: Typography.heading.fontFamily,
     fontSize: 22,
-    color: Palette.surface,
+    color: Palette.warmWhite,
     padding: 0,
   },
   editText: {
@@ -318,10 +323,10 @@ const styles = StyleSheet.create({
   musicSymbol: {
     width: 30,
     height: 30,
-    borderRadius: Radius.sm,
+    borderRadius: Radii.small,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Palette.coralSoft,
+    backgroundColor: Palette.peach,
   },
   location: {
     height: 40,
@@ -329,7 +334,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     borderBottomWidth: 1,
-    borderBottomColor: Palette.border,
+    borderBottomColor: Palette.lightPink,
   },
   grow: {
     flex: 1,
@@ -360,8 +365,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     paddingHorizontal: 12,
-    borderRadius: Radius.sm,
+    borderRadius: Radii.small,
     borderWidth: 1,
-    borderColor: Palette.border,
+    borderColor: Palette.lightPink,
   },
 });

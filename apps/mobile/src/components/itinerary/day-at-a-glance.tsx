@@ -1,39 +1,41 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { ActionButton } from '@/components/action-button';
-import { AppText } from '@/components/app-text';
 import { Icon } from '@/components/icon';
-import { Palette, Radius } from '@/constants/theme';
+import { AddToTripSheet } from '@/components/itinerary/add-to-trip-sheet';
+import { AppText } from '@/components/ui/app-text';
+import { Button } from '@/components/ui/button';
+import { Palette, Radii } from '@/constants/theme';
 import type { DayPlace } from '@/data/mock';
 
 /** Bottom panel listing a day's stops, each addable to the viewer's own itinerary. */
 export function DayAtAGlance({ places }: { places: DayPlace[] }) {
   // Mock only: nothing is persisted yet.
   const [added, setAdded] = useState<Set<string>>(new Set());
+  // Places waiting on a trip choice in the "Add to a trip" sheet.
+  const [pending, setPending] = useState<string[] | null>(null);
   const allAdded = places.length > 0 && places.every((place) => added.has(place.id));
 
-  const toggle = (id: string) =>
+  const remove = (id: string) =>
     setAdded((current) => {
       const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      next.delete(id);
       return next;
     });
 
   return (
     <View style={styles.panel}>
       <View style={styles.intro}>
-        <AppText variant="display" size={20}>
+        <AppText variant="heading">
           The day, at a glance
         </AppText>
         <View style={styles.stopCount}>
-          <AppText variant="bold" size={11}>
+          <AppText variant="caption">
             {places.length} {places.length === 1 ? 'stop' : 'stops'}
           </AppText>
         </View>
       </View>
-      <AppText size={11} color="inkMuted" leading={1.3}>
+      <AppText variant="caption" color="placeholderGray">
         Add places to your planned itinerary.
       </AppText>
 
@@ -44,25 +46,25 @@ export function DayAtAGlance({ places }: { places: DayPlace[] }) {
             <View key={place.id} style={styles.place}>
               <View style={styles.placeHeader}>
                 <View style={styles.timeChip}>
-                  <AppText variant="bold" size={10}>
+                  <AppText variant="caption">
                     {place.time}
                   </AppText>
                 </View>
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={isAdded ? `Remove ${place.name}` : `Add ${place.name}`}
-                  onPress={() => toggle(place.id)}
+                  onPress={() => (isAdded ? remove(place.id) : setPending([place.id]))}
                   style={styles.addPlace}>
                   <Icon name={isAdded ? 'check' : 'plus'} size={13} color="coral" />
-                  <AppText variant="bold" size={10}>
+                  <AppText variant="caption">
                     {isAdded ? 'Added' : 'Add'}
                   </AppText>
                 </Pressable>
               </View>
-              <AppText variant="bold" size={13} leading={1.2}>
+              <AppText variant="label">
                 {place.name}
               </AppText>
-              <AppText size={10} color="inkMuted" leading={1.2}>
+              <AppText variant="caption" color="placeholderGray">
                 {place.note}
               </AppText>
             </View>
@@ -70,17 +72,22 @@ export function DayAtAGlance({ places }: { places: DayPlace[] }) {
         })}
       </View>
 
-      <ActionButton
-        label={allAdded ? `All ${places.length} places added` : `Add all ${places.length} places`}
-        leadingIcon={allAdded ? 'check' : 'plus'}
-        height={40}
-        fontSize={12}
+      <Button
+        title={allAdded ? `All ${places.length} places added` : `Add all ${places.length} places`}
         disabled={allAdded}
-        onPress={() => setAdded(new Set(places.map((place) => place.id)))}
+        style={styles.fullWidth}
+        onPress={() => setPending(places.filter((place) => !added.has(place.id)).map((place) => place.id))}
       />
-      <AppText size={10} color="inkMuted" style={styles.footnote}>
+      <AppText variant="caption" color="placeholderGray" style={styles.footnote}>
         Make this day part of your next trip.
       </AppText>
+
+      <AddToTripSheet
+        visible={pending !== null}
+        placeCount={pending?.length ?? 0}
+        onAdded={() => setAdded((current) => new Set([...current, ...(pending ?? [])]))}
+        onClose={() => setPending(null)}
+      />
     </View>
   );
 }
@@ -91,8 +98,8 @@ const styles = StyleSheet.create({
     padding: 12,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: Palette.border,
-    backgroundColor: Palette.surface,
+    borderColor: Palette.lightPink,
+    backgroundColor: Palette.warmWhite,
   },
   intro: {
     flexDirection: 'row',
@@ -102,8 +109,8 @@ const styles = StyleSheet.create({
   stopCount: {
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: Radius.pill,
-    backgroundColor: Palette.tealSoft,
+    borderRadius: Radii.circle,
+    backgroundColor: Palette.lightTeal,
   },
   places: {
     flexDirection: 'row',
@@ -117,10 +124,10 @@ const styles = StyleSheet.create({
     minHeight: 88,
     gap: 6,
     padding: 10,
-    borderRadius: Radius.sheet,
+    borderRadius: Radii.pill,
     borderWidth: 1,
-    borderColor: Palette.coralBorder,
-    backgroundColor: Palette.surface,
+    borderColor: Palette.lightPink,
+    backgroundColor: Palette.warmWhite,
   },
   placeHeader: {
     flexDirection: 'row',
@@ -130,8 +137,8 @@ const styles = StyleSheet.create({
   timeChip: {
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: Radius.pill,
-    backgroundColor: Palette.coralSoft,
+    borderRadius: Radii.circle,
+    backgroundColor: Palette.peach,
   },
   addPlace: {
     height: 28,
@@ -139,8 +146,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: 8,
-    borderRadius: Radius.sm,
-    backgroundColor: Palette.coralSoft,
+    borderRadius: Radii.small,
+    backgroundColor: Palette.peach,
+  },
+  fullWidth: {
+    alignSelf: 'stretch',
   },
   footnote: {
     textAlign: 'center',

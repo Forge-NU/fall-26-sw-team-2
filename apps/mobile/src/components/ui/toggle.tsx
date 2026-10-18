@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { Palette, Radius } from '@/constants/theme';
+import { Palette, Radii } from '@/constants/theme';
 
 type ToggleProps = {
   value: boolean;
@@ -27,7 +27,7 @@ const styles = StyleSheet.create({
   track: {
     width: 36,
     height: 22,
-    borderRadius: Radius.pill,
+    borderRadius: Radii.circle,
     padding: 2,
     justifyContent: 'center',
   },
@@ -35,13 +35,13 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.coral,
   },
   trackOff: {
-    backgroundColor: Palette.border,
+    backgroundColor: Palette.lightPink,
   },
   knob: {
     width: 18,
     height: 18,
-    borderRadius: Radius.pill,
-    backgroundColor: Palette.surface,
+    borderRadius: Radii.circle,
+    backgroundColor: Palette.warmWhite,
   },
   knobOn: {
     alignSelf: 'flex-end',

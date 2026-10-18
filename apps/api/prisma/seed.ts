@@ -2,7 +2,7 @@
 // Every row has a fixed ID and is upserted, so running this twice doesn't
 // duplicate anything. #45 (DEV-1) owns the seed script overall; this covers
 // the users the trips need plus the #3 tables (trips, posts, post_media,
-// locations).
+// locations), plus follow relationships for #10.
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client';
@@ -33,6 +33,13 @@ const users = [
     lastName: 'Rivera',
     username: 'alex_rivera',
   },
+];
+
+// Priya and Alex follow Maya; Maya follows Priya back.
+const follows = [
+  { followerId: 'user_seed_priya', followingId: 'user_seed_maya' },
+  { followerId: 'user_seed_alex', followingId: 'user_seed_maya' },
+  { followerId: 'user_seed_maya', followingId: 'user_seed_priya' },
 ];
 
 // Real places with approximate coordinates. The provider place IDs are
@@ -315,6 +322,14 @@ async function main() {
     });
   }
 
+  for (const follow of follows) {
+    await prisma.follow.upsert({
+      where: { followerId_followingId: follow },
+      update: {},
+      create: follow,
+    });
+  }
+
   for (const { id, ...location } of locations) {
     const data = { ...location, provider: 'mapbox' };
     await prisma.location.upsert({
@@ -365,7 +380,7 @@ async function main() {
   }
 
   console.log(
-    `Seeded ${users.length} users, ${locations.length} locations, ${trips.length} trips, ${posts.length} posts`,
+    `Seeded ${users.length} users, ${follows.length} follows, ${locations.length} locations, ${trips.length} trips, ${posts.length} posts`,
   );
 }
 

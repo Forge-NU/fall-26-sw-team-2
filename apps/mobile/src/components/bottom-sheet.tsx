@@ -3,15 +3,14 @@ import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { SlideInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppText } from '@/components/app-text';
+import { AppText } from '@/components/ui/app-text';
 import { Icon } from '@/components/icon';
-import { Palette, Radius, ScreenGutter, Spacing } from '@/constants/theme';
+import { Palette, Radii, Spacing } from '@/constants/theme';
 
 type BottomSheetProps = {
   visible: boolean;
   onClose: () => void;
   title: string;
-  titleSize?: number;
   /** Optional line under the title. */
   subtitle?: string;
   closeSize?: number;
@@ -24,7 +23,6 @@ export function BottomSheet({
   visible,
   onClose,
   title,
-  titleSize = 24,
   subtitle,
   closeSize = 18,
   gap = Spacing.three,
@@ -44,11 +42,11 @@ export function BottomSheet({
           </View>
           <View style={styles.heading}>
             <View style={styles.headingText}>
-              <AppText variant="display" size={titleSize}>
+              <AppText variant="heading">
                 {title}
               </AppText>
               {subtitle && (
-                <AppText size={12} color="inkMuted">
+                <AppText variant="caption" color="placeholderGray">
                   {subtitle}
                 </AppText>
               )}
@@ -76,14 +74,14 @@ const styles = StyleSheet.create({
   },
   scrim: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: Palette.scrim,
+    backgroundColor: `${Palette.black}59`,
   },
   sheet: {
-    backgroundColor: Palette.surface,
-    borderTopLeftRadius: Radius.sheet,
-    borderTopRightRadius: Radius.sheet,
+    backgroundColor: Palette.warmWhite,
+    borderTopLeftRadius: Radii.pill,
+    borderTopRightRadius: Radii.pill,
     paddingTop: 10,
-    paddingHorizontal: ScreenGutter,
+    paddingHorizontal: Spacing.three,
   },
   handleRow: {
     alignItems: 'center',
@@ -91,8 +89,8 @@ const styles = StyleSheet.create({
   handle: {
     width: 36,
     height: 4,
-    borderRadius: Radius.pill,
-    backgroundColor: Palette.border,
+    borderRadius: Radii.circle,
+    backgroundColor: Palette.lightPink,
   },
   heading: {
     flexDirection: 'row',

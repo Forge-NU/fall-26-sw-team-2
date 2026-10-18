@@ -2,9 +2,9 @@ import { type TabListProps, type TabTriggerSlotProps } from 'expo-router/ui';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppText } from '@/components/app-text';
+import { AppText } from '@/components/ui/app-text';
 import { Icon, IconName } from '@/components/icon';
-import { Palette, Radius } from '@/constants/theme';
+import { Palette, Radii } from '@/constants/theme';
 
 export type ToolbarDestination = 'feed' | 'saved' | 'post' | 'maps' | 'profile';
 
@@ -47,7 +47,13 @@ export function ToolbarItem({ destination, isFocused, style, ...props }: Toolbar
       accessibilityState={{ selected: isFocused }}
       style={({ pressed }) => [styles.item, pressed && styles.pressed]}>
       <DestinationIcon destination={destination} isFocused={!!isFocused} />
-      <AppText variant={emphasised ? 'bold' : 'medium'} size={10} color={emphasised ? 'ink' : 'inkMuted'}>
+      <AppText
+        variant="caption"
+        color={emphasised ? 'black' : 'placeholderGray'}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        style={styles.label}>
+
         {Labels[destination]}
       </AppText>
     </Pressable>
@@ -62,8 +68,8 @@ function DestinationIcon({
   isFocused: boolean;
 }) {
   const isPost = destination === 'post';
-  // Only Feed changes color in the wireframes; the rest stay ink.
-  const color = isPost ? 'surface' : destination === 'feed' && isFocused ? 'teal' : 'ink';
+  // Only Feed changes color in the wireframes; the rest stay black.
+  const color = isPost ? 'warmWhite' : destination === 'feed' && isFocused ? 'teal' : 'black';
 
   return (
     <View style={[styles.tile, isPost && styles.postTile]}>
@@ -79,14 +85,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: 12,
     paddingHorizontal: 12,
-    backgroundColor: Palette.surface,
+    backgroundColor: Palette.warmWhite,
     borderTopWidth: 1,
-    borderTopColor: Palette.border,
+    borderTopColor: Palette.lightPink,
   },
   item: {
     width: 64,
     alignItems: 'center',
     gap: 6,
+  },
+  label: {
+    // Keeps long labels inside their slot so neighbours never overlap.
+    alignSelf: 'stretch',
+    textAlign: 'center',
   },
   pressed: {
     opacity: 0.7,
@@ -94,10 +105,10 @@ const styles = StyleSheet.create({
   tile: {
     width: 42,
     height: 34,
-    borderRadius: Radius.sm,
+    borderRadius: Radii.small,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Palette.surface,
+    backgroundColor: Palette.warmWhite,
   },
   postTile: {
     backgroundColor: Palette.coral,

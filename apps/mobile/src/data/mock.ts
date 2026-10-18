@@ -325,6 +325,25 @@ export const ActiveTrips: ActiveTrip[] = [
   },
 ];
 
+/** Every trip the signed-in traveler hasn't published yet, including planned ones. */
+export const UnpublishedTrips: ActiveTrip[] = [
+  ...ActiveTrips,
+  {
+    id: 'porto-weekend',
+    title: 'Weekend in Porto 🇵🇹',
+    startDate: '2026-11-06',
+    endDate: '2026-11-08',
+    status: 'Unpublished',
+  },
+  {
+    id: 'tokyo-spring',
+    title: 'Tokyo in spring 🇯🇵',
+    startDate: '2027-03-20',
+    endDate: '2027-03-28',
+    status: 'Unpublished',
+  },
+];
+
 /** Draft the story composer opens with, as if picked from the camera roll. */
 export const StoryDraft = {
   /** Picked from the camera roll in the real flow. */

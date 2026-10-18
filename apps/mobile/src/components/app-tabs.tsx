@@ -39,6 +39,10 @@ export default function AppTabs() {
           <TabTrigger name="profile" href="/profile" asChild>
             <ToolbarItem destination="profile" />
           </TabTrigger>
+          {/* UI-1's component preview: dev-only and not shown in the bar. Open /components-preview in the browser. */}
+          {__DEV__ && (
+            <TabTrigger name="components-preview" href="/components-preview" style={styles.hidden} />
+          )}
         </BottomToolbar>
       </TabList>
 
@@ -61,9 +65,12 @@ export default function AppTabs() {
 const styles = StyleSheet.create({
   tabs: {
     flex: 1,
-    backgroundColor: Palette.surface,
+    backgroundColor: Palette.warmWhite,
   },
   slot: {
     flex: 1,
+  },
+  hidden: {
+    display: 'none',
   },
 });

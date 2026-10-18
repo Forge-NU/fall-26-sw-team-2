@@ -1,9 +1,9 @@
 import { Image } from 'expo-image';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { AppText } from '@/components/app-text';
+import { AppText } from '@/components/ui/app-text';
 import { Icon } from '@/components/icon';
-import { Radius, ScreenGutter } from '@/constants/theme';
+import { Radii, Spacing } from '@/constants/theme';
 
 export function YujiLogo({ size = 40 }: { size?: number }) {
   return (
@@ -21,16 +21,16 @@ export function YujiHeader() {
       <View style={styles.brand}>
         <YujiLogo />
         <View style={styles.wordmark}>
-          <AppText variant="display" size={22}>
+          <AppText variant="heading">
             YUJI
           </AppText>
-          <AppText size={7}>GO SOMEWHERE</AppText>
+          <AppText variant="caption">GO SOMEWHERE</AppText>
         </View>
       </View>
       <View style={styles.actions}>
         <Pressable style={styles.leaderboard} accessibilityRole="button">
           <Icon name="trophy" size={19} color="coral" />
-          <AppText variant="bold" size={11}>
+          <AppText variant="caption">
             Leaderboard
           </AppText>
         </Pressable>
@@ -44,11 +44,11 @@ export function YujiHeader() {
 
 const styles = StyleSheet.create({
   logo: {
-    borderRadius: Radius.md,
+    borderRadius: Radii.medium,
   },
   header: {
     height: 60,
-    paddingHorizontal: ScreenGutter,
+    paddingHorizontal: Spacing.three,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

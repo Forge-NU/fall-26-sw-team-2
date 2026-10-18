@@ -6,7 +6,7 @@ import { Palette } from '@/constants/theme';
 export default function FeedLayout() {
   return (
     <Stack
-      screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Palette.surface } }}
+      screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Palette.warmWhite } }}
     />
   );
 }

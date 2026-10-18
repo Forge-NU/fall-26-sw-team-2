@@ -38,6 +38,6 @@ export default function NewStoryScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: Palette.surface,
+    backgroundColor: Palette.warmWhite,
   },
 });

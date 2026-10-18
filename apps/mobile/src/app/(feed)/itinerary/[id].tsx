@@ -3,14 +3,14 @@ import { useState } from 'react';
 import { Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppText } from '@/components/app-text';
+import { AppText } from '@/components/ui/app-text';
 import { Icon } from '@/components/icon';
 import { DayAtAGlance } from '@/components/itinerary/day-at-a-glance';
 import { DayMoments } from '@/components/itinerary/day-moments';
 import { PostAuthor } from '@/components/post-author';
 import { Avatar } from '@/components/ui/avatar';
 import { YujiLogo } from '@/components/yuji-header';
-import { Palette, Radius, ScreenGutter } from '@/constants/theme';
+import { Palette, Radii, Spacing } from '@/constants/theme';
 import { getItinerary } from '@/data/mock';
 
 export default function ItineraryDayScreen() {
@@ -23,11 +23,11 @@ export default function ItineraryDayScreen() {
   if (!itinerary) {
     return (
       <SafeAreaView edges={['top']} style={[styles.screen, styles.missing]}>
-        <AppText variant="display" size={24}>
+        <AppText variant="heading">
           Itinerary not found
         </AppText>
         <Pressable accessibilityRole="button" onPress={goBack}>
-          <AppText variant="bold" size={13} color="coral">
+          <AppText variant="label" color="coral">
             Back to feed
           </AppText>
         </Pressable>
@@ -42,7 +42,7 @@ export default function ItineraryDayScreen() {
       <View style={styles.nav}>
         <Pressable accessibilityRole="button" onPress={goBack} style={styles.navSide}>
           <Icon name="chevron-left" size={20} />
-          <AppText variant="semibold" size={13}>
+          <AppText variant="label">
             Itinerary
           </AppText>
         </Pressable>
@@ -57,7 +57,7 @@ export default function ItineraryDayScreen() {
             }
             style={styles.shareButton}>
             <Icon name="share-2" size={22} color="coral" />
-            <AppText variant="bold" size={12}>
+            <AppText variant="caption">
               Share
             </AppText>
           </Pressable>
@@ -67,27 +67,26 @@ export default function ItineraryDayScreen() {
       <ScrollView stickyHeaderIndices={[1]} showsVerticalScrollIndicator={false}>
         <View style={styles.context}>
           <View style={styles.identity}>
-            <AppText variant="display" size={20}>
+            <AppText variant="heading">
               {itinerary.title}
             </AppText>
-            <AppText size={12} color="inkMuted">
+            <AppText variant="caption" color="placeholderGray">
               {itinerary.days.length} days · {itinerary.stops} stops
             </AppText>
           </View>
           {itinerary.participants.length > 0 && (
             <View style={styles.participants}>
-              <AppText variant="semibold" size={11} color="inkMuted">
+              <AppText variant="caption" color="placeholderGray">
                 Participants
               </AppText>
               <View style={styles.avatars}>
                 {itinerary.participants.map((participant, index) => (
-                  <Avatar
+                  // Avatar has no style prop, so the overlap ring lives on a wrapper.
+                  <View
                     key={participant.id}
-                    name={participant.name}
-                    url={participant.avatarUrl}
-                    size={20}
-                    style={[styles.participant, index > 0 && styles.overlap]}
-                  />
+                    style={[styles.participant, index > 0 && styles.overlap]}>
+                    <Avatar name={participant.name} uri={participant.avatarUrl} size="compact" />
+                  </View>
                 ))}
               </View>
             </View>
@@ -110,10 +109,7 @@ export default function ItineraryDayScreen() {
                   accessibilityState={{ selected: active }}
                   onPress={() => setSelectedDay(d.day)}
                   style={[styles.dayChoice, active && styles.dayChoiceActive]}>
-                  <AppText
-                    variant={active ? 'bold' : 'medium'}
-                    size={12}
-                    color={active ? 'surface' : 'inkMuted'}>
+                  <AppText variant="caption" color={active ? 'warmWhite' : 'placeholderGray'}>
                     Day {d.day}
                   </AppText>
                   {active && <View style={styles.dayIndicator} />}
@@ -124,10 +120,10 @@ export default function ItineraryDayScreen() {
         </View>
 
         <View style={styles.daySummary}>
-          <AppText variant="display" size={32} leading={1.1}>
+          <AppText variant="heading">
             {tripDay.title}
           </AppText>
-          <AppText size={13} color="inkMuted">
+          <AppText variant="body" color="placeholderGray">
             {tripDay.summary}
           </AppText>
         </View>
@@ -142,7 +138,7 @@ export default function ItineraryDayScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: Palette.surface,
+    backgroundColor: Palette.warmWhite,
   },
   missing: {
     alignItems: 'center',
@@ -154,9 +150,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: ScreenGutter,
+    paddingHorizontal: Spacing.three,
     borderBottomWidth: 1,
-    borderBottomColor: Palette.border,
+    borderBottomColor: Palette.lightPink,
   },
   navSide: {
     width: 108,
@@ -173,14 +169,14 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: Radius.pill,
-    backgroundColor: Palette.coralSoft,
+    borderRadius: Radii.circle,
+    backgroundColor: Palette.peach,
   },
   context: {
     gap: 8,
     paddingTop: 12,
     paddingBottom: 14,
-    paddingHorizontal: ScreenGutter,
+    paddingHorizontal: Spacing.three,
   },
   identity: {
     gap: 5,
@@ -195,7 +191,8 @@ const styles = StyleSheet.create({
   },
   participant: {
     borderWidth: 1,
-    borderColor: Palette.surface,
+    borderColor: Palette.warmWhite,
+    borderRadius: Radii.circle,
   },
   overlap: {
     marginLeft: -8,
@@ -205,23 +202,23 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingTop: 8,
     paddingBottom: 14,
-    paddingHorizontal: ScreenGutter,
+    paddingHorizontal: Spacing.three,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: Palette.border,
-    backgroundColor: Palette.surface,
+    borderColor: Palette.lightPink,
+    backgroundColor: Palette.warmWhite,
   },
   dayChoice: {
     flex: 1,
     height: 38,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: Radius.sm,
+    borderRadius: Radii.small,
     overflow: 'hidden',
-    backgroundColor: Palette.surface,
+    backgroundColor: Palette.warmWhite,
   },
   dayChoiceActive: {
-    backgroundColor: Palette.ink,
+    backgroundColor: Palette.black,
   },
   dayIndicator: {
     position: 'absolute',
@@ -235,6 +232,6 @@ const styles = StyleSheet.create({
     gap: 7,
     paddingTop: 12,
     paddingBottom: 16,
-    paddingHorizontal: ScreenGutter,
+    paddingHorizontal: Spacing.three,
   },
 });

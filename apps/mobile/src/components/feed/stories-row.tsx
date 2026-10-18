@@ -1,8 +1,8 @@
 import { Pressable, ScrollView, StyleSheet } from 'react-native';
 
-import { AppText } from '@/components/app-text';
+import { AppText } from '@/components/ui/app-text';
 import { Avatar } from '@/components/ui/avatar';
-import { Palette, Radius, ScreenGutter } from '@/constants/theme';
+import { Palette, Radii, Spacing } from '@/constants/theme';
 import type { StoryBubble } from '@/data/mock';
 
 export function StoriesRow({ stories }: { stories: StoryBubble[] }) {
@@ -17,8 +17,8 @@ export function StoriesRow({ stories }: { stories: StoryBubble[] }) {
           accessibilityRole="button"
           accessibilityLabel={`${story.label} story`}
           style={styles.bubble}>
-          <Avatar name={story.label} url={story.avatarUrl} size={24} />
-          <AppText variant="bold" size={11}>
+          <Avatar name={story.label} uri={story.avatarUrl} size="compact" />
+          <AppText variant="caption">
             {story.label}
           </AppText>
         </Pressable>
@@ -30,7 +30,7 @@ export function StoriesRow({ stories }: { stories: StoryBubble[] }) {
 const styles = StyleSheet.create({
   row: {
     gap: 8,
-    paddingHorizontal: ScreenGutter,
+    paddingHorizontal: Spacing.three,
     paddingVertical: 6,
   },
   bubble: {
@@ -39,9 +39,9 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 8,
     paddingVertical: 6,
-    borderRadius: Radius.pill,
+    borderRadius: Radii.circle,
     borderWidth: 1,
-    borderColor: Palette.border,
-    backgroundColor: Palette.surface,
+    borderColor: Palette.lightPink,
+    backgroundColor: Palette.warmWhite,
   },
 });

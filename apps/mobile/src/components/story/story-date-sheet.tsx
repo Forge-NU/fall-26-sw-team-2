@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { ActionButton } from '@/components/action-button';
-import { AppText } from '@/components/app-text';
+import { AppText } from '@/components/ui/app-text';
+import { Button } from '@/components/ui/button';
 import { BottomSheet } from '@/components/bottom-sheet';
 import { Icon } from '@/components/icon';
-import { Palette, Radius } from '@/constants/theme';
+import { Palette, Radii } from '@/constants/theme';
 import type { ActiveTrip } from '@/data/mock';
 import {
   formatDay,
@@ -53,11 +53,10 @@ function StoryDateSheetContent({ trip, value, capturedAt, onConfirm, onClose }: 
       visible
       onClose={onClose}
       title="Choose story date"
-      titleSize={26}
       closeSize={28}
       gap={8}>
       {trip && (
-        <AppText variant="medium" size={10} color="inkMuted" leading={1.35}>
+        <AppText variant="caption" color="placeholderGray">
           {trip.title} · {formatRange(trip.startDate, trip.endDate)}
         </AppText>
       )}
@@ -65,10 +64,10 @@ function StoryDateSheetContent({ trip, value, capturedAt, onConfirm, onClose }: 
       <View style={styles.suggestion}>
         <Icon name="sparkle" size={14} color="coral" />
         <View style={styles.suggestionText}>
-          <AppText variant="bold" size={10} leading={1.35}>
+          <AppText variant="caption">
             From photo · {formatDay(capturedAt.date)}, {capturedAt.time}
           </AppText>
-          <AppText variant="medium" size={10} color="inkMuted" leading={1.35}>
+          <AppText variant="caption" color="placeholderGray">
             Suggested date. Pick another date to change it.
           </AppText>
         </View>
@@ -76,20 +75,20 @@ function StoryDateSheetContent({ trip, value, capturedAt, onConfirm, onClose }: 
 
       <View style={styles.monthNav}>
         <Pressable accessibilityRole="button" accessibilityLabel="Previous month" hitSlop={10} onPress={() => shiftMonth(-1)}>
-          <Icon name="chevron-left" color="disabled" />
+          <Icon name="chevron-left" color="placeholderGray" />
         </Pressable>
-        <AppText variant="display" size={22}>
+        <AppText variant="heading">
           {formatMonth(visibleMonth.year, visibleMonth.month)}
         </AppText>
         <Pressable accessibilityRole="button" accessibilityLabel="Next month" hitSlop={10} onPress={() => shiftMonth(1)}>
-          <Icon name="chevron-right" color="disabled" />
+          <Icon name="chevron-right" color="placeholderGray" />
         </Pressable>
       </View>
 
       <View style={styles.calendar}>
         <View style={styles.weekdays}>
           {WEEKDAYS.map((weekday, index) => (
-            <AppText key={index} variant="bold" size={10} color="inkMuted" style={styles.weekday}>
+            <AppText variant="caption" color="placeholderGray" key={index} style={styles.weekday}>
               {weekday}
             </AppText>
           ))}
@@ -114,9 +113,8 @@ function StoryDateSheetContent({ trip, value, capturedAt, onConfirm, onClose }: 
                     selected && styles.cellSelected,
                   ]}>
                   <AppText
-                    variant={selectable ? 'bold' : 'regular'}
-                    size={12}
-                    color={selected ? 'surface' : selectable ? 'ink' : 'disabled'}>
+                    variant="caption"
+                    color={selected ? 'warmWhite' : selectable ? 'black' : 'placeholderGray'}>
                     {parseIsoDate(iso).getDate()}
                   </AppText>
                 </Pressable>
@@ -130,21 +128,18 @@ function StoryDateSheetContent({ trip, value, capturedAt, onConfirm, onClose }: 
         <View style={styles.key}>
           <View style={styles.keyItem}>
             <View style={styles.swatch} />
-            <AppText variant="medium" size={9} color="inkMuted" leading={1.35}>
+            <AppText variant="caption" color="placeholderGray">
               In itinerary
             </AppText>
           </View>
-          <AppText variant="medium" size={9} color="disabled" leading={1.35}>
+          <AppText variant="caption" color="placeholderGray">
             Other dates unavailable
           </AppText>
         </View>
       )}
 
-      <ActionButton
-        label={`Use ${formatDay(pending)}`}
-        trailingIcon="check"
-        height={42}
-        fontSize={13}
+      <Button
+        title={`Use ${formatDay(pending)}`}
         style={styles.confirm}
         onPress={() => onConfirm(pending)}
       />
@@ -159,15 +154,16 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    borderRadius: Radius.sm,
-    backgroundColor: Palette.coralSoft,
+    borderRadius: Radii.small,
+    backgroundColor: Palette.peach,
   },
   suggestionText: {
     flex: 1,
     gap: 2,
   },
   monthNav: {
-    height: 28,
+    // Grows with the heading text so the month name never clips.
+    minHeight: 28,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -193,10 +189,10 @@ const styles = StyleSheet.create({
     height: 30,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: Radius.sm,
+    borderRadius: Radii.small,
   },
   cellInTrip: {
-    backgroundColor: Palette.tealMist,
+    backgroundColor: Palette.lightTeal,
   },
   cellSelected: {
     backgroundColor: Palette.coral,
@@ -218,6 +214,7 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.teal,
   },
   confirm: {
+    alignSelf: 'stretch',
     marginBottom: 4,
   },
 });

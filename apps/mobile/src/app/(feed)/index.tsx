@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppText } from '@/components/app-text';
+import { AppText } from '@/components/ui/app-text';
 import { ItineraryCard } from '@/components/feed/itinerary-card';
 import { StoriesRow } from '@/components/feed/stories-row';
 import { YujiHeader } from '@/components/yuji-header';
-import { Palette, ScreenGutter } from '@/constants/theme';
+import { Palette, Spacing } from '@/constants/theme';
 import { FeedTab, Itineraries, Stories } from '@/data/mock';
 
 const FeedTabs: { key: FeedTab; label: string }[] = [
@@ -22,13 +22,7 @@ export default function FeedScreen() {
   return (
     <SafeAreaView edges={['top']} style={styles.screen}>
       <YujiHeader />
-      <ScrollView stickyHeaderIndices={[1]} showsVerticalScrollIndicator={false}>
-        <View style={styles.intro}>
-          <AppText variant="display" size={24} leading={1.1}>
-            Find your next trip.
-          </AppText>
-        </View>
-
+      <ScrollView stickyHeaderIndices={[0]} showsVerticalScrollIndicator={false}>
         {/* Sticky headers get their style replaced on native, so the row lives one level down. */}
         <View>
           <View style={styles.tabs} accessibilityRole="tablist">
@@ -41,10 +35,7 @@ export default function FeedScreen() {
                   accessibilityState={{ selected: active }}
                   onPress={() => setActiveTab(tab.key)}
                   style={styles.tab}>
-                  <AppText
-                    variant={active ? 'bold' : 'medium'}
-                    size={14}
-                    color={active ? 'ink' : 'inkMuted'}>
+                  <AppText variant="label" color={active ? 'black' : 'placeholderGray'}>
                     {tab.label}
                   </AppText>
                   {active && <View style={styles.tabIndicator} />}
@@ -69,19 +60,15 @@ export default function FeedScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: Palette.surface,
-  },
-  intro: {
-    paddingHorizontal: ScreenGutter,
-    paddingVertical: 14,
+    backgroundColor: Palette.warmWhite,
   },
   tabs: {
     height: 48,
     flexDirection: 'row',
-    paddingHorizontal: ScreenGutter,
+    paddingHorizontal: Spacing.three,
     borderBottomWidth: 1,
-    borderBottomColor: Palette.border,
-    backgroundColor: Palette.surface,
+    borderBottomColor: Palette.lightPink,
+    backgroundColor: Palette.warmWhite,
   },
   tab: {
     flex: 1,
