@@ -13,6 +13,7 @@ export type StoryDraft = {
   location: StoryLocation | null;
   tripId: string | null;
   keepOnTrip: boolean;
+  storyDate: string; // YYYY-MM-DD
 };
 
 export function canKeepOnTrip(tripId: string | null): boolean {
@@ -38,6 +39,8 @@ export function toCreateStoryRequest(
   if (draft.tripId) {
     request.tripId = draft.tripId;
     request.keepOnTrip = draft.keepOnTrip;
+    // Without a trip the server only accepts today, which is its default
+    request.storyDate = draft.storyDate;
   }
   return request;
 }

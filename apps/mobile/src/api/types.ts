@@ -72,6 +72,7 @@ export type StoryResponse = {
   customLocationName: string | null;
   imageUrl: string;
   keepOnTrip: boolean;
+  storyDate: string; // YYYY-MM-DD, the day the story is from
   expiresAt: string;
   createdAt: string;
 };
@@ -86,6 +87,7 @@ export type CreateStoryRequest = {
   locationId?: string;
   customLocationName?: string; // 1-100 characters
   date?: string; // user's local today, for the active-trip check
+  storyDate?: string; // any day of the trip; today without a trip (the default)
 };
 
 // Uploads: guessed until MEDIA-1 (#38) defines the endpoint

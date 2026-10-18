@@ -8,6 +8,7 @@ import { preparePhoto } from '@/lib/media/prepare-photo';
 import { canKeepOnTrip, STORY_TEXT_MAX, type StoryLocation } from '@/lib/story-draft';
 import { postStory } from '@/lib/story-upload-queue';
 import { validateQuickTrip } from '@/lib/trips';
+import { isDateWithin } from '@/utils/local-date';
 
 // The wireframe shows "Add to trip" on by default
 const DEFAULT_KEEP_ON_TRIP = true;
@@ -30,6 +31,8 @@ export function useStoryComposer() {
   const [location, setLocation] = useState<StoryLocation | null>(null);
   const [tripChoice, setTripChoice] = useState<TripChoice>({ kind: 'suggested' });
   const [keepOnTripChoice, setKeepOnTripChoice] = useState(DEFAULT_KEEP_ON_TRIP);
+  // null means today
+  const [storyDateChoice, setStoryDateChoice] = useState<string | null>(null);
 
   const trip =
     tripChoice.kind === 'suggested'
@@ -38,6 +41,16 @@ export function useStoryComposer() {
         ? (activeTrips.trips.find((t) => t.id === tripChoice.id) ?? null)
         : null;
   const keepOnTrip = canKeepOnTrip(trip?.id ?? null) && keepOnTripChoice;
+
+  // Any day of the linked trip, including future ones. Without a trip, or if
+  // the picked day isn't in the newly linked trip, it falls back to today.
+  const storyDateRange = trip ? { start: trip.startDate, end: trip.endDate } : null;
+  const storyDate =
+    storyDateRange &&
+    storyDateChoice &&
+    isDateWithin(storyDateChoice, storyDateRange.start, storyDateRange.end)
+      ? storyDateChoice
+      : activeTrips.today;
 
   const canPost =
     photo !== null && photoStatus !== 'preparing' && text.trim().length <= STORY_TEXT_MAX;
@@ -68,6 +81,12 @@ export function useStoryComposer() {
     if (trip) setKeepOnTripChoice(value);
   }
 
+  function setStoryDate(date: string) {
+    if (storyDateRange && isDateWithin(date, storyDateRange.start, storyDateRange.end)) {
+      setStoryDateChoice(date);
+    }
+  }
+
   async function createQuickTrip(input: CreateTripRequest): Promise<QuickTripResult> {
     const error = validateQuickTrip(input, activeTrips.today);
     if (error) return { error };
@@ -89,7 +108,7 @@ export function useStoryComposer() {
   // Hands the story to the upload queue. Returns false if there's nothing to post.
   function post(): boolean {
     if (!photo || !canPost) return false;
-    postStory({ photo, text, location, tripId: trip?.id ?? null, keepOnTrip });
+    postStory({ photo, text, location, tripId: trip?.id ?? null, keepOnTrip, storyDate });
     return true;
   }
 
@@ -113,6 +132,10 @@ export function useStoryComposer() {
     keepOnTrip,
     canKeepOnTrip: trip !== null,
     setKeepOnTrip,
+    storyDate,
+    // null when there's no trip: the screen hides the date row
+    storyDateRange,
+    setStoryDate,
     createQuickTrip,
     canPost,
     post,
