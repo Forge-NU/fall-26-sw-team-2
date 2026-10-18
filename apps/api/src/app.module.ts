@@ -8,7 +8,13 @@ import { PostsModule } from './posts/posts.module';
 import { StoriesModule } from './stories/stories.module';
 
 @Module({
-  imports: [UsersModule, TripsModule, PostsModule, StoriesModule],
+  imports: [
+    UsersModule,
+    FollowsModule,
+    TripsModule,
+    PostsModule,
+    StoriesModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
