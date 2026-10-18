@@ -9,6 +9,7 @@ import type { CreateUploadResponse } from '@/api/types';
 import { createUpload, putObject } from '@/api/uploads';
 import { isRetryableError, RETRY_DELAYS_MS, sleep } from '@/lib/retry';
 import { toCreateStoryRequest, type StoryDraft } from '@/lib/story-draft';
+import { showToast } from '@/lib/toast';
 import { todayLocalIso } from '@/utils/local-date';
 
 export type StoryUploadStatus = 'uploading' | 'waiting-to-retry' | 'failed';
@@ -90,6 +91,7 @@ async function run(id: string) {
       try {
         await attemptOnce(job.draft, state);
         remove(id);
+        showToast({ message: 'Story posted', variant: 'success' });
         return;
       } catch (error) {
         if (!uploads.some((upload) => upload.id === id)) return; // discarded
@@ -137,7 +139,7 @@ async function attemptOnce(draft: StoryDraft, state: Progress) {
   }
 }
 
-// TODO: use the toast from #60 once it merges
+// An alert rather than a toast, since the toast can't hold Retry / Discard buttons
 function notifyFailed(id: string, error: unknown) {
   Alert.alert("Your story didn't post", failureMessage(error), [
     { text: 'Discard', style: 'destructive', onPress: () => discardStoryUpload(id) },

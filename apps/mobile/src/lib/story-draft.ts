@@ -1,10 +1,10 @@
-import type { CreateStoryRequest } from '@/api/types';
+import type { CreateStoryRequest, ResolveLocationResponse } from '@/api/types';
 import type { PickedPhoto } from '@/lib/media/pick-photo';
 
 export const STORY_TEXT_MAX = 200;
 
-// A place from the location picker (POST-2, #42), or a name the user typed.
-export type StoryLocation = { locationId: string } | { customLocationName: string };
+// Same shape as PickedLocation from POST-2's location picker (#65)
+export type StoryLocation = ResolveLocationResponse;
 
 // What the composer hands to the upload queue.
 export type StoryDraft = {
@@ -28,10 +28,11 @@ export function toCreateStoryRequest(
   const request: CreateStoryRequest = { s3Key, date: today };
 
   if (text) request.text = text;
-  if (draft.location && 'locationId' in draft.location) {
-    request.locationId = draft.location.locationId;
-  } else if (draft.location) {
-    const name = draft.location.customLocationName.trim();
+  // TODO: use toLocationFields from the location picker once #65 merges
+  if (draft.location?.kind === 'mapbox') {
+    request.locationId = draft.location.location.id;
+  } else if (draft.location?.kind === 'custom') {
+    const name = draft.location.name.trim();
     if (name) request.customLocationName = name;
   }
   if (draft.tripId) {
