@@ -1,0 +1,16 @@
+{
+  "name": "shared-types",
+  "version": "0.0.1",
+  "description": "Shared TypeScript types for API contracts",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}
