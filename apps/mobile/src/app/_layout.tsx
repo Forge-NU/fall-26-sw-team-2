@@ -14,6 +14,7 @@ import { BarlowCondensed_600SemiBold } from "@expo-google-fonts/barlow-condensed
 
 import { AnimatedSplashOverlay } from "@/components/animated-icon";
 import AppTabs from "@/components/app-tabs";
+import { AuthGate } from "@/components/auth-gate";
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -58,7 +59,9 @@ export default function TabLayout() {
     <ThemeProvider value={navigationTheme}>
       <ToastProvider>
         <AnimatedSplashOverlay />
-        <AppTabs />
+        <AuthGate>
+          <AppTabs />
+        </AuthGate>
       </ToastProvider>
     </ThemeProvider>
   );
