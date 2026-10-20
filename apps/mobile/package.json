@@ -41,7 +41,7 @@
     "typescript": "~6.0.3"
   },
   "scripts": {
-    "test:ui": "node --experimental-strip-types --import ./scripts/alias-loader.mjs --test scripts/toast.test.mjs scripts/trip-form.test.mjs scripts/post-form.test.mjs",
+    "test:ui": "node --experimental-strip-types --import ./scripts/alias-loader.mjs --test scripts/toast.test.mjs scripts/trip-form.test.mjs scripts/post-form.test.mjs scripts/upload-core.test.mjs",
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android",

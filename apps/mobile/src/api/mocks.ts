@@ -5,7 +5,6 @@ import type {
   CreateStoryRequest,
   CreateTripRequest,
   CreatePostRequest,
-  CreateUploadResponse,
   LocationResponse,
   Page,
   PostResponse,
@@ -15,14 +14,10 @@ import type {
   StoryResponse,
   TripResponse,
   UpdateTripRequest,
-  UploadPurpose,
   UserSummary,
 } from '@/api/types';
 import { addDays, isDateWithin, todayLocalIso } from '@/utils/local-date';
 
-// Raise to test retries. EXPO_PUBLIC_MOCK_UPLOAD_FAILURE_RATE=1 in .env makes
-// every upload fail, for checking the draft + Retry flow. Leave it unset.
-const MOCK_UPLOAD_FAILURE_RATE = Number(process.env.EXPO_PUBLIC_MOCK_UPLOAD_FAILURE_RATE ?? 0);
 const MOCK_LATENCY_MS = 400;
 
 export const me: UserSummary = {
@@ -348,19 +343,6 @@ export async function mockResolveLocation(body: ResolveLocationRequest): Promise
   };
   resolvedLocations.set(location.id, location);
   return { kind: 'mapbox', location };
-}
-
-export async function mockCreateUpload(purpose: UploadPurpose): Promise<CreateUploadResponse> {
-  await delay();
-  const s3Key = `users/${me.id}/${purpose === 'story' ? 'stories' : purpose}/${mockId('obj')}.jpg`;
-  return { uploadUrl: `https://mock-upload.invalid/${s3Key}`, s3Key };
-}
-
-export async function mockPutObject(_uploadUrl: string): Promise<void> {
-  await delay(1000);
-  if (Math.random() < MOCK_UPLOAD_FAILURE_RATE) {
-    throw new TypeError('Network request failed (mock)');
-  }
 }
 
 export async function mockCreateStory(body: CreateStoryRequest): Promise<StoryResponse> {

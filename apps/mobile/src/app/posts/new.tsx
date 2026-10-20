@@ -96,12 +96,21 @@ export default function NewPostScreen() {
         return;
       }
       if (result.status === 'canceled') return;
-      // Resize before saving so drafts and uploads use the small JPEG (DOC-1)
+      // Resize before saving so drafts and uploads use the small JPEG (DOC-1).
+      // A photo that can't be converted is left out: the server only takes JPEG.
       const prepared = await Promise.all(
-        result.photos.map((photo) => preparePhoto(photo).catch(() => photo)),
+        result.photos.map((photo) => preparePhoto(photo).catch(() => null)),
       );
+      const ok = prepared.filter((p) => p !== null);
+      if (ok.length < prepared.length) {
+        const skipped = prepared.length - ok.length;
+        showToast({
+          message: `Couldn't add ${skipped} ${skipped === 1 ? 'photo' : 'photos'}.`,
+          variant: 'error',
+        });
+      }
       setPhotos((current) =>
-        [...current, ...prepared.map((p) => ({ ...p, s3Key: null }))].slice(0, POST_LIMITS.media),
+        [...current, ...ok.map((p) => ({ ...p, s3Key: null }))].slice(0, POST_LIMITS.media),
       );
       setErrors(({ photos: _photos, ...rest }) => rest);
     } finally {
@@ -272,7 +281,7 @@ export default function NewPostScreen() {
           <AppText variant="caption" accessibilityLiveRegion="polite" style={styles.progress}>
             {progress.creating
               ? 'Saving post…'
-              : `Uploading photo ${progress.current} of ${progress.total}`}
+              : `Uploading photo ${progress.current} of ${progress.total} (${Math.round(progress.fraction * 100)}%)`}
           </AppText>
         ) : null}
         <Button

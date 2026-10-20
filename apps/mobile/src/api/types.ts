@@ -88,18 +88,23 @@ export type CreateStoryRequest = {
   date?: string; // user's local today, for the active-trip check
 };
 
-// Uploads: guessed until MEDIA-1 (#38) defines the endpoint
+// Uploads (MEDIA-1, #38): POST /api/media/uploads. Same as shared-types on
+// main; once this branch has shared-types, import from there instead.
 
-export type UploadPurpose = 'story' | 'post';
+export type UploadPurpose = 'post' | 'story' | 'avatar';
+
+export type UploadContentType = 'image/jpeg';
 
 export type CreateUploadRequest = {
   purpose: UploadPurpose;
-  contentType: 'image/jpeg';
+  contentType: UploadContentType;
+  fileSize: number; // bytes, at most 10 MB
 };
 
 export type CreateUploadResponse = {
-  uploadUrl: string; // presigned S3 PUT URL
   s3Key: string;
+  uploadUrl: string; // presigned S3 PUT URL
+  expiresAt: string;
 };
 
 // Trips, continued (#56). Used by the trip screens (#41).
