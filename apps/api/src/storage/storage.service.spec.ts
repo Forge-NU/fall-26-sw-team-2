@@ -19,17 +19,24 @@ describe('StorageService', () => {
   });
 
   describe('getUploadUrl', () => {
-    const originalKeyId = process.env['AWS_ACCESS_KEY_ID'];
-    const originalSecret = process.env['AWS_SECRET_ACCESS_KEY'];
+    // Signing runs locally, but needs a region and credentials to exist
+    const originalEnv = { ...process.env };
 
     beforeEach(() => {
+      process.env['AWS_REGION'] = 'us-east-1';
       process.env['AWS_ACCESS_KEY_ID'] = 'test-key';
       process.env['AWS_SECRET_ACCESS_KEY'] = 'test-secret';
     });
 
     afterEach(() => {
-      process.env['AWS_ACCESS_KEY_ID'] = originalKeyId;
-      process.env['AWS_SECRET_ACCESS_KEY'] = originalSecret;
+      for (const name of [
+        'AWS_REGION',
+        'AWS_ACCESS_KEY_ID',
+        'AWS_SECRET_ACCESS_KEY',
+      ]) {
+        if (originalEnv[name] === undefined) delete process.env[name];
+        else process.env[name] = originalEnv[name];
+      }
     });
 
     it('signs the content type and size into a PUT URL', async () => {
