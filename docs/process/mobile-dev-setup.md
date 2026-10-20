@@ -67,5 +67,5 @@ npm run test:ui
 
 Mapbox and other native modules don't run in Expo Go, so the team is moving to
 an EAS development build. That setup (`eas.json`, `expo-dev-client`, device
-registration) is still in progress under APP-1, and the steps will be added here
-when it lands.
+registration) is tracked in APP-2 (#76), and the steps will be added here when
+it lands. Until then, use Expo Go.
