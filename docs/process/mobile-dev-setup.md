@@ -48,10 +48,9 @@ Then press `i` for the iOS Simulator (needs Xcode), `w` for the browser, or
 scan the QR code with Expo Go on a phone on the same Wi-Fi. The `exp://` link
 only opens on a phone; clicking it on a Mac shows a "no application" dialog.
 
-Most screens use mock data, so the API doesn't have to be running. The
-browser build (`w`) can't call the API yet, because the API doesn't send CORS
-headers, so real requests fail there with "Couldn't reach the server". Use the
-iOS Simulator or a phone to try real endpoints; CORS only applies in browsers. To run it
+Most screens use mock data, so the API doesn't have to be running. The API
+allows cross-origin requests outside production, so the browser build (`w`) can
+call your local API too. To run it
 too, see the root [README](../../README.md#local-database); install it with
 `npm install --workspaces=false` as above.
 
