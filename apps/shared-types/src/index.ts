@@ -17,3 +17,5 @@ export interface PaginatedResponse<T> {
   items: T[];
   nextCursor: string | null;
 }
+
+export type { TripStatus, TripResponse, ActiveTripsResponse, MediaType, MediaResponse, LocationResponse, PostResponse } from './content';

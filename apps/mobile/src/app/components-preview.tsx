@@ -15,6 +15,7 @@ import { AvatarTokens, type AvatarSize } from '@/constants/avatar-tokens';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SkeletonTokens } from '@/constants/skeleton-tokens';
 import { showToast as showApiToast } from '@/lib/toast';
+import { ContentPreview } from '@/components/content/content-preview';
 
 export default function ComponentsPreview() {
   const [pressCount, setPressCount] = useState(0);
@@ -32,6 +33,7 @@ export default function ComponentsPreview() {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
+        <ContentPreview />
         <AppText variant="heading">UI Components</AppText>
         <AppText variant="heading">Main Heading</AppText>
         <AppText variant="supporting">Supporting Text</AppText>
