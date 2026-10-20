@@ -18,6 +18,67 @@ describe('StorageService', () => {
     jest.restoreAllMocks();
   });
 
+  describe('getUploadUrl', () => {
+    const originalKeyId = process.env['AWS_ACCESS_KEY_ID'];
+    const originalSecret = process.env['AWS_SECRET_ACCESS_KEY'];
+
+    beforeEach(() => {
+      process.env['AWS_ACCESS_KEY_ID'] = 'test-key';
+      process.env['AWS_SECRET_ACCESS_KEY'] = 'test-secret';
+    });
+
+    afterEach(() => {
+      process.env['AWS_ACCESS_KEY_ID'] = originalKeyId;
+      process.env['AWS_SECRET_ACCESS_KEY'] = originalSecret;
+    });
+
+    it('signs the content type and size into a PUT URL', async () => {
+      const service = new StorageService();
+
+      const { url, expiresAt } = await service.getUploadUrl(
+        'users/u/posts/a.jpg',
+        'image/jpeg',
+        1234,
+      );
+
+      const params = new URL(url).searchParams;
+      expect(url).toContain('users/u/posts/a.jpg');
+      expect(params.get('X-Amz-SignedHeaders')).toBe(
+        'content-length;content-type;host',
+      );
+      expect(params.get('X-Amz-Expires')).toBe('900');
+      expect(expiresAt.getTime()).toBeGreaterThan(Date.now());
+    });
+
+    it("doesn't add a checksum, which would break every upload", async () => {
+      const service = new StorageService();
+
+      const { url } = await service.getUploadUrl(
+        'users/u/posts/a.jpg',
+        'image/jpeg',
+        1234,
+      );
+
+      const keys = [...new URL(url).searchParams.keys()].map((k) =>
+        k.toLowerCase(),
+      );
+      expect(keys.some((k) => k.includes('checksum'))).toBe(false);
+    });
+
+    it('returns a media.invalid URL without a bucket configured', async () => {
+      delete process.env['S3_BUCKET_NAME'];
+      const service = new StorageService();
+
+      const { url } = await service.getUploadUrl(
+        'users/u/posts/a.jpg',
+        'image/jpeg',
+        1234,
+      );
+
+      expect(url).toBe('https://media.invalid/users/u/posts/a.jpg');
+    });
+  });
+
   describe('deleteObjects', () => {
     it("doesn't throw when S3 fails, and logs the keys", async () => {
       jest
