@@ -5,6 +5,18 @@ infinite lists, mocks for endpoints that don't exist yet, and where sign-in
 plugs in. Part of APP-1 (#30). For the API side (error shape, pagination,
 shared-types), see [api-conventions.md](../architecture/api-conventions.md).
 
+To see it all working, open `/api-examples` in a dev build or the browser
+(`npm start`, then `w`). It's dev-only and not in the tab bar. It has two lists
+built the same way, one per tab:
+
+- **Mocked endpoint**: `src/api/examples.ts`, an endpoint wrapped in `withMock`,
+  paged 20 at a time. Copy this one for an endpoint that isn't built yet.
+- **Real API**: `src/api/users.ts`, API-1's `GET /api/users`. It returns 401 until
+  sign-in lands with #29, so for now it shows the signed-out error.
+
+Both use `useInfiniteList` and `src/components/dev/user-list.tsx`, which covers
+every state an infinite list needs.
+
 ## Adding an endpoint
 
 Put each resource's calls in `src/api/<resource>.ts`, typed with request and
