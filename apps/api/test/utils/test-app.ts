@@ -21,6 +21,7 @@ export const storageMock = {
     Promise.resolve(`https://s3.test/${key}`),
   ),
   deleteObjects: jest.fn(() => Promise.resolve()),
+  deleteObjectsStrict: jest.fn(() => Promise.resolve()),
 };
 
 const fakeAuthGuard = {
@@ -41,8 +42,11 @@ export async function createTestApp() {
     .useValue(storageMock)
     .compile();
 
-  const app: INestApplication = moduleRef.createNestApplication();
-  // Same pipe as main.ts
+  const app: INestApplication = moduleRef.createNestApplication({
+    rawBody: true,
+  });
+  // Same prefix and pipe as main.ts
+  app.setGlobalPrefix('api');
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

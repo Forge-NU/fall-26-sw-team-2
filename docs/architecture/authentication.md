@@ -1,277 +1,96 @@
-# Authentication and User Data Architecture
+# Authentication and onboarding
 
-## Overview
+## Ownership
 
-Yuji will use Clerk as the authentication provider. Clerk manages user authentication, credentials, and sessions, while the Yuji backend stores the application-specific user data needed by the product.
+Clerk owns sign-up, sign-in, verification codes, credentials, and sessions. The mobile app uses Clerk's Expo SDK and SecureStore token cache. Yuji's API validates Clerk bearer tokens with `ClerkAuthGuard`; clients never send a user ID for `/api/me` operations.
 
-The backend uses the authenticated Clerk user ID to identify the current user. Clients do not provide a user ID when accessing their own account data.
+## Sign-up and sign-in
 
-## Authentication Provider
+- **Sign-up:** email plus a password (8+ characters), then a one-time code to verify the email.
+- **Sign-in:** email or username plus the password. No code, except when Clerk's device trust asks for one on a new device; the app then sends an email code.
+- **Forgot password:** a reset code to the email, then a new password.
 
-Clerk was selected because it provides managed authentication and integrates well with the project's NestJS backend and Expo mobile application. It also reduces the amount of authentication infrastructure Yuji needs to implement and maintain.
+Phone numbers aren't supported: SMS needs a paid Clerk plan. Adding them later means a phone option on sign-up and the SMS variants of the same Clerk calls.
 
-### Clerk owns
+Sign-in by username works because Yuji copies each username to the Clerk user (`clerkClient.users.updateUser`) when onboarding or `PATCH /api/me` sets it. The Clerk call runs inside the database transaction, so if Clerk rejects the name the Yuji row is unchanged. Yuji's database stays the source of truth for availability and lookups.
 
-- Sign-in and sign-up flows
-- Password and credential management
-- Authentication sessions
-- Authentication tokens
-- Provider-managed identity information
+### Clerk Dashboard settings (User & authentication)
 
-Yuji does not store passwords, password hashes, or Clerk session secrets in its database.
+| Setting | Value |
+| --- | --- |
+| Email | Sign-up on, verify at sign-up with **email code**, sign-in on |
+| Phone | Off |
+| Password | **On**, required |
+| Username | **On** for sign-in, **not required at sign-up** (the app sets it after onboarding) |
+| First and last name | Off or optional; onboarding collects them |
 
-### Yuji owns
+If Clerk requires a field the app doesn't collect, the code step shows "Clerk also requires: …" naming it.
 
-The local `User` record stores data needed by the application.
+Yuji stores the app profile in `User`. A row is created by the Clerk `user.created` webhook. Both the webhook and onboarding (`POST /api/me/profile`) upsert on Clerk's user ID, so delivery retries, or onboarding finishing before the webhook arrives, cannot create a second row. The onboarding upsert is also the local-dev fallback: if no tunnel is running, the row is created when the user picks a username.
 
-| Field | Type | Nullable | Description |
-|---|---|---|---|
-| `id` | String (primary key) | No | The Clerk user ID (e.g. `user_123`). Used directly as the primary key so no mapping table is needed |
-| `email` | String | No | User email, copied from Clerk at creation |
-| `firstName` | String | No | User first name |
-| `lastName` | String | No | User last name |
-| `username` | String (unique) | No | Application username; unique |
-| `avatarUrl` | String | Yes | Optional profile image URL |
-| `createdAt` | DateTime | No | Account creation timestamp |
-| `updatedAt` | DateTime | No | Last update timestamp |
+**Decision: `username` is nullable until onboarding** (rather than a placeholder). A webhook-created row has `username: null`, and the app treats a null username as "needs onboarding". Postgres allows many nulls under a unique index, and nothing has to avoid or clean up placeholder names. `email` is also nullable, so phone sign-ups (not enabled yet) can be added without a migration. First and last name start as empty strings when Clerk did not collect them and are set during onboarding.
 
-The local database does not store authentication credentials or provider session information.
+Usernames are 4–30 letters, numbers, or underscores (Clerk's rules, since Clerk also stores them), trimmed and stored in lowercase. A PostgreSQL unique index on `lower(username)` enforces case-insensitive uniqueness, so `Christian` and `christian` cannot both be claimed. The onboarding screen checks availability while typing, but the database constraint remains authoritative during submission.
 
-### Relationships
+## Mobile routing and API requests
 
-`User` is the root of the application data model. Any model that belongs to a user (for example pins or posts) should reference it with a foreign key:
+The root auth gate (`apps/mobile/src/components/auth-gate.tsx`) waits for Clerk to restore its persisted session. Signed-out users see the auth screen. After authentication, the app loads `GET /api/me`; a 404 (webhook still in flight) or a null username shows onboarding. Users with a username land in the app tabs, and the gate provides their profile to screens through `AuthGateContext`. The tabs are not rendered at all until a username is set, so no route inside them is reachable before onboarding. Sign-out calls Clerk, which clears the SecureStore token cache, and the gate drops its in-memory profile; the app keeps no other user data.
 
-| Relationship | Foreign key | Cardinality | Nullability |
-|---|---|---|---|
-| `<Resource>` belongs to `User` | `<Resource>.userId` → `User.id` | Many-to-one (one user owns many resources) | Non-null for owned content |
+Authenticated API requests call Clerk `getToken()` and send `Authorization: Bearer <token>`. Session state is persisted in Expo SecureStore through Clerk's `tokenCache`; no session token is copied into app-managed storage.
 
-The `ON DELETE` behavior for these foreign keys (cascade vs. anonymize) depends on the account deletion decision described under [Open Questions](#open-questions).
+## API contracts
 
-## Authentication Flow
+### `GET /api/me`
 
-1. The user signs in through Clerk.
-2. Clerk provides the authenticated session.
-3. The client sends authenticated requests to the Yuji API.
-4. The backend validates the Clerk session using the authentication guard.
-5. The backend obtains the authenticated Clerk user ID from the validated session.
-6. The backend uses that ID to retrieve the corresponding local `User` record.
-7. Application data is accessed using the local user record.
+Requires a valid Clerk token. Returns the current profile. A webhook-created user before onboarding receives `username: null`; no local row returns 404 while the webhook is in flight.
 
-The backend derives the current user from the authenticated session rather than trusting a user ID supplied by the client.
+### `POST /api/me/profile`
 
-## Sign Up, Login, and Sign Out
+Requires a valid Clerk token. Creates or completes the current user's profile with `firstName`, `lastName`, and `username`. This endpoint updates an incomplete webhook-created row. Username conflicts return 409.
 
-Sign up, login, and sign out are handled entirely by Clerk through its client SDK in the Expo app. The Yuji backend does not need to expose endpoints for these actions. The backend only validates the resulting session on each request.
+### `GET /api/users/username-availability?username=<name>`
 
-## Middleware
+Requires a valid Clerk token. Returns `{ "available": boolean }` using a case-insensitive comparison.
 
-A Clerk authentication guard protects all authenticated routes. It validates the Clerk session and attaches the Clerk user ID to the request. Requests without a valid session receive `401 Unauthorized`.
+### `GET /api/users/:username`
 
-Required configuration (environment variables) includes the Clerk secret key and, for webhooks, the Clerk webhook signing secret. These must be set for local development and tests.
+Requires a valid Clerk token. Looks up a profile by username, case-insensitively. The former ID lookup is available at `GET /api/users/id/:id`.
 
-## API Contracts
+### `DELETE /api/me`
 
-### GET `/api/me`
+Requires a valid Clerk token. Removes the user's S3 objects, deletes the Clerk user, then deletes the local user row (related database records cascade). If S3 deletion fails, the API keeps the Clerk account and database rows so the request can be retried.
 
-Returns the currently authenticated user's application profile.
+All protected routes return 401 when the bearer token is missing or invalid.
 
-**Authentication:** Required. The backend derives the user ID from the authenticated Clerk session.
+### Response types
 
-**Success: 200**
+`UserResponse` (with `username: string | null`) and `UsernameAvailabilityResponse` are exported from `shared-types`.
 
-```json
-{
-  "id": "user_123",
-  "firstName": "Example",
-  "lastName": "User",
-  "username": "exampleuser",
-  "avatarUrl": "https://example.com/avatar.png"
-}
+## Tests
+
+- `apps/api/test/auth.e2e-spec.ts` runs the real `ClerkAuthGuard` against every protected route and expects 401 without a token or with an invalid one. Add new routes to its list.
+- `apps/api/test/users.e2e-spec.ts` sends signed webhook deliveries (one row per sign-up, retries are no-ops) and covers onboarding, case-insensitive uniqueness, availability, username lookup, and account deletion across every table and S3.
+- E2E tests need the local Postgres: `cd apps/api && docker compose up -d && npx prisma migrate deploy && npm run test:e2e`.
+
+## Clerk webhook
+
+The API accepts signed Clerk events at `POST /api/webhooks/clerk`. It verifies the Standard Webhooks signature against `CLERK_WEBHOOK_SIGNING_SECRET` using the raw request body. `user.created` and `user.updated` synchronize trusted email and avatar values; `user.deleted` removes the local row and cascaded data and attempts S3 cleanup. Unrelated Clerk events are acknowledged and ignored.
+
+For local development, start the API and a Cloudflare Quick Tunnel in separate terminals:
+
+```sh
+cd apps/api && npm run start:dev
+cloudflared tunnel --url http://localhost:3000
 ```
 
-**Unauthorized: 401**
+Copy the temporary HTTPS URL printed by `cloudflared`. In the Clerk Dashboard, add a webhook endpoint at `<tunnel-url>/api/webhooks/clerk`, select `user.created`, `user.updated`, and `user.deleted`, then copy the endpoint's signing secret into `apps/api/.env` as `CLERK_WEBHOOK_SIGNING_SECRET`. The Quick Tunnel URL changes when restarted, so update the Clerk endpoint URL each time. Quick Tunnels are intended for development and testing. The mobile app's `.env` needs `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` and `EXPO_PUBLIC_API_URL`; use the machine's LAN IP for a physical device.
 
-```json
-{
-  "statusCode": 401,
-  "message": "Unauthorized"
-}
-```
+## Local setup checklist
 
-**Not Found: 404**
+1. Copy the API and mobile `.env.example` files to `.env` and fill in Clerk keys.
+2. Start Postgres and apply Prisma migrations as described in the root README.
+3. Start the API and tunnel, then configure the Clerk webhook URL and signing secret.
+4. Start Expo, sign up with an email and password, and choose a username.
+5. Restart the app to confirm the session returns to the feed; sign out and confirm auth screens appear.
 
-```json
-{
-  "statusCode": 404,
-  "message": "User not found",
-  "error": "Not Found"
-
-}
-```
-
-### PATCH `/api/me`
-
-Updates fields owned by the Yuji application.
-
-**Authentication:** Required.
-
-**Allowed fields:**
-
-- `firstName`
-- `lastName`
-- `username`
-- `avatarUrl`
-
-All fields are optional; only the fields provided are updated. The client cannot modify the user's ID, authentication credentials, or authentication session information.
-
-**Example request**
-
-```json
-{
-  "firstName": "Example",
-  "lastName": "User",
-  "username": "exampleuser",
-  "avatarUrl": "https://example.com/avatar.png"
-}
-```
-
-**Success: 200**
-
-Returns the updated profile, in the same shape as `GET /api/me`.
-
-```json
-{
-  "id": "user_123",
-  "firstName": "Example",
-  "lastName": "User",
-  "username": "exampleuser",
-  "avatarUrl": "https://example.com/avatar.png"
-}
-```
-
-**Bad Request: 400**
-
-Returned when a field fails validation or an unknown field is sent.
-
-```json
-{
-  "statusCode": 400,
-  "message": [
-    "username must be longer than or equal to 3 characters",
-    "username must be a string"
-  ],
-  "error": "Bad Request"
-}
-```
-
-**Unauthorized: 401**
-
-```json
-{
-  "statusCode": 401,
-  "message": "Unauthorized"
-}
-```
-
-**Not Found: 404**
-
-```json
-{
-  "statusCode": 404,
-  "message": "User not found"
-}
-```
-
-**Conflict: 409**
-
-Returned when the requested `username` is already taken.
-
-```json
-{
-  "statusCode": 409,
-  "message": "Username already in use",
-  "error": "Conflict"
-}
-```
-
-### DELETE `/api/me`
-
-Deletes the currently authenticated user's Yuji account.
-
-**Authentication:** Required. The backend derives the user ID from the authenticated Clerk session.
-
-The final deletion behavior must coordinate local database deletion with the Clerk account lifecycle. The implementation should define whether the Clerk account is deleted immediately or whether deletion is handled through a deferred/anonymization process.
-
-**Success: 204**
-
-No response body.
-
-**Unauthorized: 401**
-
-```json
-{
-  "statusCode": 401,
-  "message": "Unauthorized"
-}
-```
-
-**Not Found: 404**
-
-```json
-{
-  "statusCode": 404,
-  "message": "User not found"
-}
-```
-
-## Clerk Webhooks
-
-A Clerk webhook endpoint may be added if Yuji needs to synchronize provider-side user lifecycle changes with the local database.
-
-**Potential endpoint:** `POST /api/webhooks/clerk`
-
-If implemented, webhook requests must:
-
-- Verify the Clerk webhook signature.
-- Handle create, update, and delete events as needed.
-- Be idempotent.
-- Tolerate retries and out-of-order events.
-
-Webhooks are not a replacement for validating authentication on normal API requests.
-
-## Endpoint Priority
-
-| Priority | Item | Reason |
-|---|---|---|
-| P0 | Clerk authentication guard | Required by every other endpoint |
-| P0 | Local `User` model and creation of the local row | `GET /api/me` depends on it |
-| P0 | `GET /api/me` | Client needs the current user's profile |
-| P1 | `PATCH /api/me` | Profile editing 
-| P1 | `POST /api/webhooks/clerk` | Keeps local data in sync; may also create users (see Open Questions) |
-| P2 | `DELETE /api/me` | Depends on the deletion decision |
-
-## Implementation Plan
-
-1. Keep Clerk responsible for authentication and session management.
-2. Store the authenticated Clerk user ID and application-specific profile data in the local `User` table.
-3. Protect authenticated endpoints with a Clerk authentication guard.
-4. Derive the current user from the validated Clerk session.
-5. Implement the `/api/me` endpoints for reading and updating the current user's application profile.
-6. Define and implement account deletion behavior.
-7. Add Clerk webhooks only if local user synchronization is required.
-8. Add integration tests for authenticated and unauthenticated API requests.
-
-## Next steps
-
-
-1. **How is the local `User` row created?**
-   - **Webhook:** create the row on the Clerk `user.created` event.
-   - **Lazy creation:** create the row on the first authenticated request.
-   
-   Until this is decided, `GET /api/me` returns `404` for a Clerk user with no local row.
-
-2. **How is account deletion handled?**
-   - **Immediate hard delete:** delete the Clerk user through Clerk's backend API, then delete the local row and cascade to owned data.
-   - **Deferred/anonymization:** mark the account deleted, strip personal fields (`email`, names, `username`, `avatarUrl`), keep the row so other users' content does not break, and delete the Clerk user.
-
-3. **How do webhooks interact with `DELETE /api/me`?** Deleting the Clerk user triggers a `user.deleted` webhook. The handler must treat an already-deleted local user as success.
+See [Cloudflare Quick Tunnels](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/) for current tunnel setup and limitations.

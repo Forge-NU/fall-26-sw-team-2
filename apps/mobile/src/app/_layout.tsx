@@ -13,7 +13,11 @@ import {
 import { BarlowCondensed_600SemiBold } from "@expo-google-fonts/barlow-condensed";
 
 import { AnimatedSplashOverlay } from "@/components/animated-icon";
-import AppTabs from "@/components/app-tabs";
+import { ClerkProvider } from '@clerk/expo';
+import { tokenCache } from '@clerk/expo/token-cache';
+import AuthGate from '@/components/auth-gate';
+
+const clerkPublishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '';
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -55,11 +59,13 @@ export default function TabLayout() {
   }
 
   return (
-    <ThemeProvider value={navigationTheme}>
-      <ToastProvider>
-        <AnimatedSplashOverlay />
-        <AppTabs />
-      </ToastProvider>
-    </ThemeProvider>
+    <ClerkProvider publishableKey={clerkPublishableKey} tokenCache={tokenCache}>
+      <ThemeProvider value={navigationTheme}>
+        <ToastProvider>
+          <AnimatedSplashOverlay />
+          <AuthGate />
+        </ToastProvider>
+      </ThemeProvider>
+    </ClerkProvider>
   );
 }
