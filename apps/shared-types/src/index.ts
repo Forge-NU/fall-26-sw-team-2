@@ -17,3 +17,16 @@ export interface PaginatedResponse<T> {
   items: T[];
   nextCursor: string | null;
 }
+
+/**
+ * Body of every error response, from the API's HttpExceptionFilter
+ */
+export interface ApiErrorResponse {
+  statusCode: number;
+  /** Validation errors are joined with "; " */
+  message: string;
+  /** e.g. "Not Found" */
+  error: string;
+  path: string;
+  timestamp: string;
+}
