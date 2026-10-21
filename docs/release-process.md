@@ -9,9 +9,14 @@ has a paid Apple Developer account.
 
 Versions live in git tags (`v0.0.1`, `v0.0.2`, …). Nothing is committed to bump them.
 
-- Each merged PR bumps the **patch** version: v0.0.1, v0.0.2, …
-- Add a `release:minor` label for a minor bump (v0.0.7 → v0.1.0), or `release:major`
-  for a major one (v0.4.2 → v1.0.0).
+- Every PR needs exactly one release label. The **Release label** check fails until it
+  has one:
+  - `release:patch` for most changes (v0.0.1 → v0.0.2)
+  - `release:minor` for a minor bump (v0.0.7 → v0.1.0)
+  - `release:major` for a major one (v0.4.2 → v1.0.0)
+
+  Add it from the PR's sidebar (**Labels**) or with
+  `gh pr edit <number> --add-label release:patch`.
 - While a PR is open, the **Release** section of its description shows the version it
   will release. It's worked out again at merge time, in case other PRs merge first.
 - On merge, the `Release` workflow tags the merge commit and publishes a GitHub release
@@ -88,7 +93,9 @@ images list what's installed: github.com/actions/runner-images).
 **GitHub** (repo Settings)
 1. Add a secret `EXPO_TOKEN`: an access token from expo.dev → Account settings →
    Access tokens (a robot token for the organization is best).
-2. Create the labels `release:minor` and `release:major`.
+2. Make the **Release label** check required: in Settings → Rules (or Branches), add a
+   rule for `main` that requires the "Release label" status check, so a PR can't
+   merge without one. This needs admin access. The labels themselves already exist.
 
 ### For TestFlight builds (later)
 
