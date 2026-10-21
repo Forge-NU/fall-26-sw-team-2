@@ -8,6 +8,12 @@
       ],
       "@/assets/*": [
         "./assets/*"
+      ],
+      "@forge/shared-types": [
+        "../shared-types/src"
+      ],
+      "shared-types": [
+        "../shared-types/src"
       ]
     }
   },
