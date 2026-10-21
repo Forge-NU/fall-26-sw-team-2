@@ -80,6 +80,7 @@ npm run lint && npm run typecheck
 
 ## Design Docs
 Link to Figma / design review slides / architecture doc here.
+   - Explore / Maps wireframes: [docs/design/map-wireframes.pdf](docs/design/map-wireframes.pdf)
 
 ## Contributing
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for our git workflow and how to open a ticket.
