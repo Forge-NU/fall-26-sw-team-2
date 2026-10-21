@@ -16,20 +16,5 @@
       "autoIncrement": true,
       "channel": "production"
     }
-  },
-  "submit": {
-    "pr-preview": {
-      "ios": {
-        "ascAppId": "SET_ME_APP_STORE_CONNECT_APP_ID",
-        "groups": [
-          "PR Previews"
-        ]
-      }
-    },
-    "production": {
-      "ios": {
-        "ascAppId": "SET_ME_APP_STORE_CONNECT_APP_ID"
-      }
-    }
   }
 }
