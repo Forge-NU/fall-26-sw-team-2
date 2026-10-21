@@ -135,6 +135,12 @@ jobs:
         working-directory: apps/mobile
         run: npx expo export --platform web
 
+      # The PR links to this page, which shows the app inside a phone-sized frame.
+      - name: Add the phone frame page
+        run: |
+          sed -e "s/__PR__/$PR/g" -e "s/__SHA__/${HEAD_SHA::7}/g" \
+            .github/preview/device-preview.html > apps/mobile/dist/device-preview.html
+
       - name: Deploy to EAS Hosting
         id: deploy
         working-directory: apps/mobile
@@ -148,6 +154,6 @@ jobs:
         run: |
           cat > section.md <<EOF
           ### Web preview
-          [Open this PR in your browser]($URL) (built from ${HEAD_SHA::7}). The link stays the same as the PR is updated. The web version can look and behave a little differently from the phone app.
+          [Open this PR in your browser](${URL%/}/device-preview.html) (built from ${HEAD_SHA::7}). It opens in a phone-sized frame, and the link stays the same as the PR is updated. The web version can look and behave a little differently from the phone app.
           EOF
           node .github/scripts/set-pr-section.mjs "$PR" web-preview section.md

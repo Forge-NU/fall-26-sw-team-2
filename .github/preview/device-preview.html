@@ -1,0 +1,98 @@
+<!doctype html>
+<!--
+  Shows a PR's web preview inside a phone-sized frame. app-preview.yml copies this
+  into the web build as device-preview.html and fills in __PR__ and __SHA__.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Yuji · PR #__PR__ preview</title>
+    <script>
+      // On an actual phone, skip the frame and open the app full-screen.
+      if (window.matchMedia('(max-width: 600px)').matches) {
+        window.location.replace('/');
+      }
+    </script>
+    <style>
+      :root {
+        --page: #eef1f2;
+        --text: #58686b;
+        --bezel: #162a2a;
+        --screen: #fffcfa;
+        color-scheme: light dark;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --page: #111818;
+          --text: #a9b2b4;
+          --bezel: #000000;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        overflow: hidden;
+        background: var(--page);
+        color: var(--text);
+        font: 13px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      }
+      .phone {
+        width: 414px;
+        height: 868px;
+        flex: none;
+        padding: 12px;
+        border-radius: 56px;
+        background: var(--bezel);
+        box-shadow: 0 24px 60px rgba(22, 42, 42, 0.25);
+        transform-origin: center;
+      }
+      iframe {
+        display: block;
+        width: 390px;
+        height: 844px;
+        border: 0;
+        border-radius: 44px;
+        background: var(--screen);
+      }
+      .caption {
+        flex: none;
+      }
+      .caption a {
+        color: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="phone" id="phone">
+      <iframe src="/" title="Yuji app, PR #__PR__"></iframe>
+    </div>
+    <p class="caption" id="caption">
+      PR #__PR__ · built from __SHA__ · <a href="/">Open without the frame</a>
+    </p>
+    <script>
+      // Shrink the phone to fit short windows; never grow it past real size.
+      const phone = document.getElementById('phone');
+      const caption = document.getElementById('caption');
+      function fit() {
+        const room = window.innerHeight - caption.offsetHeight - 96;
+        const scale = Math.min(1, room / 868, (window.innerWidth - 32) / 414);
+        phone.style.transform = `scale(${scale})`;
+        phone.style.margin = `${(868 * (scale - 1)) / 2}px 0`;
+      }
+      window.addEventListener('resize', fit);
+      fit();
+    </script>
+  </body>
+</html>
