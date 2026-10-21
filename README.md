@@ -70,7 +70,7 @@ npm run lint && npm run typecheck
 ```
 
 ### Releases and PR previews
-Every merged PR is a release (v0.0.1, v0.0.2, …), and PRs that change the app get a QR code in their description that opens that PR in Expo Go. See [docs/release-process.md](./docs/release-process.md), which also lists the one-time setup.
+Every merged PR is a release (v0.0.1, v0.0.2, …), and PRs that change the app get a QR code in their description that opens that PR in Expo Go, plus a link to a web version. See [docs/release-process.md](./docs/release-process.md), which also lists the one-time setup.
 
 ## Repo Structure
 ```

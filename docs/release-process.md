@@ -24,17 +24,21 @@ Versions live in git tags (`v0.0.1`, `v0.0.2`, …). Nothing is committed to bum
 The workflows are `.github/workflows/pr-version.yml` and `release.yml`. The version
 logic is `.github/scripts/next-version.mjs`, which has tests next to it.
 
-## Expo Go previews
+## App previews
 
-`.github/workflows/expo-go-preview.yml` runs on every PR that changes `apps/mobile/`,
-drafts included. It publishes the PR's JavaScript as an EAS Update on its own branch
-(`pr-<number>`) and puts an **Expo Go preview** section in the PR description with a
-QR code. To try a PR, install [Expo Go](https://expo.dev/go) and scan the code with
-your phone's camera. Each PR has its own code, and a new push replaces it within a
-couple of minutes.
+`.github/workflows/app-preview.yml` runs on every PR that changes `apps/mobile/`,
+drafts included, and adds two sections to the PR description:
 
-- **Cost:** free. Publishing doesn't use any builds, and EAS Update's free plan covers
-  a team our size.
+- **Expo Go preview:** the PR's JavaScript is published as an EAS Update on its own
+  branch (`pr-<number>`), with a QR code. Install [Expo Go](https://expo.dev/go) and
+  scan the code with your phone's camera. A new push replaces it within a couple of
+  minutes.
+- **Web preview:** the web build is deployed to EAS Hosting under the alias
+  `pr-<number>`, with a link that stays the same as the PR is updated. It's a quick
+  way to look without a phone, but the web version can differ from the phone app.
+
+- **Cost:** free. Neither preview uses any builds. EAS Update and EAS Hosting are
+  included in Expo's free plan, with usage limits that paid plans raise.
 - **Limits:** Expo Go only runs apps whose native modules ship inside it. All of ours do
   today. If a PR adds a library with its own native code, that PR's preview won't
   open in Expo Go; check a new library against Expo Go first
