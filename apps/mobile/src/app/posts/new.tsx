@@ -260,10 +260,6 @@ export default function NewPostScreen() {
               style={styles.caption}
             />
           </Section>
-
-          <View style={styles.note}>
-            <AppText variant="caption">Nothing is posted until every photo has uploaded.</AppText>
-          </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -339,12 +335,6 @@ const styles = StyleSheet.create({
   error: { color: Palette.coral },
   days: { gap: 6 },
   caption: { minHeight: 88, textAlignVertical: 'top' },
-  note: {
-    paddingHorizontal: Spacing.two,
-    paddingVertical: 6,
-    borderRadius: Radii.small,
-    backgroundColor: Palette.peach,
-  },
   banner: {
     gap: Spacing.two,
     padding: Spacing.three - Spacing.one,
