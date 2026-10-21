@@ -1,0 +1,95 @@
+name: Expo Go Preview
+
+# Publishes each PR's app code as an EAS Update on its own branch (pr-<number>) and
+# puts a QR code in the PR description that opens it in Expo Go. No Apple account or
+# native build needed. Setup: docs/release-process.md.
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'apps/mobile/**'
+
+# A newer push to the same PR cancels the publish in progress.
+concurrency:
+  group: expo-go-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # Until EXPO_TOKEN is set (or for PRs from forks, which get no secrets), skip the
+  # preview instead of failing the PR.
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.token.outputs.ready }}
+    steps:
+      - id: token
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -n "$EXPO_TOKEN" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Skipping the Expo Go preview until the EXPO_TOKEN secret is set (see docs/release-process.md)."
+          fi
+
+  update:
+    needs: check
+    if: needs.check.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR: ${{ github.event.pull_request.number }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: 'npm'
+          cache-dependency-path: apps/mobile/package-lock.json
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v9
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        working-directory: apps/mobile
+        run: npm ci
+
+      - name: Publish the update
+        id: preview
+        uses: expo/expo-github-action/preview@v9
+        with:
+          working-directory: apps/mobile
+          # Only the PR number and commit go in the command; it isn't run through a
+          # shell, but there's no reason to pass it text a PR author controls.
+          command: >-
+            eas update --branch pr-${{ github.event.pull_request.number }}
+            --message "PR #${{ github.event.pull_request.number }} at ${{ github.event.pull_request.head.sha }}"
+            --environment preview --non-interactive
+          comment: false
+          qr-target: expo-go
+
+      - name: Put the preview in the PR description
+        env:
+          QR: ${{ steps.preview.outputs.qr }}
+          LINK: ${{ steps.preview.outputs.link }}
+        run: |
+          cat > section.md <<EOF
+          ### Expo Go preview
+          Install [Expo Go](https://expo.dev/go) on your phone, then scan this code with the camera to open this PR's version of the app (built from ${HEAD_SHA::7}). It's replaced each time the PR is updated.
+
+          <a href="$LINK"><img src="$QR" width="180" alt="QR code that opens this PR in Expo Go" /></a>
+
+          [Open on expo.dev]($LINK)
+          EOF
+          node .github/scripts/set-pr-section.mjs "$PR" expo-go-preview section.md

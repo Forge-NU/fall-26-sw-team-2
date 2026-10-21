@@ -1,7 +1,9 @@
 name: iOS Preview
 
 # Builds the app for each PR that changes it and puts the build on TestFlight, with
-# the version and build number in the PR description. Setup: docs/release-process.md.
+# the version and build number in the PR description. Off until the repository
+# variable IOS_PREVIEWS is "true", since TestFlight needs a paid Apple Developer
+# account. Setup: docs/release-process.md.
 #
 # The build runs on GitHub's macOS runner (`eas build --local`), which is free for
 # public repos, so it doesn't use EAS cloud builds. EAS still provides the signing
@@ -27,6 +29,7 @@ jobs:
     # Drafts don't build, to keep runner time down. PRs from forks get no secrets,
     # so they can't build either.
     if: >-
+      vars.IOS_PREVIEWS == 'true' &&
       !github.event.pull_request.draft &&
       github.event.pull_request.head.repo.full_name == github.repository
     # Expo SDK 57 needs Xcode 26.4+, which macOS 15 runners don't have.
