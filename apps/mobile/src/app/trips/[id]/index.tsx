@@ -180,13 +180,13 @@ function TripBody({ trip, posts, isOwner, refreshing, onRefresh }: TripBodyProps
               style={styles.fullWidth}
             />
           ) : null}
-          <AppText variant="caption" style={[styles.muted, styles.center]}>
-            {trip.status === 'published'
-              ? `Published ${formatDate(trip.publishedAt!.slice(0, 10))}. Everyone can see this trip.`
-              : posts.length === 0
-                ? 'Add at least one post to publish this trip.'
-                : 'Only you can see this trip until you publish it.'}
-          </AppText>
+          {trip.status === 'published' || posts.length === 0 ? (
+            <AppText variant="caption" style={[styles.muted, styles.center]}>
+              {trip.status === 'published'
+                ? `Published ${formatDate(trip.publishedAt!.slice(0, 10))}. Everyone can see this trip.`
+                : 'Add at least one post to publish this trip.'}
+            </AppText>
+          ) : null}
         </View>
       ) : null}
     </>

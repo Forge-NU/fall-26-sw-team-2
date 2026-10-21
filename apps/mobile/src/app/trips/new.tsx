@@ -28,7 +28,6 @@ export default function NewTripScreen() {
           endDate: null,
         }}
         submitLabel="Create trip"
-        note="Saving with no posts is fine. Add posts to each day whenever you're ready."
         submitting={createTrip.isPending}
         formError={createTrip.error ? describeError(createTrip.error, "Couldn't create the trip. Try again.") : null}
         onSubmit={(values) =>

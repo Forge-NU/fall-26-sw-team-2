@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { DateField } from '@/components/ui/date-field';
 import { Input } from '@/components/ui/input';
 import { Palette } from '@/constants/palette';
-import { Radii, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import {
   charCount,
   hasErrors,
@@ -26,8 +26,6 @@ export type TripFormProps = {
   postDates?: string[];
   // Server error that isn't tied to one field
   formError?: string | null;
-  // Helper under the fields; the create form uses it
-  note?: string;
   footer?: ReactNode;
 };
 
@@ -40,7 +38,6 @@ export function TripForm({
   onSubmit,
   postDates,
   formError,
-  note,
   footer,
 }: TripFormProps) {
   const [values, setValues] = useState(initialValues);
@@ -123,12 +120,6 @@ export function TripForm({
           style={styles.description}
         />
 
-        {note ? (
-          <View style={styles.note}>
-            <AppText variant="caption">{note}</AppText>
-          </View>
-        ) : null}
-
         {formError ? (
           <AppText variant="label" accessibilityLiveRegion="polite" style={styles.formError}>
             {formError}
@@ -149,12 +140,6 @@ const styles = StyleSheet.create({
   dates: { flexDirection: 'row', gap: Spacing.two },
   muted: { textAlign: 'center', color: Palette.placeholderGray, marginTop: -Spacing.two },
   description: { minHeight: 88, textAlignVertical: 'top' },
-  note: {
-    backgroundColor: Palette.peach,
-    borderRadius: Radii.small,
-    paddingHorizontal: Spacing.two,
-    paddingVertical: 6,
-  },
   formError: { color: Palette.coral, textAlign: 'center' },
   submit: { width: '100%', marginTop: Spacing.two },
 });
