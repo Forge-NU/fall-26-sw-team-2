@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import type { PostResponse, TripResponse } from '@/api/types';
+import { PostDraftsBanner } from '@/components/posts/post-drafts-banner';
 import { DayPosts } from '@/components/trips/day-posts';
 import { TripError, TripLoading } from '@/components/trips/trip-states';
 import { AppText } from '@/components/ui/app-text';
@@ -113,6 +114,8 @@ function TripBody({ trip, posts, isOwner, refreshing, onRefresh }: TripBodyProps
           {trip.destination} · {formatDateRange(trip.startDate, trip.endDate)}
         </AppText>
         {trip.description ? <AppText variant="label" style={styles.description}>{trip.description}</AppText> : null}
+
+        {isOwner ? <PostDraftsBanner tripId={trip.id} /> : null}
 
         <Cover trip={trip} />
 

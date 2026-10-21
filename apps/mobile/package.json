@@ -7,6 +7,7 @@
     "@expo-google-fonts/plus-jakarta-sans": "^0.4.2",
     "@expo/ui": "~57.0.20",
     "@expo/vector-icons": "^15.0.2",
+    "@react-native-async-storage/async-storage": "2.2.0",
     "@tanstack/react-query": "^5.104.4",
     "expo": "~57.0.25",
     "expo-constants": "~57.0.19",
@@ -14,6 +15,8 @@
     "expo-font": "~57.0.4",
     "expo-glass-effect": "~57.0.4",
     "expo-image": "~57.0.5",
+    "expo-image-manipulator": "~57.0.21",
+    "expo-image-picker": "~57.0.20",
     "expo-linear-gradient": "~57.0.2",
     "expo-linking": "~57.0.11",
     "expo-router": "~57.0.23",
@@ -40,7 +43,7 @@
     "typescript": "~6.0.3"
   },
   "scripts": {
-    "test:ui": "node --experimental-strip-types --import ./scripts/alias-loader.mjs --test scripts/toast.test.mjs scripts/trip-form.test.mjs",
+    "test:ui": "node --experimental-strip-types --import ./scripts/alias-loader.mjs --test scripts/toast.test.mjs scripts/trip-form.test.mjs scripts/post-form.test.mjs",
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android",
