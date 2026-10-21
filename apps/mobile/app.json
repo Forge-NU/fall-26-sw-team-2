@@ -38,6 +38,19 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "ca950b21-cd7a-4dc2-9026-d865a6b93b18"
+      }
+    },
+    "owner": "forgeyuji",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/ca950b21-cd7a-4dc2-9026-d865a6b93b18"
     }
   }
 }

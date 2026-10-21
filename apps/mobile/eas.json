@@ -7,19 +7,23 @@
     "pr-preview": {
       "distribution": "store",
       "environment": "preview",
-      "autoIncrement": true
+      "autoIncrement": true,
+      "channel": "pr-preview"
     },
     "production": {
       "distribution": "store",
       "environment": "production",
-      "autoIncrement": true
+      "autoIncrement": true,
+      "channel": "production"
     }
   },
   "submit": {
     "pr-preview": {
       "ios": {
         "ascAppId": "SET_ME_APP_STORE_CONNECT_APP_ID",
-        "groups": ["PR Previews"]
+        "groups": [
+          "PR Previews"
+        ]
       }
     },
     "production": {
