@@ -255,6 +255,15 @@ export async function mockCreateStory(body: CreateStoryRequest): Promise<StoryRe
   if (body.keepOnTrip && !body.tripId) {
     throw new ApiError(400, 'keepOnTrip requires tripId');
   }
+  const today = body.date ?? todayLocalIso();
+  const storyDate = body.storyDate ?? today;
+  const trip = trips.find((t) => t.id === body.tripId);
+  if (!body.tripId && storyDate !== today) {
+    throw new ApiError(400, 'Without a trip, storyDate has to be today');
+  }
+  if (trip && !isDateWithin(storyDate, trip.startDate, trip.endDate)) {
+    throw new ApiError(400, "storyDate must be within the trip's dates");
+  }
   const createdAt = new Date();
   return {
     id: mockId('story'),
@@ -265,6 +274,7 @@ export async function mockCreateStory(body: CreateStoryRequest): Promise<StoryRe
     customLocationName: body.customLocationName ?? null,
     imageUrl: `https://media.invalid/${body.s3Key}`,
     keepOnTrip: body.keepOnTrip ?? false,
+    storyDate,
     expiresAt: new Date(createdAt.getTime() + 24 * 60 * 60 * 1000).toISOString(),
     createdAt: createdAt.toISOString(),
   };
