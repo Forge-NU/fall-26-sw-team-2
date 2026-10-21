@@ -1,32 +1,76 @@
-import { NativeTabs } from 'expo-router/unstable-native-tabs';
-import { useColorScheme } from 'react-native';
+import { router } from 'expo-router';
+import { TabList, TabSlot, TabTrigger, Tabs } from 'expo-router/ui';
+import { useState } from 'react';
+import { Alert, StyleSheet } from 'react-native';
 
-import { Colors } from '@/constants/theme';
+import { BottomToolbar, ToolbarItem } from '@/components/bottom-toolbar';
+import { PostChooserSheet } from '@/components/post-chooser-sheet';
+import { Palette } from '@/constants/theme';
 
 export default function AppTabs() {
-  const scheme = useColorScheme();
-  const colors = Colors[scheme === 'unspecified' ? 'light' : scheme];
+  const [postChooserOpen, setPostChooserOpen] = useState(false);
 
   return (
-    <NativeTabs
-      backgroundColor={colors.background}
-      indicatorColor={colors.backgroundElement}
-      labelStyle={{ selected: { color: colors.text } }}>
-      <NativeTabs.Trigger name="index">
-        <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/home.png')}
-          renderingMode="template"
-        />
-      </NativeTabs.Trigger>
+    <Tabs style={styles.tabs}>
+      <TabSlot style={styles.slot} />
+      {/* TabTriggers must be direct JSX children here: expo-router reads them to build the routes. */}
+      <TabList asChild>
+        <BottomToolbar>
+          <TabTrigger name="feed" href="/" asChild>
+            <ToolbarItem destination="feed" />
+          </TabTrigger>
+          <TabTrigger name="saved" href="/saved" asChild>
+            <ToolbarItem destination="saved" />
+          </TabTrigger>
+          {/* Post opens the chooser instead of switching tabs; the composer is still a tab so it can show as active. */}
+          <TabTrigger
+            name="story"
+            href="/story/new"
+            asChild
+            onPress={(event) => {
+              event.preventDefault();
+              setPostChooserOpen(true);
+            }}>
+            <ToolbarItem destination="post" />
+          </TabTrigger>
+          <TabTrigger name="maps" href="/maps" asChild>
+            <ToolbarItem destination="maps" />
+          </TabTrigger>
+          <TabTrigger name="profile" href="/profile" asChild>
+            <ToolbarItem destination="profile" />
+          </TabTrigger>
+          {/* UI-1's component preview: dev-only and not shown in the bar. Open /components-preview in the browser. */}
+          {__DEV__ && (
+            <TabTrigger name="components-preview" href="/components-preview" style={styles.hidden} />
+          )}
+        </BottomToolbar>
+      </TabList>
 
-      <NativeTabs.Trigger name="explore">
-        <NativeTabs.Trigger.Label>Explore</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/explore.png')}
-          renderingMode="template"
-        />
-      </NativeTabs.Trigger>
-    </NativeTabs>
+      <PostChooserSheet
+        visible={postChooserOpen}
+        onClose={() => setPostChooserOpen(false)}
+        onCreateItinerary={() => {
+          setPostChooserOpen(false);
+          Alert.alert('Create itinerary', 'Trip creation is coming in a later wireframe.');
+        }}
+        onPostStory={() => {
+          setPostChooserOpen(false);
+          router.navigate('/story/new');
+        }}
+      />
+    </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  tabs: {
+    flex: 1,
+    backgroundColor: Palette.warmWhite,
+  },
+  slot: {
+    flex: 1,
+  },
+  hidden: {
+    display: 'none',
+  },
+});
