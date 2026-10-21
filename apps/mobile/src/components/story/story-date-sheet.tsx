@@ -142,7 +142,7 @@ function StoryDateSheetContent({ trip, value, capturedAt, onConfirm, onClose }: 
       )}
 
       <Button
-        title={`Use ${formatDay(pending)}`}
+        title="Select Date"
         style={styles.confirm}
         onPress={() => onConfirm(pending)}
       />

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { createTrip } from '@/api/trips';
 import type { CreateTripRequest, TripResponse } from '@/api/types';
@@ -33,6 +33,10 @@ export function useStoryComposer() {
   const [keepOnTripChoice, setKeepOnTripChoice] = useState(DEFAULT_KEEP_ON_TRIP);
   // null means today
   const [storyDateChoice, setStoryDateChoice] = useState<string | null>(null);
+  // A second tap can land before the re-render that disables the button, so
+  // the ref blocks it and the state drives the UI
+  const postedRef = useRef(false);
+  const [posting, setPosting] = useState(false);
 
   const trip =
     tripChoice.kind === 'suggested'
@@ -53,7 +57,10 @@ export function useStoryComposer() {
       : activeTrips.today;
 
   const canPost =
-    photo !== null && photoStatus !== 'preparing' && text.trim().length <= STORY_TEXT_MAX;
+    photo !== null &&
+    photoStatus !== 'preparing' &&
+    !posting &&
+    text.trim().length <= STORY_TEXT_MAX;
 
   async function pickPhoto(
     source: 'camera' | 'library',
@@ -109,9 +116,12 @@ export function useStoryComposer() {
     }
   }
 
-  // Hands the story to the upload queue. Returns false if there's nothing to post.
+  // Hands the story to the upload queue, once. Returns false if there's
+  // nothing to post or it was already posted.
   function post(): boolean {
-    if (!photo || !canPost) return false;
+    if (postedRef.current || !photo || !canPost) return false;
+    postedRef.current = true;
+    setPosting(true);
     postStory({ photo, text, location, tripId: trip?.id ?? null, keepOnTrip, storyDate });
     return true;
   }
@@ -143,6 +153,7 @@ export function useStoryComposer() {
     setStoryDate,
     createQuickTrip,
     canPost,
+    posting,
     post,
   };
 }

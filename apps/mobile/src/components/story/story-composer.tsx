@@ -237,7 +237,7 @@ export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; 
           title="Post story"
           style={styles.fullWidth}
           disabled={!composer.canPost}
-          loading={composer.photoStatus === 'preparing'}
+          loading={composer.photoStatus === 'preparing' || composer.posting}
           onPress={post}
         />
       </ScrollView>
