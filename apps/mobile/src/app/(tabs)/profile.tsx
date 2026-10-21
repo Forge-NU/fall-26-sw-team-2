@@ -1,6 +1,6 @@
-// STAND-IN for PROF-1 (#31): a bare version of the profile trips grid, so
-// there's a way into the trip screens and deletes can be seen to drop out of
-// the list. The profile screen replaces it.
+// STAND-IN for PROF-1 (#31): a bare version of the profile trips grid in the
+// profile tab, so there's a way into the trip screens and deletes can be seen
+// to drop out of the list. The real profile screen replaces it.
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
@@ -14,11 +14,11 @@ import { Screen } from '@/components/ui/screen';
 import { IconButton, ScreenHeader } from '@/components/ui/screen-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Palette } from '@/constants/palette';
-import { BottomTabInset, Radii, Spacing } from '@/constants/theme';
+import { Radii, Spacing } from '@/constants/theme';
 import { useMyTrips } from '@/hooks/use-trips';
 import { formatDateRange } from '@/utils/trip-dates';
 
-export default function MyTripsScreen() {
+export default function ProfileScreen() {
   const trips = useMyTrips();
   const newTrip = () => router.push('/trips/new');
 
@@ -93,7 +93,7 @@ function TripTile({ trip }: { trip: TripResponse }) {
 }
 
 const styles = StyleSheet.create({
-  list: { gap: Spacing.three, paddingBottom: BottomTabInset + Spacing.three, flexGrow: 1 },
+  list: { gap: Spacing.three, paddingBottom: Spacing.three, flexGrow: 1 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.three },
   row: { gap: Spacing.three },
   cell: { flex: 1, maxWidth: '48%', gap: Spacing.one },
