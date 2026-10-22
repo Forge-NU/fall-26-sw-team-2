@@ -1,0 +1,169 @@
+name: App Preview
+
+# For each PR that changes the app, publishes two previews and links them in the PR
+# description: an Expo Go QR code (EAS Update, branch pr-<number>) and a web link
+# (EAS Hosting, alias pr-<number>). No Apple account or native build needed.
+# Setup: docs/release-process.md.
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'apps/mobile/**'
+
+# A newer push to the same PR cancels the previews in progress.
+concurrency:
+  group: app-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # Until EXPO_TOKEN is set (or for PRs from forks, which get no secrets), skip the
+  # previews instead of failing the PR.
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.token.outputs.ready }}
+    steps:
+      - id: token
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -n "$EXPO_TOKEN" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Skipping the app previews until the EXPO_TOKEN secret is set (see docs/release-process.md)."
+          fi
+
+  expo-go:
+    name: Expo Go preview
+    needs: check
+    if: needs.check.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR: ${{ github.event.pull_request.number }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: 'npm'
+          cache-dependency-path: apps/mobile/package-lock.json
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v9
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        working-directory: apps/mobile
+        run: npm ci
+
+      - name: Publish the update
+        id: preview
+        uses: expo/expo-github-action/preview@v9
+        with:
+          working-directory: apps/mobile
+          # Only the PR number and commit go in the command; it isn't run through a
+          # shell, but there's no reason to pass it text a PR author controls.
+          command: >-
+            eas update --branch pr-${{ github.event.pull_request.number }}
+            --message "PR #${{ github.event.pull_request.number }} at ${{ github.event.pull_request.head.sha }}"
+            --environment preview --non-interactive
+          comment: false
+          qr-target: expo-go
+
+      - name: Put the QR code in the PR description
+        env:
+          QR: ${{ steps.preview.outputs.qr }}
+          LINK: ${{ steps.preview.outputs.link }}
+        run: |
+          cat > section.md <<EOF
+          ### Expo Go preview
+          Install [Expo Go](https://expo.dev/go) on your phone, then scan this code with the camera to open this PR's version of the app (built from ${HEAD_SHA::7}). It's replaced each time the PR is updated.
+
+          <a href="$LINK"><img src="$QR" width="180" alt="QR code that opens this PR in Expo Go" /></a>
+
+          [Open on expo.dev]($LINK)
+          EOF
+          node .github/scripts/set-pr-section.mjs "$PR" expo-go-preview section.md
+
+  web:
+    name: Web preview
+    needs: check
+    if: needs.check.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR: ${{ github.event.pull_request.number }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: 'npm'
+          cache-dependency-path: apps/mobile/package-lock.json
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v9
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        working-directory: apps/mobile
+        run: npm ci
+
+      # Writes the EAS "preview" environment variables (e.g. EXPO_PUBLIC_API_URL) to
+      # .env.local, which the export reads, so web matches the Expo Go preview.
+      - name: Load the preview environment variables
+        working-directory: apps/mobile
+        run: eas env:pull preview --non-interactive
+
+      - name: Export the web build
+        working-directory: apps/mobile
+        run: npx expo export --platform web
+
+      # The PR links to this page, which shows the app inside a phone-sized frame.
+      - name: Add the phone frame page
+        run: |
+          sed -e "s/__PR__/$PR/g" -e "s/__SHA__/${HEAD_SHA::7}/g" \
+            .github/preview/device-preview.html > apps/mobile/dist/device-preview.html
+
+      # EAS Hosting sometimes answers "temporarily overloaded", so retry a couple of times.
+      - name: Deploy to EAS Hosting
+        id: deploy
+        working-directory: apps/mobile
+        run: |
+          for attempt in 1 2 3; do
+            if eas deploy --alias "pr-$PR" --non-interactive --json > "$RUNNER_TEMP/deploy.json"; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            echo "::warning::eas deploy failed (attempt $attempt of 3), retrying in $((attempt * 30))s"
+            sleep $((attempt * 30))
+          done
+          echo "url=$(jq -r '.aliases[0].url // .url' "$RUNNER_TEMP/deploy.json")" >> "$GITHUB_OUTPUT"
+
+      - name: Put the link in the PR description
+        env:
+          URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          cat > section.md <<EOF
+          ### Web preview
+          [Open this PR in your browser](${URL%/}/device-preview.html) (built from ${HEAD_SHA::7}). It opens in a phone-sized frame, and the link stays the same as the PR is updated. The web version can look and behave a little differently from the phone app.
+          EOF
+          node .github/scripts/set-pr-section.mjs "$PR" web-preview section.md

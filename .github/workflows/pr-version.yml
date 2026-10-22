@@ -1,0 +1,80 @@
+name: Release Version
+
+# Every PR needs exactly one release label (release:patch, release:minor or
+# release:major), which sets the version merging it releases. The PR description
+# shows that version.
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+concurrency:
+  group: release-version-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  label:
+    name: Release label
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for exactly one release label
+        env:
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: |
+          found=$(jq -r 'map(select(test("^release:(patch|minor|major)$"))) | join(", ")' <<< "$LABELS")
+          count=$(jq 'map(select(test("^release:(patch|minor|major)$"))) | length' <<< "$LABELS")
+          if [ "$count" -ne 1 ]; then
+            echo "::error::Add exactly one release label: release:patch, release:minor or release:major. This PR has: ${found:-none}."
+            exit 1
+          fi
+          echo "Release label: $found"
+
+  version:
+    # PRs from forks get a read-only token, so they can't edit their description.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # tags, to find the latest version
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Test the release scripts
+        run: node --test .github/scripts/release-scripts.test.mjs
+
+      - name: Work out the next version
+        id: next
+        env:
+          BUMP: ${{ contains(github.event.pull_request.labels.*.name, 'release:major') && 'major' || contains(github.event.pull_request.labels.*.name, 'release:minor') && 'minor' || 'patch' }}
+        run: |
+          echo "bump=$BUMP" >> "$GITHUB_OUTPUT"
+          echo "version=$(node .github/scripts/next-version.mjs)" >> "$GITHUB_OUTPUT"
+
+      - name: Show it in the PR description
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          VERSION: ${{ steps.next.outputs.version }}
+          BUMP: ${{ steps.next.outputs.bump }}
+          HAS_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'release:patch') || contains(github.event.pull_request.labels.*.name, 'release:minor') || contains(github.event.pull_request.labels.*.name, 'release:major') }}
+        run: |
+          if [ "$HAS_LABEL" = "true" ]; then
+            cat > section.md <<EOF
+          ### Release
+          Merging this PR releases **v$VERSION** (\`release:$BUMP\`). It's worked out again at merge time, in case other PRs merge first.
+          EOF
+          else
+            cat > section.md <<EOF
+          ### Release
+          This PR needs a release label: \`release:patch\`, \`release:minor\` or \`release:major\`. With \`release:patch\`, merging it would release **v$VERSION**.
+          EOF
+          fi
+          node .github/scripts/set-pr-section.mjs "$PR" release-version section.md
