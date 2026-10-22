@@ -9,7 +9,11 @@ let calls = [];
 function respondWith(status, body) {
   globalThis.fetch = async (url, init) => {
     calls.push({ url, init });
-    return new Response(body === undefined ? null : JSON.stringify(body), { status });
+    if (body === undefined) return new Response(null, { status });
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    });
   };
 }
 
@@ -41,6 +45,16 @@ test('apiGet leaves out empty query values', async () => {
 test('an empty response body comes back as undefined', async () => {
   respondWith(204);
   assert.equal(await apiRequest('DELETE', '/api/trips/trip-1'), undefined);
+});
+
+test('a 2xx that is not JSON becomes an ApiError instead of a parse error', async () => {
+  globalThis.fetch = async () =>
+    new Response('<html>Sign in to the Wi-Fi</html>', { status: 200, headers: { 'Content-Type': 'text/html' } });
+  const error = await apiRequest('GET', '/api/feed').catch((e) => e);
+  assert.ok(error instanceof ApiError);
+  assert.equal(error.status, 200);
+  assert.match(error.message, /text\/html, not JSON/);
+  assert.equal(getErrorMessage(error), 'Something went wrong. Try again.');
 });
 
 test("the API's error body becomes an ApiError with its message", async () => {

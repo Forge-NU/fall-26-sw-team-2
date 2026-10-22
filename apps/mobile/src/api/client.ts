@@ -56,7 +56,13 @@ export async function apiRequest<T>(
   }
   // 204, or a 200 with an empty body
   const text = await response.text();
-  return (text ? JSON.parse(text) : undefined) as T;
+  if (!text) return undefined as T;
+  // A 2xx that isn't JSON (e.g. a proxy's HTML page) is a failure, not data
+  const contentType = response.headers.get('Content-Type');
+  if (!isJsonContentType(contentType)) {
+    throw new ApiError(response.status, `${method} ${path} returned ${contentType ?? 'no content type'}, not JSON`);
+  }
+  return JSON.parse(text) as T;
 }
 
 export function apiGet<T>(path: string, query?: Query, options: Omit<RequestOptions, 'query'> = {}): Promise<T> {
@@ -91,6 +97,12 @@ async function toApiError(response: Response, method: HttpMethod, path: string):
     return new ApiError(response.status, body.message, body);
   }
   return new ApiError(response.status, `${method} ${path} failed with ${response.status}`);
+}
+
+/** application/json, with or without a charset, or a +json type like application/problem+json */
+function isJsonContentType(contentType: string | null): boolean {
+  const mediaType = contentType?.split(';')[0].trim().toLowerCase() ?? '';
+  return mediaType === 'application/json' || mediaType.endsWith('+json');
 }
 
 function isApiErrorResponse(value: unknown): value is ApiErrorResponse {
