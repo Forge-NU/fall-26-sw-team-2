@@ -1,8 +1,8 @@
 // STAND-IN for APP-1 (#30): replace with its API client.
 
-// TODO: set to false once #38, #56 and #61 are merged and sign-in works.
-// Never ship this as true.
-export const USE_MOCK_API = true;
+// Off unless EXPO_PUBLIC_USE_MOCK_API=true is in .env, so builds always use
+// the real API. Turn it on locally until sign-in works (#38, #56, #61).
+export const USE_MOCK_API = process.env.EXPO_PUBLIC_USE_MOCK_API === 'true';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
 

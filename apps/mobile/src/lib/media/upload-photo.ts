@@ -19,7 +19,7 @@ import {
 } from '@/lib/media/upload-core';
 import { isRetryableError, RETRY_DELAYS_MS, sleep } from '@/lib/retry';
 
-export { MAX_PHOTO_BYTES, PhotoTooLargeError } from '@/lib/media/upload-core';
+export { MAX_PHOTO_BYTES, NotJpegError, PhotoTooLargeError } from '@/lib/media/upload-core';
 export type { BatchProgress, BatchResult, UploadOptions } from '@/lib/media/upload-core';
 
 const CONTENT_TYPE = 'image/jpeg';
