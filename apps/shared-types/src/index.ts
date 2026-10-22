@@ -30,3 +30,5 @@ export interface ApiErrorResponse {
   path: string;
   timestamp: string;
 }
+
+export type { TripStatus, TripResponse, ActiveTripsResponse, MediaType, MediaResponse, LocationResponse, PostResponse } from './content';

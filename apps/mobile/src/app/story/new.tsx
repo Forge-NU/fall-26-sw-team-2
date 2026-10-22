@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import { KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { StoryComposer } from '@/components/story/story-composer';
@@ -25,10 +25,8 @@ export default function NewStoryScreen() {
         <StoryComposer
           key={draftKey}
           onDismiss={leave}
-          onPosted={() => {
-            leave();
-            Alert.alert('Story posted', 'Mock only — nothing was uploaded.');
-          }}
+          // The story keeps uploading in the background; a toast says when it's posted
+          onPosted={leave}
         />
       </KeyboardAvoidingView>
     </SafeAreaView>

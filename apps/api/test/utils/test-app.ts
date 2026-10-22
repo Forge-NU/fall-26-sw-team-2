@@ -9,6 +9,7 @@ import { randomUUID } from 'crypto';
 import { Request } from 'express';
 import { AppModule } from '../../src/app.module';
 import { ClerkAuthGuard } from '../../src/auth/clerk-auth.guard';
+import { HttpExceptionFilter } from '../../src/common/filters/http-exception.filter';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { StorageService } from '../../src/storage/storage.service';
 
@@ -42,7 +43,8 @@ export async function createTestApp() {
     .compile();
 
   const app: INestApplication = moduleRef.createNestApplication();
-  // Same pipe as main.ts
+  // Same prefix, pipe and filter as main.ts
+  app.setGlobalPrefix('api');
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -50,6 +52,7 @@ export async function createTestApp() {
       transform: true,
     }),
   );
+  app.useGlobalFilters(new HttpExceptionFilter());
   await app.init();
 
   return { app, prisma: app.get(PrismaService) };

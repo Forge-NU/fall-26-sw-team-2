@@ -2,6 +2,10 @@ import type { ApiErrorResponse } from 'shared-types';
 
 import { getAuthToken } from '@/lib/auth';
 
+// TODO: set to false once #38, #56 and #61 are merged and sign-in works.
+// Never ship this as true.
+export const USE_MOCK_API = true;
+
 /**
  * Base URL of the Yuji API, without the /api prefix. Set per environment with
  * EXPO_PUBLIC_API_URL (see .env.example); on a physical phone use your computer's LAN IP.
