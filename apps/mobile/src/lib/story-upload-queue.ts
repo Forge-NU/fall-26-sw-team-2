@@ -1,12 +1,11 @@
-// Posts stories in the background: get an upload URL, upload the photo, then
+// Posts stories in the background: upload the photo (MEDIA-1, #38), then
 // create the story. Retries skip steps that already succeeded. Kept in memory
 // only, so pending stories are lost if the app is killed.
 import { Alert } from 'react-native';
 
 import { ApiError } from '@/api/client';
 import { createStory } from '@/api/stories';
-import type { CreateUploadResponse } from '@/api/types';
-import { createUpload, putObject } from '@/api/uploads';
+import { uploadPhoto } from '@/lib/media/upload-photo';
 import { isRetryableError, RETRY_DELAYS_MS, sleep } from '@/lib/retry';
 import { toCreateStoryRequest, type StoryDraft } from '@/lib/story-draft';
 import { showToast } from '@/lib/toast';
@@ -22,8 +21,8 @@ export type StoryUpload = {
 };
 
 type Progress = {
-  upload: CreateUploadResponse | null;
-  uploaded: boolean;
+  // Set once the photo is in S3
+  s3Key: string | null;
   // A create failed with no response, so it may have gone through
   createOutcomeUnknown: boolean;
   running: boolean;
@@ -62,7 +61,7 @@ export function getStoryUploads(): StoryUpload[] {
 export function postStory(draft: StoryDraft): string {
   const id = `story-upload-${nextId++}`;
   uploads = [...uploads, { id, draft, status: 'uploading', attempt: 0 }];
-  progress.set(id, { upload: null, uploaded: false, createOutcomeUnknown: false, running: false });
+  progress.set(id, { s3Key: null, createOutcomeUnknown: false, running: false });
   emit();
   void run(id);
   return id;
@@ -111,26 +110,22 @@ async function run(id: string) {
 }
 
 async function attemptOnce(draft: StoryDraft, state: Progress) {
-  if (!state.upload) {
-    state.upload = await createUpload('story');
-  }
-
-  if (!state.uploaded) {
+  if (!state.s3Key) {
     try {
-      await putObject(state.upload.uploadUrl, draft.photo.uri);
+      // One attempt, since run() does the retries
+      state.s3Key = await uploadPhoto(draft.photo.uri, 'story', { retryDelaysMs: [] });
     } catch (error) {
       if (error instanceof ApiError && error.status === 403) {
-        // Presigned URL expired: get a new one next attempt (plain Error so it retries)
-        state.upload = null;
+        // Presigned URL expired. Every attempt gets a new one, so retry
+        // (plain Error so isRetryableError says yes).
         throw new Error('Upload URL expired');
       }
       throw error;
     }
-    state.uploaded = true;
   }
 
   try {
-    await createStory(toCreateStoryRequest(draft, state.upload.s3Key, todayLocalIso()));
+    await createStory(toCreateStoryRequest(draft, state.s3Key, todayLocalIso()));
   } catch (error) {
     // Key already used by the earlier create, so the story did post
     if (state.createOutcomeUnknown && error instanceof ApiError && error.status === 400) return;

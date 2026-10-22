@@ -90,20 +90,6 @@ export type CreateStoryRequest = {
   storyDate?: string; // any day of the trip; today without a trip (the default)
 };
 
-// Uploads: guessed until MEDIA-1 (#38) defines the endpoint
-
-export type UploadPurpose = 'story';
-
-export type CreateUploadRequest = {
-  purpose: UploadPurpose;
-  contentType: 'image/jpeg';
-};
-
-export type CreateUploadResponse = {
-  uploadUrl: string; // presigned S3 PUT URL
-  s3Key: string;
-};
-
 // Copied as-is from #65 (POST-2) so the story composer can use its location
 // picker once it merges
 
