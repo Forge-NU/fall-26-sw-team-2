@@ -6,9 +6,17 @@ import { LocationsModule } from './locations/locations.module';
 import { FollowsModule } from './follows/follows.module';
 import { TripsModule } from './trips/trips.module';
 import { PostsModule } from './posts/posts.module';
+import { StoriesModule } from './stories/stories.module';
 
 @Module({
-  imports: [UsersModule, FollowsModule, TripsModule, PostsModule, LocationsModule],
+  imports: [
+    UsersModule,
+    FollowsModule,
+    TripsModule,
+    PostsModule,
+    LocationsModule,
+    StoriesModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
