@@ -58,11 +58,22 @@ npm start
 
 In the Expo terminal, press `i` for the iOS simulator, `a` for the Android emulator, or `w` for web, or scan the QR code with Expo Go on your phone. On a physical phone, set `EXPO_PUBLIC_API_URL` in `apps/mobile/.env` to your computer's LAN IP (e.g. `http://192.168.1.20:3000`) instead of `localhost`.
 
+### Local Clerk sign-up and webhook
+Set `CLERK_SECRET_KEY` and `CLERK_PUBLISHABLE_KEY` in `apps/api/.env`, and `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` in `apps/mobile/.env`. Clerk needs a public URL to deliver `user.created` to a local API. With the API running on port 3000, start a temporary tunnel in another terminal:
+
+```
+cloudflared tunnel --url http://localhost:3000
+```
+
+In the Clerk Dashboard, add the generated HTTPS URL followed by `/api/webhooks/clerk` as a webhook endpoint. Subscribe to `user.created`, `user.updated`, and `user.deleted`. Copy the endpoint signing secret into `CLERK_WEBHOOK_SIGNING_SECRET` in `apps/api/.env`, then restart the API. The temporary URL changes when the tunnel restarts, so update the Clerk endpoint when that happens. Use the machine's LAN IP for the mobile app's API URL when testing on a physical phone. Without a tunnel, sign-up still works: the row is created when you finish onboarding, but `user.updated` and `user.deleted` events won't reach your API. See [the authentication architecture guide](./docs/architecture/authentication.md) for the full local flow.
+
 ### Checks (same as CI)
 ```
 # API
 cd apps/api
 npm run lint && npm test && npm run build
+# E2E (needs the local Postgres; not run in CI)
+npm run test:e2e
 
 # Mobile
 cd apps/mobile

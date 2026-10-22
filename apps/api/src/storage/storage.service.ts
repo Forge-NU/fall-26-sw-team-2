@@ -65,4 +65,32 @@ export class StorageService {
       }
     }
   }
+
+  // Used by account deletion before removing the rows that contain object
+  // keys. Deletion is idempotent, so a partial batch can safely be retried.
+  async deleteObjectsStrict(keys: string[]): Promise<void> {
+    if (keys.length === 0) return;
+    if (!this.bucket) {
+      this.logger.warn(
+        `S3_BUCKET_NAME not set, skipping delete of ${keys.length} objects`,
+      );
+      return;
+    }
+
+    for (let i = 0; i < keys.length; i += DELETE_BATCH_SIZE) {
+      const batch = keys.slice(i, i + DELETE_BATCH_SIZE);
+      const result = await this.s3.send(
+        new DeleteObjectsCommand({
+          Bucket: this.bucket,
+          Delete: { Objects: batch.map((Key) => ({ Key })), Quiet: true },
+        }),
+      );
+      const failed = (result.Errors ?? []).map(
+        (error) => error.Key ?? 'unknown',
+      );
+      if (failed.length > 0) {
+        throw new Error(`Failed to delete S3 objects: ${failed.join(', ')}`);
+      }
+    }
+  }
 }

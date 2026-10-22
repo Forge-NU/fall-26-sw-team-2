@@ -7,6 +7,7 @@ import { FollowsService } from '../src/follows/follows.service';
 import { UsersController } from '../src/users/users.controller';
 import { UsersService } from '../src/users/users.service';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { StorageService } from '../src/storage/storage.service';
 
 // Exercise the real guard without Clerk network calls or credentials.
 jest.mock('../src/auth/clerk.client', () => ({
@@ -48,8 +49,15 @@ describe('Follow HTTP routes', () => {
   >();
   const prisma = {
     user: {
-      findUnique: jest.fn(({ where }: { where: { id: string } }) =>
-        Promise.resolve(users.find((user) => user.id === where.id) ?? null),
+      findUnique: jest.fn(
+        ({ where }: { where: { id?: string; username?: string } }) =>
+          Promise.resolve(
+            users.find((user) =>
+              where.id
+                ? user.id === where.id
+                : user.username === where.username,
+            ) ?? null,
+          ),
       ),
       findMany: jest.fn().mockResolvedValue([]),
     },
@@ -112,9 +120,11 @@ describe('Follow HTTP routes', () => {
         FollowsService,
         UsersService,
         { provide: PrismaService, useValue: prisma },
+        { provide: StorageService, useValue: {} },
       ],
     }).compile();
     app = module.createNestApplication();
+    app.setGlobalPrefix('api');
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,

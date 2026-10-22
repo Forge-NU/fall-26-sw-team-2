@@ -52,10 +52,10 @@ erDiagram
 
     users {
         string id PK "Clerk user ID"
-        string email
+        string email "nullable"
         string first_name
         string last_name
-        string username UK "lowercase"
+        string username UK "nullable; lowercase unique index"
         string avatar_key "nullable"
     }
     follows {
@@ -150,8 +150,8 @@ Only the rules that cross features are listed here. Column types and lengths fol
 
 ### users
 
-- Usernames are unique regardless of capitalization (decided in #33) and must match `^[a-z0-9_.]{3,30}$`.
-- **Suggestion (Christian):** store `username` lowercase. The API lowercases it on every write, and the `@unique` constraint does the rest. That makes uniqueness case-insensitive without needing `citext`.
+- Usernames are unique regardless of capitalization (decided in #33) and must match `^[a-z0-9_]{4,30}$`. #33 allowed periods and 3 characters; ACCT-1 narrowed it to what Clerk accepts, because usernames are copied to Clerk so people can sign in with them.
+- Usernames are nullable until onboarding. The API stores claimed names lowercase and PostgreSQL enforces case-insensitive uniqueness with a unique index on `lower(username)`.
 - **Suggestion (Christian):** replace `avatar_url` with `avatar_key`, the S3 key of an uploaded avatar, or null. If the user has no avatar, the app can fall back to Clerk's image. That lets account deletion find and delete the avatar along with everything else.
 
 ### follows
