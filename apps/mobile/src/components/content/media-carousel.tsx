@@ -1,9 +1,9 @@
 import { Image } from "expo-image";
 import { useRef, useState } from "react";
-import { FlatList, Pressable, StyleSheet, View } from "react-native";
+import { FlatList, StyleSheet, View } from "react-native";
 import type { MediaResponse } from "shared-types";
 import { AppText } from "@/components/ui/app-text";
-import { Icon } from "@/components/icon";
+import { IconButton } from "@/components/ui/icon-button";
 import { ContentTokens } from "@/constants/content-tokens";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Palette, Radii, Spacing } from "@/constants/theme";
@@ -87,40 +87,24 @@ function Carousel({ items }: { items: readonly Photo[] }) {
                 </View>
                 <View style={styles.controls} pointerEvents="box-none">
                   {index > 0 ? (
-                    <Pressable
-                      accessibilityRole="button"
+                    <IconButton
+                      icon="chevron-left"
+                      color="teal"
+                      variant="surface"
                       accessibilityLabel="Previous photo"
                       onPress={() => move(index - 1)}
-                      style={({ pressed }) => [
-                        styles.control,
-                        pressed && styles.activeControl,
-                      ]}
-                    >
-                      <Icon
-                        name="chevron-left"
-                        size={Spacing.four}
-                        color="teal"
-                      />
-                    </Pressable>
+                    />
                   ) : (
                     <View style={styles.controlSpace} />
                   )}
                   {index < items.length - 1 ? (
-                    <Pressable
-                      accessibilityRole="button"
+                    <IconButton
+                      icon="chevron-right"
+                      color="teal"
+                      variant="surface"
                       accessibilityLabel="Next photo"
                       onPress={() => move(index + 1)}
-                      style={({ pressed }) => [
-                        styles.control,
-                        pressed && styles.activeControl,
-                      ]}
-                    >
-                      <Icon
-                        name="chevron-right"
-                        size={Spacing.four}
-                        color="teal"
-                      />
-                    </Pressable>
+                    />
                   ) : (
                     <View style={styles.controlSpace} />
                   )}
@@ -199,15 +183,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.two,
     paddingVertical: Spacing.one,
   },
-  control: {
-    width: ContentTokens.actionSize,
-    height: ContentTokens.actionSize,
-    borderRadius: Radii.circle,
-    backgroundColor: Palette.warmWhite,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  activeControl: { backgroundColor: Palette.lightTeal },
   controlSpace: {
     width: ContentTokens.actionSize,
     height: ContentTokens.actionSize,

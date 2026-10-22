@@ -14,6 +14,7 @@ const Icons = {
   'badge-check': { glyph: 'checkmark-circle-outline' },
   bell: { glyph: 'notifications-outline' },
   bookmark: { glyph: 'bookmark-outline' },
+  'bookmark-filled': { glyph: 'bookmark' },
   calendar: { glyph: 'calendar-outline' },
   'calendar-days': { glyph: 'calendar-number-outline' },
   camera: { glyph: 'camera-outline' },

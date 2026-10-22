@@ -1,6 +1,4 @@
-import { Pressable, StyleSheet } from "react-native";
-import { Icon } from "@/components/icon";
-import { ContentTokens } from "@/constants/content-tokens";
+import { IconButton } from "@/components/ui/icon-button";
 import { Spacing } from "@/constants/theme";
 
 export function ShareAction({
@@ -11,24 +9,11 @@ export function ShareAction({
   onPress: () => void;
 }) {
   return (
-    <Pressable
-      accessibilityRole="button"
+    <IconButton
+      icon="send"
+      iconSize={Spacing.three + Spacing.one}
       accessibilityLabel={label}
       onPress={onPress}
-      style={styles.action}
-    >
-      <Icon name="send" size={Spacing.three + Spacing.one} />
-    </Pressable>
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  action: {
-    minHeight: ContentTokens.actionSize,
-    minWidth: ContentTokens.actionSize,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.one,
-  },
-});

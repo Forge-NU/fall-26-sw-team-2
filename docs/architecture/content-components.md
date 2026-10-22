@@ -28,6 +28,10 @@ import { PostCard } from '@/components/content/post-card';
 
 Screens supply data, navigation and action callbacks, including like/follow state.
 
+Import `IconButton` from `@/components/ui/icon-button` for icon actions.
+Use `icon`, `accessibilityLabel` and `onPress`, with optional `count`,
+`selected`, `selectedIcon`, `disabled` and `variant="surface"`.
+
 ## Preview and verification
 
 Run `npm start` in `apps/mobile` and press `w` to open the web app, then visit

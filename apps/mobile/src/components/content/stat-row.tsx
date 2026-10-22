@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, View } from "react-native";
+import { IconButton } from "@/components/ui/icon-button";
 import { AppText } from "@/components/ui/app-text";
 import { Spacing } from "@/constants/theme";
 import { Icon, type IconName } from "@/components/icon";
@@ -17,6 +18,19 @@ export function StatRow({ items }: { items: readonly Stat[] }) {
     <View style={styles.row}>
       {items.map((item) => {
         const label = `${item.count.toLocaleString()} ${item.label}`;
+        if (item.onPress && item.icon) {
+          return (
+            <IconButton
+              key={item.key}
+              icon={item.icon}
+              selectedIcon={item.icon === "heart" ? "heart-filled" : undefined}
+              selected={item.selected}
+              count={item.count}
+              accessibilityLabel={label}
+              onPress={item.onPress}
+            />
+          );
+        }
         const content = (
           <>
             {item.icon && (

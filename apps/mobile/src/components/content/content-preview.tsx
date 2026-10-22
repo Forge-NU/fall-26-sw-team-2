@@ -4,6 +4,7 @@ import { Share, View } from "react-native";
 import type { PostResponse, TripResponse, UserResponse } from "shared-types";
 import { AppText } from "@/components/ui/app-text";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { useToast } from "@/components/ui/toast-provider";
 import { UserRow } from "./user-row";
 import { StatRow } from "./stat-row";
@@ -69,6 +70,7 @@ export function ContentPreview() {
   const [following, setFollowing] = useState(false);
   const [many, setMany] = useState(true);
   const [liked, setLiked] = useState(false);
+  const [saved, setSaved] = useState(false);
   const { showToast } = useToast();
   const notify = (message: string) => () => showToast({ message });
   const share = async (message: string) => {
@@ -84,6 +86,60 @@ export function ContentPreview() {
   return (
     <View style={contentStyles.preview}>
       <AppText variant="heading">Content components</AppText>
+      <AppText variant="supporting">IconButton</AppText>
+      <View style={contentStyles.cardHeader}>
+        <IconButton
+          icon="heart"
+          selectedIcon="heart-filled"
+          selected={liked}
+          count={Number(liked)}
+          accessibilityLabel={liked ? "Unlike example" : "Like example"}
+          onPress={() => setLiked((value) => !value)}
+        />
+        <IconButton
+          icon="message-circle"
+          accessibilityLabel="Comment example"
+          onPress={notify("Comment selected.")}
+        />
+        <IconButton
+          icon="chevron-right"
+          color="teal"
+          variant="surface"
+          accessibilityLabel="Next example"
+          onPress={notify("Next selected.")}
+        />
+        <IconButton
+          icon="chevron-left"
+          disabled
+          accessibilityLabel="Previous example (disabled)"
+        />
+      </View>
+      <View style={contentStyles.cardHeader}>
+        <IconButton
+          icon="bookmark"
+          selectedIcon="bookmark-filled"
+          selected={saved}
+          accessibilityLabel={saved ? "Unsave example" : "Save example"}
+          onPress={() => setSaved((value) => !value)}
+        />
+        <IconButton
+          icon="send"
+          accessibilityLabel="Share example"
+          onPress={() => {
+            void share("Explore Lisbon with YUJI");
+          }}
+        />
+        <IconButton
+          icon="x"
+          accessibilityLabel="Close example"
+          onPress={notify("Close selected.")}
+        />
+        <IconButton
+          icon="ellipsis"
+          accessibilityLabel="More options example"
+          onPress={notify("More options selected.")}
+        />
+      </View>
       <AppText variant="supporting">UserRow</AppText>
       <UserRow
         user={maya}
