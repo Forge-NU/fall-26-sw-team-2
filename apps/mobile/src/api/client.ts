@@ -2,9 +2,9 @@ import type { ApiErrorResponse } from 'shared-types';
 
 import { getAuthToken } from '@/lib/auth';
 
-// TODO: set to false once #38, #56 and #61 are merged and sign-in works.
-// Never ship this as true.
-export const USE_MOCK_API = true;
+// Off unless EXPO_PUBLIC_USE_MOCK_API=true is in .env, so builds always use
+// the real API. Turn it on locally until sign-in works (#38, #56, #61).
+export const USE_MOCK_API = process.env.EXPO_PUBLIC_USE_MOCK_API === 'true';
 
 /**
  * Base URL of the Yuji API, without the /api prefix. Set per environment with

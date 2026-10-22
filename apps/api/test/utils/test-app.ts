@@ -21,6 +21,12 @@ export const storageMock = {
   getReadUrl: jest.fn((key: string) =>
     Promise.resolve(`https://s3.test/${key}`),
   ),
+  getUploadUrl: jest.fn((key: string) =>
+    Promise.resolve({
+      url: `https://s3.test/upload/${key}`,
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+    }),
+  ),
   deleteObjects: jest.fn(() => Promise.resolve()),
 };
 

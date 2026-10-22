@@ -43,7 +43,7 @@
     "typescript": "~6.0.3"
   },
   "scripts": {
-    "test:ui": "node --experimental-strip-types --import ./scripts/alias-loader.mjs --test scripts/toast.test.mjs scripts/api-client.test.mjs scripts/api-mock.test.mjs",
+    "test:ui": "node --experimental-strip-types --import ./scripts/alias-loader.mjs --test scripts/toast.test.mjs scripts/api-client.test.mjs scripts/api-mock.test.mjs scripts/upload-core.test.mjs",
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android",
