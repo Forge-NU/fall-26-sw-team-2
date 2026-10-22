@@ -1,5 +1,1 @@
-import { PlaceholderScreen } from '@/components/placeholder-screen';
-
-export default function SavedScreen() {
-  return <PlaceholderScreen title="Saved" />;
-}
+export { default } from '@/features/saved/SavedScreen';
