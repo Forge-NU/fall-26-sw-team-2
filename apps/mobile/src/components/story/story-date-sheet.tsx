@@ -23,7 +23,8 @@ type StoryDateSheetProps = {
   /** When set, only the trip's dates can be picked. */
   trip: ActiveTrip | null;
   value: string;
-  capturedAt: { date: string; time: string };
+  /** When the photo was taken. The "From photo" suggestion only shows when set. */
+  capturedAt?: { date: string; time: string };
   onConfirm: (date: string) => void;
   onClose: () => void;
 };
@@ -61,17 +62,19 @@ function StoryDateSheetContent({ trip, value, capturedAt, onConfirm, onClose }: 
         </AppText>
       )}
 
-      <View style={styles.suggestion}>
-        <Icon name="sparkle" size={14} color="coral" />
-        <View style={styles.suggestionText}>
-          <AppText variant="caption">
-            From photo · {formatDay(capturedAt.date)}, {capturedAt.time}
-          </AppText>
-          <AppText variant="caption" color="placeholderGray">
-            Suggested date. Pick another date to change it.
-          </AppText>
+      {capturedAt && (
+        <View style={styles.suggestion}>
+          <Icon name="sparkle" size={14} color="coral" />
+          <View style={styles.suggestionText}>
+            <AppText variant="caption">
+              From photo · {formatDay(capturedAt.date)}, {capturedAt.time}
+            </AppText>
+            <AppText variant="caption" color="placeholderGray">
+              Suggested date. Pick another date to change it.
+            </AppText>
+          </View>
         </View>
-      </View>
+      )}
 
       <View style={styles.monthNav}>
         <Pressable accessibilityRole="button" accessibilityLabel="Previous month" hitSlop={10} onPress={() => shiftMonth(-1)}>
@@ -139,7 +142,7 @@ function StoryDateSheetContent({ trip, value, capturedAt, onConfirm, onClose }: 
       )}
 
       <Button
-        title={`Use ${formatDay(pending)}`}
+        title="Select Date"
         style={styles.confirm}
         onPress={() => onConfirm(pending)}
       />
