@@ -159,20 +159,24 @@ export class TripsService {
     return this.toResponse(updated);
   }
 
-  // Hard delete. Posts and media rows cascade; their S3 objects are deleted
-  // after the rows are gone.
+  // Hard delete. Posts, media and stories rows cascade; their S3 objects are
+  // deleted after the rows are gone.
   async remove(userId: string, id: string): Promise<void> {
     await this.getOwnedTrip(userId, id);
 
     const keys = await this.prisma.$transaction(async (tx) => {
-      // Locked so no post is added between reading the keys and deleting
+      // Locked so no post or story is added between reading the keys and
+      // deleting
       await lockTripForUpdate(tx, id);
-      const media = await tx.postMedia.findMany({
-        where: { post: { tripId: id } },
-        select: { s3Key: true },
-      });
+      const [media, stories] = await Promise.all([
+        tx.postMedia.findMany({
+          where: { post: { tripId: id } },
+          select: { s3Key: true },
+        }),
+        tx.story.findMany({ where: { tripId: id }, select: { s3Key: true } }),
+      ]);
       await tx.trip.deleteMany({ where: { id } });
-      return media.map((m) => m.s3Key);
+      return [...media, ...stories].map((m) => m.s3Key);
     });
 
     await this.storage.deleteObjects(keys);
