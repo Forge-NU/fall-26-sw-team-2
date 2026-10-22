@@ -14,7 +14,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
     FollowsModule,
     TripsModule,
     PostsModule,
-    LocationsModule
+    LocationsModule,
     WebhooksModule,
   ],
   controllers: [AppController],
