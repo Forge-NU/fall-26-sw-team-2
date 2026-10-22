@@ -4,13 +4,19 @@
 import { ApiError } from '@/api/client';
 import { createPost } from '@/api/posts';
 import type { PostResponse } from '@/api/types';
-import { createUpload, putObject } from '@/api/uploads';
 import { toLocationFields } from '@/components/location/location-picker';
+import { uploadPhoto } from '@/lib/media/upload-photo';
 import { deleteDraft, saveDraft, type PostDraft } from '@/lib/post-drafts';
-import { isRetryableError, RETRY_DELAYS_MS, sleep } from '@/lib/retry';
+import { RETRY_DELAYS_MS } from '@/lib/retry';
 
-// current: 1-based photo being uploaded
-export type UploadProgress = { current: number; uploaded: number; total: number; creating: boolean };
+// current: 1-based photo being uploaded. fraction: 0 to 1, for that photo.
+export type UploadProgress = {
+  current: number;
+  uploaded: number;
+  total: number;
+  fraction: number;
+  creating: boolean;
+};
 
 export type SubmitResult =
   | { status: 'created'; post: PostResponse }
@@ -28,20 +34,6 @@ export function isDraftInFlight(id: string): boolean {
   return inFlight.has(id);
 }
 
-async function uploadPhoto(uri: string): Promise<string> {
-  for (let attempt = 0; ; attempt++) {
-    try {
-      const { uploadUrl, s3Key } = await createUpload('post');
-      await putObject(uploadUrl, uri);
-      return s3Key;
-    } catch (error) {
-      const delay = PHOTO_RETRY_DELAYS_MS[attempt];
-      if (delay === undefined || !isRetryableError(error)) throw error;
-      await sleep(delay);
-    }
-  }
-}
-
 export async function submitPostDraft(
   input: PostDraft,
   onProgress: (progress: UploadProgress) => void,
@@ -57,9 +49,14 @@ export async function submitPostDraft(
     await saveDraft(draft);
     for (const [index, photo] of draft.photos.entries()) {
       if (photo.s3Key) continue;
-      onProgress({ current: index + 1, uploaded: countUploaded(), total, creating: false });
+      const report = (fraction: number) =>
+        onProgress({ current: index + 1, uploaded: countUploaded(), total, fraction, creating: false });
+      report(0);
       try {
-        photo.s3Key = await uploadPhoto(photo.uri);
+        photo.s3Key = await uploadPhoto(photo.uri, 'post', {
+          retryDelaysMs: PHOTO_RETRY_DELAYS_MS,
+          onProgress: report,
+        });
         await saveDraft(draft);
       } catch {
         // Keep going, so one bad photo doesn't stop the rest from uploading
@@ -77,7 +74,7 @@ export async function submitPostDraft(
       return { status: 'failed', draft };
     }
 
-    onProgress({ current: total, uploaded: total, total, creating: true });
+    onProgress({ current: total, uploaded: total, total, fraction: 1, creating: true });
     try {
       const post = await createPost({
         tripId: draft.tripId,
