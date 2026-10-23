@@ -1,4 +1,5 @@
 import { type TabListProps, type TabTriggerSlotProps } from 'expo-router/ui';
+import type { ComponentRef, Ref } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -36,13 +37,16 @@ export function BottomToolbar({ children, style, ...props }: TabListProps) {
 
 type ToolbarItemProps = TabTriggerSlotProps & { destination: ToolbarDestination };
 
-export function ToolbarItem({ destination, isFocused, style, ...props }: ToolbarItemProps) {
+export function ToolbarItem({ destination, isFocused, style, ref, ...props }: ToolbarItemProps) {
   // Post is always emphasised in the wireframes; other labels go bold when focused.
   const emphasised = isFocused || destination === 'post';
 
   return (
     <Pressable
       {...props}
+      // expo-router types this as a ref to View, which RN 0.88 types as a function component.
+      // At runtime it's the Pressable's element.
+      ref={ref as unknown as Ref<ComponentRef<typeof Pressable>>}
       accessibilityRole="tab"
       accessibilityState={{ selected: isFocused }}
       style={({ pressed }) => [styles.item, pressed && styles.pressed]}>
