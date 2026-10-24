@@ -46,6 +46,7 @@ users/{userId}/avatars/{uuid}.jpg
 
 - The server picks the key. The app can't choose one.
 - The post and story endpoints check that each key starts with the current user's prefix (`users/{userId}/posts/` or `users/{userId}/stories/`), so a user can't attach someone else's upload.
+- Avatars: `PATCH /api/me` takes `{ "avatarKey": "users/{userId}/avatars/{uuid}.jpg" }` (or `null` to remove it) and rejects any key that isn't one of the caller's avatar uploads. The key is stored in `users.avatar_url`, which can also hold the Clerk image URL a new profile starts with. Every response that includes a user (`/api/me`, `/api/users/:id`, follow lists, trip owners, post authors, story owners) sends `avatarUrl` as a URL: a key becomes a signed read URL like post photos do (`apps/api/src/common/avatar.ts`), and a Clerk URL is sent as is.
 - Everything a user uploads is under `users/{userId}/`, so account deletion can remove it all with one prefix delete (see [`data-model.md`](data-model.md#s3-objects)).
 
 ## Endpoint

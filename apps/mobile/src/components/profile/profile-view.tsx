@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { PostResponse, TripResponse } from 'shared-types';
@@ -80,6 +80,7 @@ export function ProfileView({ userId: routeUserId }: { userId?: string }) {
         <ProfileHeader
           profile={profileQuery.data}
           isFollowing={isOwn ? null : (followStatus.data?.isFollowing ?? null)}
+          isOwn={isOwn}
         />
       ) : (
         <ProfileHeaderSkeleton />
@@ -193,14 +194,14 @@ function Separator() {
   return <View style={styles.separator} />;
 }
 
-export function BackBar({ title }: { title?: string }) {
+export function BackBar({ title, onBack, right }: { title?: string; onBack?: () => void; right?: ReactNode }) {
   return (
     <View style={styles.backBar}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Back"
         hitSlop={Spacing.two}
-        onPress={() => (router.canGoBack() ? router.back() : router.navigate('/profile'))}>
+        onPress={onBack ?? (() => (router.canGoBack() ? router.back() : router.navigate('/profile')))}>
         <Icon name="chevron-left" size={Spacing.four} />
       </Pressable>
       {title ? (
@@ -208,6 +209,7 @@ export function BackBar({ title }: { title?: string }) {
           {title}
         </AppText>
       ) : null}
+      {right}
     </View>
   );
 }

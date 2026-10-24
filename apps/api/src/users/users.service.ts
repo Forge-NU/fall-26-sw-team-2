@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -13,6 +14,7 @@ import {
   buildPaginatedResponse,
 } from '../common/utils/pagination.helper';
 import { Prisma } from '../generated/prisma/client';
+import { isOwnAvatarKey } from '../common/avatar';
 
 @Injectable()
 export class UsersService {
@@ -71,11 +73,20 @@ export class UsersService {
     });
   }
 
-  async update(id: string, data: UpdateMeDto) {
+  async update(id: string, { avatarKey, ...data }: UpdateMeDto) {
+    if (avatarKey && !isOwnAvatarKey(avatarKey, id)) {
+      throw new BadRequestException(
+        'avatarKey must be one of your avatar uploads',
+      );
+    }
     try {
       return await this.prisma.user.update({
         where: { id },
-        data,
+        // The column keeps its name; it now holds the key (see common/avatar.ts)
+        data: {
+          ...data,
+          ...(avatarKey !== undefined && { avatarUrl: avatarKey }),
+        },
       });
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError) {

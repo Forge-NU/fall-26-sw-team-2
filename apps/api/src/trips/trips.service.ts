@@ -273,7 +273,7 @@ export class TripsService {
 
     return {
       id: trip.id,
-      owner: toUserSummary(trip.owner),
+      owner: await toUserSummary(trip.owner, this.storage),
       title: trip.title,
       destination: trip.destination,
       description: trip.description,

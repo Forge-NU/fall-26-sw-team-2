@@ -1,4 +1,8 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from './users.service';
@@ -186,6 +190,41 @@ describe('UsersService', () => {
         where: { id: 'user_123' },
         data: { username: 'updateduser' },
       });
+    });
+
+    it('saves an avatar key from your own uploads', async () => {
+      const avatarKey =
+        'users/user_123/avatars/0f8b6c3e-1d2a-4b5c-9e7f-123456789abc.jpg';
+      mockPrismaService.user.update.mockResolvedValue(mockUser);
+
+      await service.update('user_123', { firstName: 'Ada', avatarKey });
+
+      expect(mockPrismaService.user.update).toHaveBeenCalledWith({
+        where: { id: 'user_123' },
+        data: { firstName: 'Ada', avatarUrl: avatarKey },
+      });
+    });
+
+    it('clears the avatar when avatarKey is null', async () => {
+      mockPrismaService.user.update.mockResolvedValue(mockUser);
+
+      await service.update('user_123', { avatarKey: null });
+
+      expect(mockPrismaService.user.update).toHaveBeenCalledWith({
+        where: { id: 'user_123' },
+        data: { avatarUrl: null },
+      });
+    });
+
+    it.each([
+      'users/someone_else/avatars/0f8b6c3e-1d2a-4b5c-9e7f-123456789abc.jpg',
+      'users/user_123/posts/0f8b6c3e-1d2a-4b5c-9e7f-123456789abc.jpg',
+      'https://example.com/me.jpg',
+    ])('rejects %s as an avatarKey', async (avatarKey) => {
+      await expect(service.update('user_123', { avatarKey })).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockPrismaService.user.update).not.toHaveBeenCalled();
     });
 
     it('throws ConflictException when the username is already in use', async () => {

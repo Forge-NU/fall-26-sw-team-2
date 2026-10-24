@@ -5,6 +5,11 @@ import { FollowListQueryDto } from './dto/follow-list-query.dto';
 import { Prisma } from '../generated/prisma/client';
 import { FollowsService } from './follows.service';
 import type { PrismaService } from '../prisma/prisma.service';
+import type { StorageService } from '../storage/storage.service';
+
+const storage = {
+  getReadUrl: (key: string) => Promise.resolve(`signed:${key}`),
+} as unknown as StorageService;
 
 describe('FollowsService', () => {
   describe('follow mutations and counts', () => {
@@ -28,7 +33,10 @@ describe('FollowsService', () => {
       };
       return {
         prisma,
-        service: new FollowsService(prisma as unknown as PrismaService),
+        service: new FollowsService(
+          prisma as unknown as PrismaService,
+          storage,
+        ),
       };
     };
 
@@ -135,7 +143,10 @@ describe('FollowsService', () => {
       };
       return {
         prisma,
-        service: new FollowsService(prisma as unknown as PrismaService),
+        service: new FollowsService(
+          prisma as unknown as PrismaService,
+          storage,
+        ),
       };
     };
 
@@ -271,7 +282,10 @@ describe('FollowsService', () => {
       },
     };
 
-    const service = new FollowsService(prisma as unknown as PrismaService);
+    const service = new FollowsService(
+      prisma as unknown as PrismaService,
+      storage,
+    );
 
     await expect(
       service.follow('user_alice', 'user_alice'),
