@@ -1,4 +1,6 @@
 import { User } from '../generated/prisma/client';
+import type { StorageService } from '../storage/storage.service';
+import { resolveAvatarUrl } from './avatar';
 
 // The user fields shown next to content (trip owner, post author).
 // Moves to shared-types with API-1 (#28).
@@ -18,14 +20,15 @@ export const userSummarySelect = {
   avatarUrl: true,
 } as const;
 
-export function toUserSummary(
+export async function toUserSummary(
   user: Pick<User, keyof typeof userSummarySelect>,
-): UserSummary {
+  storage: StorageService,
+): Promise<UserSummary> {
   return {
     id: user.id,
     username: user.username,
     firstName: user.firstName,
     lastName: user.lastName,
-    avatarUrl: user.avatarUrl,
+    avatarUrl: await resolveAvatarUrl(storage, user.avatarUrl),
   };
 }

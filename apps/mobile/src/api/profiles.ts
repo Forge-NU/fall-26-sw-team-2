@@ -37,6 +37,26 @@ export const getMe = withMock<[signal?: AbortSignal], ProfileResponse>({
   },
 });
 
+/** Body of PATCH /api/me. avatarKey is an s3Key from an "avatar" upload, or null to remove it. */
+export type UpdateMeRequest = {
+  firstName?: string;
+  lastName?: string;
+  avatarKey?: string | null;
+};
+
+export const updateMe = withMock<[body: UpdateMeRequest], ProfileResponse>({
+  live: true,
+  real: (body) => apiRequest('PATCH', '/api/me', body),
+  mock: async ({ avatarKey, ...names }) => {
+    await mockDelay();
+    const me = mockUser(MOCK_ME_ID);
+    Object.assign(me, names);
+    // Mock uploads don't store anything, so there's no photo to show
+    if (avatarKey !== undefined) me.avatarUrl = null;
+    return mockProfile(MOCK_ME_ID);
+  },
+});
+
 export const getProfile = withMock<[id: string, signal?: AbortSignal], ProfileResponse>({
   live: true,
   real: (id, signal) => apiGet(userPath(id), undefined, { signal }),
