@@ -35,18 +35,20 @@ export function BottomToolbar({ children, style, ...props }: TabListProps) {
   );
 }
 
-type ToolbarItemProps = TabTriggerSlotProps & { destination: ToolbarDestination };
+// expo-router types the slot's ref as a ref to View, which RN 0.88 types as a function
+// component, so it doesn't fit Pressable. TabTrigger passes the Pressable's element.
+type ToolbarItemProps = Omit<TabTriggerSlotProps, 'ref'> & {
+  destination: ToolbarDestination;
+  ref?: Ref<ComponentRef<typeof Pressable>>;
+};
 
-export function ToolbarItem({ destination, isFocused, style, ref, ...props }: ToolbarItemProps) {
+export function ToolbarItem({ destination, isFocused, style, ...props }: ToolbarItemProps) {
   // Post is always emphasised in the wireframes; other labels go bold when focused.
   const emphasised = isFocused || destination === 'post';
 
   return (
     <Pressable
       {...props}
-      // expo-router types this as a ref to View, which RN 0.88 types as a function component.
-      // At runtime it's the Pressable's element.
-      ref={ref as unknown as Ref<ComponentRef<typeof Pressable>>}
       accessibilityRole="tab"
       accessibilityState={{ selected: isFocused }}
       style={({ pressed }) => [styles.item, pressed && styles.pressed]}>
