@@ -5,7 +5,7 @@
 //
 // Screens that just need "upload these and tell me how it's going" can use
 // usePhotoUpload instead.
-import type { UploadPurpose } from '@/api/types';
+import type { UploadPurpose } from 'shared-types';
 
 import { ApiError } from '@/api/client';
 import { createUpload, putObject, readFile } from '@/api/uploads';
@@ -19,7 +19,7 @@ import {
 } from '@/lib/media/upload-core';
 import { isRetryableError, RETRY_DELAYS_MS, sleep } from '@/lib/retry';
 
-export { MAX_PHOTO_BYTES, PhotoTooLargeError } from '@/lib/media/upload-core';
+export { MAX_PHOTO_BYTES, NotJpegError, PhotoTooLargeError } from '@/lib/media/upload-core';
 export type { BatchProgress, BatchResult, UploadOptions } from '@/lib/media/upload-core';
 
 const CONTENT_TYPE = 'image/jpeg';

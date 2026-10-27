@@ -51,6 +51,8 @@ function useStoreTrip() {
 export function useCreateTrip() {
   const storeTrip = useStoreTrip();
   return useMutation({
+    // The screen shows the error itself, so skip the global toast
+    meta: { toast: false },
     mutationFn: (body: CreateTripRequest) => createTrip(body),
     onSuccess: storeTrip,
   });
@@ -59,6 +61,7 @@ export function useCreateTrip() {
 export function useUpdateTrip(id: string) {
   const storeTrip = useStoreTrip();
   return useMutation({
+    meta: { toast: false },
     mutationFn: (body: UpdateTripRequest) => updateTrip(id, body),
     onSuccess: storeTrip,
   });
@@ -67,6 +70,7 @@ export function useUpdateTrip(id: string) {
 export function usePublishTrip(id: string) {
   const storeTrip = useStoreTrip();
   return useMutation({
+    meta: { toast: false },
     mutationFn: () => publishTrip(id),
     onSuccess: storeTrip,
   });
@@ -79,6 +83,7 @@ export function useDeleteTrip(id: string) {
   const queryClient = useQueryClient();
   const user = useCurrentUser();
   return useMutation({
+    meta: { toast: false },
     mutationFn: () => deleteTrip(id),
     onSuccess: () => {
       queryClient.setQueryData<TripResponse[]>(queryKeys.userTrips(user.id), (trips) =>

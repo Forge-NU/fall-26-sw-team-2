@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   MAX_PHOTO_BYTES,
+  NotJpegError,
   PhotoTooLargeError,
   uploadBatch,
   uploadWithRetry,
@@ -13,13 +14,15 @@ class HttpError extends Error {
 
 // Fake API + S3. put is called with the attempt number and returns nothing or
 // throws, to script each attempt.
-function fakeDeps({ size = 1000, put = () => {}, now = () => 0, expiresAt = '1970-01-01T00:15:00Z' } = {}) {
+const JPEG_HEAD = new Uint8Array([0xff, 0xd8, 0xff, 0xe0]);
+
+function fakeDeps({ size = 1000, head = JPEG_HEAD, put = () => {}, now = () => 0, expiresAt = '1970-01-01T00:15:00Z' } = {}) {
   const calls = { createUpload: [], put: [], sleep: [] };
   let urls = 0;
   return {
     calls,
     deps: {
-      readFile: async () => ({ body: 'bytes', size }),
+      readFile: async () => ({ body: 'bytes', size, head }),
       createUpload: async (fileSize) => {
         calls.createUpload.push(fileSize);
         urls++;
@@ -94,6 +97,18 @@ test('rejects a file over 10 MB without asking for a URL', async () => {
   const { deps, calls } = fakeDeps({ size: MAX_PHOTO_BYTES + 1 });
   await assert.rejects(uploadWithRetry('file://a.jpg', deps, { retryDelaysMs: [10] }), PhotoTooLargeError);
   assert.equal(calls.createUpload.length, 0);
+});
+
+test('rejects a file that is not a JPEG without asking for a URL', async () => {
+  const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+  const { deps, calls } = fakeDeps({ head: png });
+  await assert.rejects(uploadWithRetry('file://a.png', deps, { retryDelaysMs: [10] }), NotJpegError);
+  assert.equal(calls.createUpload.length, 0);
+});
+
+test('rejects an empty file as not a JPEG', async () => {
+  const { deps } = fakeDeps({ size: 0, head: new Uint8Array() });
+  await assert.rejects(uploadWithRetry('file://a.jpg', deps), NotJpegError);
 });
 
 test('a batch uploads in order, keeps going after a failure, and reports progress', async () => {

@@ -189,7 +189,7 @@ function LocationSearchSheet({ onPick, onClose }: LocationSearchSheetProps) {
                 <AppText variant="caption" style={styles.hint}>
                   Keep typing to search places
                 </AppText>
-              ) : null
+              ) : undefined
             }
             ListFooterComponent={
               searching ? (
@@ -202,7 +202,7 @@ function LocationSearchSheet({ onPick, onClose }: LocationSearchSheetProps) {
                 <AppText variant="caption" style={styles.hint}>
                   No places found. Use the name you typed instead.
                 </AppText>
-              ) : null
+              ) : undefined
             }
             renderItem={({ item }) => {
               const key = item.type === 'custom' ? 'custom' : item.place.mapboxId;

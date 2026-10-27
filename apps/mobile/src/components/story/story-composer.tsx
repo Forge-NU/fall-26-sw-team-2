@@ -2,6 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
+import type { TripResponse } from '@/api/types';
 import { AppText } from '@/components/ui/app-text';
 import { Button } from '@/components/ui/button';
 import { Icon, IconName } from '@/components/icon';
@@ -11,45 +12,69 @@ import { TripChooserSheet } from '@/components/trip-chooser-sheet';
 import { Media } from '@/components/ui/media';
 import { Toggle } from '@/components/ui/toggle';
 import { Palette, Radii, Spacing, Typography } from '@/constants/theme';
-import { ActiveTrips, NearbyPlaces, StoryDraft, type NearbyPlace } from '@/data/mock';
-import { formatDay, formatRange, isWithin, tripDayNumber } from '@/utils/dates';
+import { StoryDraft, type ActiveTrip, type NearbyPlace } from '@/data/mock';
+import { useStoryComposer } from '@/hooks/use-story-composer';
+import { formatDay, formatRange, tripDayNumber } from '@/utils/dates';
 
 type Sheet = 'trip' | 'date' | 'location' | null;
 
 const comingSoon = (feature: string) => Alert.alert(feature, 'Coming in a later wireframe.');
 
-/** Post-story form. Everything stays local until the posts API is wired up. */
-export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; onPosted: () => void }) {
-  const suggestedTrip = ActiveTrips.find((trip) => trip.suggested) ?? null;
+// The trip chooser is shared with "Add places to itinerary" and takes its own trip shape
+function toChooserTrip(trip: TripResponse, suggestedTripId: string | null): ActiveTrip {
+  return {
+    id: trip.id,
+    title: trip.title,
+    startDate: trip.startDate,
+    endDate: trip.endDate,
+    status: trip.status === 'published' ? 'Published' : 'Unpublished',
+    suggested: trip.id === suggestedTripId,
+  };
+}
 
-  const [text, setText] = useState(StoryDraft.text);
+/** Post-story form. Posting hands the story to the background upload queue. */
+export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; onPosted: () => void }) {
+  const composer = useStoryComposer();
+
   const [editingText, setEditingText] = useState(false);
-  const [location, setLocation] = useState<NearbyPlace | null>(NearbyPlaces[0]);
-  const [tripId, setTripId] = useState<string | null>(suggestedTrip?.id ?? null);
-  const [addToTrip, setAddToTrip] = useState(true);
-  const [storyDate, setStoryDate] = useState(StoryDraft.capturedAt.date);
+  // TODO: replace with POST-2's LocationPicker (#65), which takes composer.location directly
+  const [placeholderPlace, setPlaceholderPlace] = useState<NearbyPlace | null>(null);
   const [sheet, setSheet] = useState<Sheet>(null);
 
-  const trip = ActiveTrips.find((t) => t.id === tripId) ?? null;
-  const linkedTrip = trip && addToTrip ? trip : null;
+  const { trip, storyDate } = composer;
+  const chooserTrips = composer.trips.map((t) => toChooserTrip(t, composer.suggestedTripId));
+  const chooserTrip = trip ? toChooserTrip(trip, composer.suggestedTripId) : null;
 
-  const selectTrip = (id: string | null) => {
-    setTripId(id);
-    setSheet(null);
-    const next = ActiveTrips.find((t) => t.id === id);
-    // Keep the story date inside the newly linked trip.
-    if (next && !isWithin(storyDate, next.startDate, next.endDate)) {
-      setStoryDate(isWithin(StoryDraft.capturedAt.date, next.startDate, next.endDate) ? StoryDraft.capturedAt.date : next.startDate);
+  const locationLabel =
+    composer.location?.kind === 'mapbox'
+      ? composer.location.location.name
+      : composer.location?.kind === 'custom'
+        ? composer.location.name
+        : null;
+
+  const tripDetail = trip
+    ? `${formatRange(trip.startDate, trip.endDate)} · ${chooserTrip?.status}`
+    : composer.tripsLoading
+      ? 'Loading your trips…'
+      : composer.tripsError
+        ? "Couldn't load your trips"
+        : 'Posting without a trip';
+
+  async function pickPhoto(source: 'camera' | 'library') {
+    const result = await composer.pickPhoto(source);
+    if (result === 'denied') {
+      Alert.alert(
+        source === 'camera' ? 'Camera access is off' : 'Photo access is off',
+        'Turn it on for Yuji in Settings to add a photo.',
+      );
+    } else if (result === 'failed') {
+      Alert.alert("Couldn't use that photo", 'Try another one.');
     }
-  };
+  }
 
-  const dateTitle = linkedTrip
-    ? `${formatDay(storyDate)} · Day ${tripDayNumber(storyDate, linkedTrip.startDate)}`
-    : formatDay(storyDate);
-  const dateDetail =
-    storyDate === StoryDraft.capturedAt.date
-      ? `From photo · ${StoryDraft.capturedAt.time} · editable`
-      : 'Picked manually · editable';
+  function post() {
+    if (composer.post()) onPosted();
+  }
 
   return (
     <>
@@ -72,7 +97,7 @@ export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; 
         <View style={styles.media}>
           <Media
             seed="story-draft"
-            url={StoryDraft.mediaUrl}
+            url={composer.photo?.uri}
             iconSize={36}
             style={StyleSheet.absoluteFill}
           />
@@ -82,15 +107,16 @@ export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; 
             style={StyleSheet.absoluteFill}
           />
           <View style={styles.mediaControls}>
-            <MediaAction icon="camera" label="Camera" onPress={() => comingSoon('Camera')} />
-            <MediaAction icon="images" label="Photos" onPress={() => comingSoon('Photos')} />
+            <MediaAction icon="camera" label="Camera" onPress={() => pickPhoto('camera')} />
+            <MediaAction icon="images" label="Photos" onPress={() => pickPhoto('library')} />
             <MediaAction icon="type" label="Add text" onPress={() => setEditingText(true)} />
           </View>
           <View style={styles.textOverlay}>
             {editingText ? (
               <TextInput
-                value={text}
-                onChangeText={setText}
+                value={composer.text}
+                onChangeText={composer.setText}
+                maxLength={composer.textMax}
                 autoFocus
                 onBlur={() => setEditingText(false)}
                 placeholder="Add text"
@@ -99,21 +125,22 @@ export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; 
                 returnKeyType="done"
               />
             ) : (
-              text.length > 0 && (
+              composer.text.length > 0 && (
                 <AppText variant="heading" color="warmWhite">
-                  {text}
+                  {composer.text}
                 </AppText>
               )
             )}
             <Pressable accessibilityRole="button" onPress={() => setEditingText(true)} style={styles.editText}>
               <Icon name="pencil" size={12} color="warmWhite" />
               <AppText variant="caption" color="warmWhite">
-                Edit text · optional
+                {composer.photoStatus === 'preparing' ? 'Preparing photo…' : 'Edit text · optional'}
               </AppText>
             </Pressable>
           </View>
         </View>
 
+        {/* Music is planned for later; the row matches the wireframe for now */}
         <View style={styles.music}>
           <View style={styles.musicSymbol}>
             <Icon name="music" size={17} color="coral" />
@@ -133,14 +160,14 @@ export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; 
           <Icon name="map-pin" />
           <View style={styles.grow}>
             <AppText variant="caption">
-              {location?.name ?? 'Add a location'}
+              {locationLabel ?? 'Add a location'}
             </AppText>
             <AppText variant="caption" color="placeholderGray">
               Location · optional
             </AppText>
           </View>
           <AppText variant="caption">
-            {location ? 'Change' : 'Add'}
+            {locationLabel ? 'Change' : 'Add'}
           </AppText>
         </Pressable>
 
@@ -149,20 +176,23 @@ export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; 
             <AppText variant="caption" color="placeholderGray">
               Trip · optional
             </AppText>
-            {trip?.suggested && (
+            {composer.isSuggestedTrip && (
               <AppText variant="caption" color="placeholderGray">
                 Suggested active trip
               </AppText>
             )}
           </View>
-          <Pressable accessibilityRole="button" onPress={() => setSheet('trip')} style={styles.selectedTrip}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => (composer.tripsError ? composer.reloadTrips() : setSheet('trip'))}
+            style={styles.selectedTrip}>
             <Icon name="calendar-days" size={19} />
             <View style={styles.grow}>
               <AppText variant="label">
                 {trip?.title ?? 'No trip'}
               </AppText>
               <AppText variant="caption" color="placeholderGray">
-                {trip ? `${formatRange(trip.startDate, trip.endDate)} · ${trip.status}` : 'Posting without a trip'}
+                {composer.tripsError && !trip ? `${tripDetail} · tap to retry` : tripDetail}
               </AppText>
             </View>
             <Icon name="chevron-down" />
@@ -174,60 +204,80 @@ export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; 
             <AppText variant="caption">
               Add to trip
             </AppText>
-            <Toggle value={addToTrip} onValueChange={setAddToTrip} accessibilityLabel="Add to trip" />
+            <Toggle value={composer.keepOnTrip} onValueChange={composer.setKeepOnTrip} accessibilityLabel="Add to trip" />
           </View>
         )}
 
-        <View style={styles.field}>
-          <AppText variant="caption" color="placeholderGray">
-            Story date · optional
-          </AppText>
-          <Pressable accessibilityRole="button" onPress={() => setSheet('date')} style={styles.dateDropdown}>
-            <Icon name="calendar" size={16} color="coral" />
-            <View style={styles.grow}>
-              <AppText variant="caption">
-                {dateTitle}
-              </AppText>
-              <AppText variant="caption" color="placeholderGray">
-                {dateDetail}
-              </AppText>
-            </View>
-            <Icon name="chevron-down" />
-          </Pressable>
-        </View>
+        {trip && (
+          <View style={styles.field}>
+            <AppText variant="caption" color="placeholderGray">
+              Story date · optional
+            </AppText>
+            <Pressable accessibilityRole="button" onPress={() => setSheet('date')} style={styles.dateDropdown}>
+              <Icon name="calendar" size={16} color="coral" />
+              <View style={styles.grow}>
+                <AppText variant="caption">
+                  {`${formatDay(storyDate)} · Day ${tripDayNumber(storyDate, trip.startDate)}`}
+                </AppText>
+                <AppText variant="caption" color="placeholderGray">
+                  {storyDate === composer.today ? 'Today · editable' : 'Picked manually · editable'}
+                </AppText>
+              </View>
+              <Icon name="chevron-down" />
+            </Pressable>
+          </View>
+        )}
 
-        <Button title="Post story" style={styles.fullWidth} onPress={onPosted} />
+        {!composer.photo && (
+          <AppText variant="caption" color="placeholderGray">
+            Add a photo to post your story
+          </AppText>
+        )}
+        <Button
+          title="Post story"
+          style={styles.fullWidth}
+          disabled={!composer.canPost}
+          loading={composer.photoStatus === 'preparing' || composer.posting}
+          onPress={post}
+        />
       </ScrollView>
 
       <TripChooserSheet
         visible={sheet === 'trip'}
-        trips={ActiveTrips}
-        selectedId={tripId}
-        onSelect={selectTrip}
-        describe={(trip) => (trip.suggested ? 'Suggested · active today' : 'Active today')}
-        onPostWithoutTrip={() => selectTrip(null)}
+        trips={chooserTrips}
+        selectedId={trip?.id ?? null}
+        onSelect={(id) => {
+          composer.selectTrip(id);
+          setSheet(null);
+        }}
+        describe={(t) => (t.suggested ? 'Suggested · active today' : 'Active today')}
+        onPostWithoutTrip={() => {
+          composer.selectTrip(null);
+          setSheet(null);
+        }}
         onCreateTrip={() => {
           setSheet(null);
+          // TODO: quick-create trip sheet, built on TRIP-2's DateField + validateTripForm (#64)
           comingSoon('Create trip');
         }}
         onClose={() => setSheet(null)}
       />
       <StoryDateSheet
         visible={sheet === 'date'}
-        trip={linkedTrip}
+        trip={chooserTrip}
         value={storyDate}
-        capturedAt={StoryDraft.capturedAt}
         onConfirm={(date) => {
-          setStoryDate(date);
+          composer.setStoryDate(date);
           setSheet(null);
         }}
         onClose={() => setSheet(null)}
       />
       <LocationSheet
         visible={sheet === 'location'}
-        value={location}
+        value={placeholderPlace}
         onConfirm={(place) => {
-          setLocation(place);
+          setPlaceholderPlace(place);
+          composer.setLocation(place ? { kind: 'custom', name: place.name } : null);
           setSheet(null);
         }}
         onClose={() => setSheet(null)}

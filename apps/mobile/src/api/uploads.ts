@@ -1,6 +1,6 @@
 // POST /api/media/uploads (MEDIA-1, #38), then a PUT straight to S3.
 // See docs/architecture/media-uploads.md.
-import type { CreateUploadRequest, CreateUploadResponse, UploadPurpose } from '@/api/types';
+import type { CreateUploadRequest, CreateUploadResponse, UploadPurpose } from 'shared-types';
 
 import { ApiError, apiRequest, USE_MOCK_API } from '@/api/client';
 
@@ -10,10 +10,22 @@ export function createUpload(request: CreateUploadRequest): Promise<CreateUpload
 }
 
 // The size has to match the fileSize sent to createUpload, so read it from
-// the same blob that gets uploaded.
-export async function readFile(uri: string): Promise<{ body: Blob; size: number }> {
+// the same blob that gets uploaded. head is the first bytes, for the JPEG check.
+export async function readFile(
+  uri: string,
+): Promise<{ body: Blob; size: number; head: Uint8Array }> {
   const body = await (await fetch(uri)).blob();
-  return { body, size: body.size };
+  return { body, size: body.size, head: await readBytes(body.slice(0, 3)) };
+}
+
+// FileReader rather than blob.arrayBuffer(), which React Native doesn't have
+function readBytes(blob: Blob): Promise<Uint8Array> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(new Uint8Array(reader.result as ArrayBuffer));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsArrayBuffer(blob);
+  });
 }
 
 // XMLHttpRequest rather than fetch, since fetch can't report upload progress.

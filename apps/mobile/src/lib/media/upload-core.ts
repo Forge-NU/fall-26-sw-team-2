@@ -10,7 +10,8 @@ const URL_EXPIRY_MARGIN_MS = 60_000;
 export type UploadTarget = { uploadUrl: string; s3Key: string; expiresAt: string };
 
 export type UploadDeps<Body> = {
-  readFile(uri: string): Promise<{ body: Body; size: number }>;
+  // head is the file's first bytes, at least 3
+  readFile(uri: string): Promise<{ body: Body; size: number; head: Uint8Array }>;
   createUpload(fileSize: number): Promise<UploadTarget>;
   putObject(uploadUrl: string, body: Body, onProgress: (fraction: number) => void): Promise<void>;
   isRetryable(error: unknown): boolean;
@@ -38,6 +39,18 @@ export class PhotoTooLargeError extends Error {
   }
 }
 
+// The server only takes JPEG (UPLOAD_CONTENT_TYPES). Every JPEG starts with FF D8 FF.
+export function isJpeg(head: Uint8Array): boolean {
+  return head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff;
+}
+
+export class NotJpegError extends Error {
+  constructor() {
+    super('Photo is not a JPEG. Run it through preparePhoto first.');
+    this.name = 'NotJpegError';
+  }
+}
+
 // Uploads one file and returns its S3 key. Retries reuse the upload URL until
 // it's about to expire or S3 rejects it as expired.
 export async function uploadWithRetry<Body>(
@@ -46,6 +59,7 @@ export async function uploadWithRetry<Body>(
   { retryDelaysMs = [], onProgress }: UploadOptions = {},
 ): Promise<string> {
   const file = await deps.readFile(uri);
+  if (!isJpeg(file.head)) throw new NotJpegError();
   if (file.size > MAX_PHOTO_BYTES) throw new PhotoTooLargeError(file.size);
 
   let target: UploadTarget | null = null;

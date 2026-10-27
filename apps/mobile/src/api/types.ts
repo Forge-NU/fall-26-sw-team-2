@@ -90,25 +90,6 @@ export type CreateStoryRequest = {
   storyDate?: string; // any day of the trip; today without a trip (the default)
 };
 
-// Uploads (MEDIA-1, #38): POST /api/media/uploads. Same as shared-types on
-// main; once this branch has shared-types, import from there instead.
-
-export type UploadPurpose = 'post' | 'story' | 'avatar';
-
-export type UploadContentType = 'image/jpeg';
-
-export type CreateUploadRequest = {
-  purpose: UploadPurpose;
-  contentType: UploadContentType;
-  fileSize: number; // bytes, at most 10 MB
-};
-
-export type CreateUploadResponse = {
-  s3Key: string;
-  uploadUrl: string; // presigned S3 PUT URL
-  expiresAt: string;
-};
-
 // Trips, continued (#56). Used by the trip screens (#41).
 
 // PATCH /api/trips/:id. Only description can be cleared with null.

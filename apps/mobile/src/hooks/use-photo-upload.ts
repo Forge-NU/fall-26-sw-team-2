@@ -8,7 +8,7 @@
 // upload() resolves to every photo with its key once all of them succeed, or
 // null if any failed. retry() then redoes only the failed ones.
 import { useCallback, useMemo, useRef, useState } from 'react';
-import type { UploadPurpose } from '@/api/types';
+import type { UploadPurpose } from 'shared-types';
 
 import type { PickedPhoto } from '@/lib/media/pick-photo';
 import { uploadPhoto } from '@/lib/media/upload-photo';
