@@ -43,6 +43,8 @@ export default function AppTabs() {
           {__DEV__ && (
             <TabTrigger name="components-preview" href="/components-preview" style={styles.hidden} />
           )}
+          {/* APP-1's data layer examples: dev-only and not shown in the bar. Open /api-examples. */}
+          {__DEV__ && <TabTrigger name="api-examples" href="/api-examples" style={styles.hidden} />}
         </BottomToolbar>
       </TabList>
 

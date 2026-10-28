@@ -4,20 +4,16 @@ import type {
   ActiveTripsResponse,
   CreateStoryRequest,
   CreateTripRequest,
-  CreateUploadResponse,
   LocationResponse,
   Page,
   PostResponse,
   StoryResponse,
   TripResponse,
   UpdateTripRequest,
-  UploadPurpose,
   UserSummary,
 } from '@/api/types';
 import { addDays, isDateWithin, todayLocalIso } from '@/utils/local-date';
 
-// Raise to test retries
-const MOCK_UPLOAD_FAILURE_RATE = 0;
 const MOCK_LATENCY_MS = 400;
 
 export const me: UserSummary = {
@@ -235,19 +231,6 @@ export async function mockGetTripPosts(tripId: string): Promise<Page<PostRespons
   await delay();
   findOwnTrip(tripId);
   return { items: postsForTrip(tripId), nextCursor: null };
-}
-
-export async function mockCreateUpload(purpose: UploadPurpose): Promise<CreateUploadResponse> {
-  await delay();
-  const s3Key = `users/${me.id}/${purpose === 'story' ? 'stories' : purpose}/${mockId('obj')}.jpg`;
-  return { uploadUrl: `https://mock-upload.invalid/${s3Key}`, s3Key };
-}
-
-export async function mockPutObject(_uploadUrl: string): Promise<void> {
-  await delay(1000);
-  if (Math.random() < MOCK_UPLOAD_FAILURE_RATE) {
-    throw new TypeError('Network request failed (mock)');
-  }
 }
 
 export async function mockCreateStory(body: CreateStoryRequest): Promise<StoryResponse> {

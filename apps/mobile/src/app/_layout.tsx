@@ -14,6 +14,7 @@ import {
 import { BarlowCondensed_600SemiBold } from "@expo-google-fonts/barlow-condensed";
 
 import { AnimatedSplashOverlay } from "@/components/animated-icon";
+import { AuthGate } from "@/components/auth-gate";
 import { queryClient } from "@/lib/query-client";
 
 void SplashScreen.preventAutoHideAsync();
@@ -60,12 +61,14 @@ export default function TabLayout() {
       <ThemeProvider value={navigationTheme}>
         <ToastProvider>
           <AnimatedSplashOverlay />
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="trips/new" options={{ presentation: "modal" }} />
-            <Stack.Screen name="trips/[id]/edit" options={{ presentation: "modal" }} />
-            <Stack.Screen name="posts/new" options={{ presentation: "modal" }} />
-          </Stack>
+          <AuthGate>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="trips/new" options={{ presentation: "modal" }} />
+              <Stack.Screen name="trips/[id]/edit" options={{ presentation: "modal" }} />
+              <Stack.Screen name="posts/new" options={{ presentation: "modal" }} />
+            </Stack>
+          </AuthGate>
         </ToastProvider>
       </ThemeProvider>
     </QueryClientProvider>

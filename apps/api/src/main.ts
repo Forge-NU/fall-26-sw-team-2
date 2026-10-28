@@ -8,6 +8,12 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api');
 
+  // The Expo web build (npm start, then w) runs on another origin. The mobile
+  // app doesn't need CORS, so it stays off in production.
+  if (process.env.NODE_ENV !== 'production') {
+    app.enableCors();
+  }
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

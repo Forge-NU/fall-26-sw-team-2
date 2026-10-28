@@ -90,20 +90,6 @@ export type CreateStoryRequest = {
   storyDate?: string; // any day of the trip; today without a trip (the default)
 };
 
-// Uploads: guessed until MEDIA-1 (#38) defines the endpoint
-
-export type UploadPurpose = 'story';
-
-export type CreateUploadRequest = {
-  purpose: UploadPurpose;
-  contentType: 'image/jpeg';
-};
-
-export type CreateUploadResponse = {
-  uploadUrl: string; // presigned S3 PUT URL
-  s3Key: string;
-};
-
 // Trips, continued (#56). Used by the trip screens (#41).
 
 // PATCH /api/trips/:id. Only description can be cleared with null.
@@ -114,8 +100,6 @@ export type UpdateTripRequest = Partial<Omit<CreateTripRequest, 'description'>> 
 // Posts (#57)
 
 export type MediaType = 'image' | 'video';
-
-export type LocationResponse = StoryLocationResponse;
 
 export type MediaResponse = {
   id: string;
@@ -139,3 +123,35 @@ export type PostResponse = {
   createdAt: string;
   updatedAt: string;
 };
+
+export type LocationResponse = StoryLocationResponse;
+
+// Locations (#62, LOC-1)
+
+// One row of place search results (Mapbox Search Box /suggest)
+export type PlaceSuggestion = {
+  mapboxId: string;
+  name: string;
+  description: string | null; // e.g. "Sintra, Lisbon, Portugal"
+};
+
+// Body of POST /api/locations/resolve
+export type ResolveLocationRequest =
+  | {
+      kind: 'mapbox';
+      mapboxId: string;
+      name: string;
+      latitude: number;
+      longitude: number;
+      address?: string | null;
+      city?: string | null;
+      region?: string | null;
+      countryCode?: string;
+    }
+  | { kind: 'custom'; name: string };
+
+// A Mapbox place resolves to a shared locations row. A custom name isn't
+// stored; it goes on the post or story as customLocationName.
+export type ResolveLocationResponse =
+  | { kind: 'mapbox'; location: LocationResponse }
+  | { kind: 'custom'; name: string };
