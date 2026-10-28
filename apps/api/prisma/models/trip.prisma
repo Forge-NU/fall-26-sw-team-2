@@ -1,0 +1,31 @@
+enum TripStatus {
+  draft
+  published
+
+  @@map("trip_status")
+}
+
+// Check constraints (added in the migration, Prisma can't express them):
+// - end_date >= start_date
+// - published_at is set exactly when status = 'published'
+model Trip {
+  id          String     @id @default(uuid()) @db.Uuid
+  ownerId     String     @map("owner_id")
+  title       String     @db.VarChar(100)
+  destination String     @db.VarChar(100)
+  description String?    @db.VarChar(1000)
+  startDate   DateTime   @map("start_date") @db.Date
+  endDate     DateTime   @map("end_date") @db.Date
+  status      TripStatus @default(draft)
+  publishedAt DateTime?  @map("published_at")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  owner   User    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  posts   Post[]
+  stories Story[]
+
+  @@index([ownerId, startDate])
+  @@index([status, publishedAt])
+  @@map("trips")
+}

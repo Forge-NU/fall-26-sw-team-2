@@ -1,0 +1,26 @@
+// Shared rows for Mapbox places, deduplicated by (provider, provider_place_id).
+// Custom locations are stored on the post instead, so a location never
+// belongs to one user and is never deleted.
+// Check constraints (added in the migration): latitude -90 to 90, longitude
+// -180 to 180.
+model Location {
+  id              String   @id @default(uuid()) @db.Uuid
+  provider        String   @db.VarChar(20)
+  providerPlaceId String   @map("provider_place_id")
+  name            String
+  address         String?
+  latitude        Decimal  @db.Decimal(9, 6)
+  longitude       Decimal  @db.Decimal(9, 6)
+  city            String?
+  region          String?
+  countryCode     String?  @map("country_code") @db.Char(2)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  posts   Post[]
+  stories Story[]
+
+  @@unique([provider, providerPlaceId])
+  @@index([latitude, longitude])
+  @@map("locations")
+}

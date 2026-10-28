@@ -1,0 +1,25 @@
+enum MediaType {
+  image
+  video
+
+  @@map("media_type")
+}
+
+// Check constraint (added in the migration): position is 0 to 29, which caps
+// a post at 30 items.
+model PostMedia {
+  id         String    @id @default(uuid()) @db.Uuid
+  postId     String    @map("post_id") @db.Uuid
+  s3Key      String    @unique @map("s3_key")
+  mediaType  MediaType @map("media_type")
+  position   Int       @db.SmallInt
+  width      Int?
+  height     Int?
+  durationMs Int?      @map("duration_ms")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, position])
+  @@map("post_media")
+}

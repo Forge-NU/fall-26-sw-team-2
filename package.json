@@ -1,0 +1,8 @@
+{
+  "name": "fall-26-sw-team-2",
+  "version": "0.0.1",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ]
+}
