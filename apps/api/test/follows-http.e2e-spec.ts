@@ -115,6 +115,8 @@ describe('Follow HTTP routes', () => {
       ],
     }).compile();
     app = module.createNestApplication();
+    // Same prefix as main.ts
+    app.setGlobalPrefix('api');
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,

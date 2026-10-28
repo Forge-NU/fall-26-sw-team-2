@@ -1,3 +1,6 @@
+// Trigram GIN indexes back people search (SRCH-1). The migration enables
+// pg_trgm. Account deletion removes the row (DOC-1), so there's no
+// deleted-user flag to filter on.
 model User {
   id        String   @id
   email     String
@@ -12,4 +15,8 @@ model User {
   stories   Story[]
   following Follow[] @relation("FollowSource")
   followers Follow[] @relation("FollowTarget")
+
+  @@index([username(ops: raw("gin_trgm_ops"))], type: Gin, map: "User_username_trgm_idx")
+  @@index([firstName(ops: raw("gin_trgm_ops"))], type: Gin, map: "User_first_name_trgm_idx")
+  @@index([lastName(ops: raw("gin_trgm_ops"))], type: Gin, map: "User_last_name_trgm_idx")
 }

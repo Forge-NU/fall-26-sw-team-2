@@ -3,6 +3,7 @@
 // belongs to one user and is never deleted.
 // Check constraints (added in the migration): latitude -90 to 90, longitude
 // -180 to 180.
+// Trigram GIN indexes on name, city and region back place search (SRCH-1).
 model Location {
   id              String   @id @default(uuid()) @db.Uuid
   provider        String   @db.VarChar(20)
@@ -22,5 +23,8 @@ model Location {
 
   @@unique([provider, providerPlaceId])
   @@index([latitude, longitude])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "locations_name_trgm_idx")
+  @@index([city(ops: raw("gin_trgm_ops"))], type: Gin, map: "locations_city_trgm_idx")
+  @@index([region(ops: raw("gin_trgm_ops"))], type: Gin, map: "locations_region_trgm_idx")
   @@map("locations")
 }

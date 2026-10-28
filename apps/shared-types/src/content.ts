@@ -1,4 +1,4 @@
-import type { UserResponse } from "./index";
+import type { UserResponse } from "./index.js";
 
 // Content contracts match the current trip and post API responses.
 type UserSummary = UserResponse;

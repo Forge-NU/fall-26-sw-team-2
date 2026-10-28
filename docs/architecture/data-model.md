@@ -154,6 +154,7 @@ Only the rules that cross features are listed here. Column types and lengths fol
 
 - Usernames are unique regardless of capitalization (decided in #33) and must match `^[a-z0-9_.]{3,30}$`.
 - **Suggestion (Christian):** store `username` lowercase. The API lowercases it on every write, and the `@unique` constraint does the rest. That makes uniqueness case-insensitive without needing `citext`.
+- Built in SRCH-1 ([`search.md`](search.md)): trigram GIN indexes on `username`, `first_name` and `last_name` for people search.
 - **Suggestion (Christian):** replace `avatar_url` with `avatar_key`, the S3 key of an uploaded avatar, or null. If the user has no avatar, the app can fall back to Clerk's image. That lets account deletion find and delete the avatar along with everything else.
 
 ### follows
@@ -197,6 +198,7 @@ Only the rules that cross features are listed here. Column types and lengths fol
   - Unique `(provider, provider_place_id)`. `provider` is `mapbox` for now.
   - `address`, `city`, `region`, and `country_code` are optional.
   - Index `(latitude, longitude)` for map bounding-box queries. We can move to PostGIS later if we need radius search.
+- Built in SRCH-1 ([`search.md`](search.md)): trigram GIN indexes on `name`, `city` and `region` for place search.
 - **Suggestion (Christian):** keep rows to Mapbox places only, with custom names stored on the post or story (see [posts](#posts)). Then a location never belongs to one user and is never deleted.
 - Storage terms are pending #37 (LOC-1). If Mapbox doesn't allow storing coordinates permanently, this table changes.
 

@@ -199,7 +199,7 @@ Custom locations (a name the user typed when search had no result) are stored on
 
 Check constraints: `locations_latitude_check` and `locations_longitude_check` for the ranges above.
 
-Indexes: `(provider, provider_place_id)` unique, `(latitude, longitude)` for map bounding-box queries. We can move to PostGIS later if we need radius search.
+Indexes: `(provider, provider_place_id)` unique, `(latitude, longitude)` for map bounding-box queries. We can move to PostGIS later if we need radius search. Trigram GIN indexes on `name`, `city` and `region` for place search ([`search.md`](search.md)).
 
 Mapbox's storage terms are recorded in [DOC-1](../product/mvp-decisions.md#locations): storing POI coordinates isn't allowed as-is, and that decision is still open. If the outcome is that we can't store coordinates, this table changes. Rows are created by `POST /api/locations/resolve` ([`locations.md`](locations.md)).
 
