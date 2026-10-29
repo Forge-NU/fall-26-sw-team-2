@@ -225,6 +225,14 @@ describe('Follow HTTP routes', () => {
     expect(prisma.user.findMany).not.toHaveBeenCalled();
   });
 
+  // #87: the controller once hardcoded 'api/users' on top of the global prefix
+  it('is not served under the doubled /api/api prefix', async () => {
+    await request(app.getHttpServer())
+      .post('/api/api/users/target/follow')
+      .auth('test-viewer', { type: 'bearer' })
+      .expect(404);
+  });
+
   it('rejects self-follow with 400', async () => {
     await request(app.getHttpServer())
       .post('/api/users/viewer/follow')
