@@ -7,7 +7,7 @@ import {
 } from './location.types';
 import { LocationsService } from './locations.service';
 
-@Controller('api/locations')
+@Controller('locations')
 export class LocationsController {
   constructor(private readonly locationsService: LocationsService) {}
 
