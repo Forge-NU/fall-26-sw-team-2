@@ -31,7 +31,7 @@ export interface ApiErrorResponse {
   timestamp: string;
 }
 
-export type { TripStatus, TripResponse, ActiveTripsResponse, MediaType, MediaResponse, LocationResponse, PostResponse } from './content';
+export type { TripStatus, TripResponse, ActiveTripsResponse, MediaType, MediaResponse, LocationResponse, PostResponse, LikeStatusResponse, PostLikerResponse, SaveStatusResponse } from './content';
 
 /**
  * Photo uploads (MEDIA-1)
