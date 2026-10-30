@@ -47,7 +47,7 @@ function makePost(overrides: Record<string, unknown> = {}) {
     updatedAt: new Date('2026-10-13T12:00:00Z'),
     trip: { ...makeTrip(), owner },
     location: null,
-    _count: { likes: 0, saves: 0 },
+    _count: { likes: 0, saves: 0, comments: 0 },
     likes: [],
     saves: [],
     media: [
@@ -443,7 +443,7 @@ describe('PostsService', () => {
     it("returns like and save counts and whether you've liked or saved it", async () => {
       prisma.post.findUnique.mockResolvedValue(
         makePost({
-          _count: { likes: 7, saves: 2 },
+          _count: { likes: 7, saves: 2, comments: 5 },
           likes: [{ userId: ownerId }],
           saves: [],
         }),
@@ -455,13 +455,14 @@ describe('PostsService', () => {
         { include: Record<string, unknown> },
       ];
       expect(args.include).toMatchObject({
-        _count: { select: { likes: true, saves: true } },
+        _count: { select: { likes: true, saves: true, comments: true } },
         likes: { where: { userId: ownerId }, select: { userId: true } },
         saves: { where: { userId: ownerId }, select: { userId: true } },
       });
       expect(post).toMatchObject({
         likeCount: 7,
         saveCount: 2,
+        commentCount: 5,
         likedByMe: true,
         savedByMe: false,
       });

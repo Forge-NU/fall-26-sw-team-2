@@ -38,6 +38,8 @@ export type PostResponse = {
   media: MediaResponse[];
   likeCount: number;
   saveCount: number;
+  // Every comment on the post, replies included
+  commentCount: number;
   // Whether the viewer has liked or saved this post
   likedByMe: boolean;
   savedByMe: boolean;

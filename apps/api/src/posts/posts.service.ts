@@ -40,7 +40,7 @@ function postInclude(viewerId: string) {
     },
     location: true,
     media: { orderBy: { position: 'asc' } },
-    _count: { select: { likes: true, saves: true } },
+    _count: { select: { likes: true, saves: true, comments: true } },
     likes: { where: { userId: viewerId }, select: { userId: true } },
     saves: { where: { userId: viewerId }, select: { userId: true } },
   } satisfies Prisma.PostInclude;
@@ -386,6 +386,7 @@ export class PostsService {
       ),
       likeCount: post._count.likes,
       saveCount: post._count.saves,
+      commentCount: post._count.comments,
       likedByMe: post.likes.length > 0,
       savedByMe: post.saves.length > 0,
       createdAt: post.createdAt.toISOString(),
