@@ -45,6 +45,8 @@ function mockTrip(title: string, destination: string, startDate: string, endDate
     publishedAt: null,
     postCount: 0,
     coverImageUrl: null,
+    saveCount: 0,
+    savedByMe: false,
     createdAt: now,
     updatedAt: now,
   };

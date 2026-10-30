@@ -12,13 +12,19 @@ import {
   Page,
   PaginationQueryDto,
   assertCursorInList,
+  keyedPageArgs,
   pageArgs,
   toPage,
 } from '../common/pagination';
 import { toUserSummary, userSummarySelect } from '../common/user-summary';
 import { CreateTripDto } from './dto/create-trip.dto';
 import { UpdateTripDto } from './dto/update-trip.dto';
-import { activeTripWhere, canViewTrip, resolveToday } from './trip-rules';
+import {
+  activeTripWhere,
+  canViewTrip,
+  resolveToday,
+  visibleTripWhere,
+} from './trip-rules';
 import { lockTripForUpdate } from './trip-locks';
 import { ActiveTripsResponse, TripResponse } from './trip.types';
 
@@ -29,25 +35,32 @@ export const POST_ORDER = [
   { id: 'asc' },
 ] satisfies Prisma.PostOrderByWithRelationInput[];
 
-const tripInclude = {
-  owner: { select: userSummarySelect },
-  _count: { select: { posts: true } },
-  // Cover image: the first photo of the first post
-  posts: {
-    orderBy: POST_ORDER,
-    take: 1,
-    select: {
-      media: {
-        where: { mediaType: 'image' },
-        orderBy: { position: 'asc' },
-        take: 1,
-        select: { s3Key: true },
+// `viewerId` is who's reading, for savedByMe. They have at most one save row
+// per trip (it's the primary key).
+function tripInclude(viewerId: string) {
+  return {
+    owner: { select: userSummarySelect },
+    _count: { select: { posts: true, saves: true } },
+    // Cover image: the first photo of the first post
+    posts: {
+      orderBy: POST_ORDER,
+      take: 1,
+      select: {
+        media: {
+          where: { mediaType: 'image' },
+          orderBy: { position: 'asc' },
+          take: 1,
+          select: { s3Key: true },
+        },
       },
     },
-  },
-} satisfies Prisma.TripInclude;
+    saves: { where: { userId: viewerId }, select: { userId: true } },
+  } satisfies Prisma.TripInclude;
+}
 
-type TripWithDetails = Prisma.TripGetPayload<{ include: typeof tripInclude }>;
+type TripWithDetails = Prisma.TripGetPayload<{
+  include: ReturnType<typeof tripInclude>;
+}>;
 
 @Injectable()
 export class TripsService {
@@ -70,7 +83,7 @@ export class TripsService {
         startDate,
         endDate,
       },
-      include: tripInclude,
+      include: tripInclude(ownerId),
     });
 
     return this.toResponse(trip);
@@ -79,7 +92,7 @@ export class TripsService {
   async findOne(viewerId: string, id: string): Promise<TripResponse> {
     const trip = await this.prisma.trip.findUnique({
       where: { id },
-      include: tripInclude,
+      include: tripInclude(viewerId),
     });
 
     if (!trip || !canViewTrip(viewerId, trip)) {
@@ -152,7 +165,7 @@ export class TripsService {
           startDate: dto.startDate ? startDate : undefined,
           endDate: dto.endDate ? endDate : undefined,
         },
-        include: tripInclude,
+        include: tripInclude(userId),
       });
     });
 
@@ -192,7 +205,7 @@ export class TripsService {
       await lockTripForUpdate(tx, id);
       const trip = await tx.trip.findUnique({
         where: { id },
-        include: tripInclude,
+        include: tripInclude(userId),
       });
       if (!trip) {
         throw new NotFoundException('Trip not found');
@@ -210,7 +223,7 @@ export class TripsService {
       return tx.trip.update({
         where: { id },
         data: { status: 'published', publishedAt: new Date() },
-        include: tripInclude,
+        include: tripInclude(userId),
       });
     });
 
@@ -246,11 +259,46 @@ export class TripsService {
     const trips = await this.prisma.trip.findMany({
       where,
       orderBy: [{ startDate: 'desc' }, { id: 'desc' }],
-      include: tripInclude,
+      include: tripInclude(viewerId),
       ...pageArgs(query),
     });
 
     return toPage(trips, query, (trip) => this.toResponse(trip));
+  }
+
+  // The trips in the Saved tab, most recently saved first. Only ever the
+  // current user's own saves. The cursor is a trip ID.
+  async listSaved(
+    userId: string,
+    query: PaginationQueryDto,
+  ): Promise<Page<TripResponse>> {
+    // Saves stay visible only while their trip is. Every saved trip was
+    // visible when saved, and publishing can't be undone, so this is a guard.
+    const where: Prisma.TripSaveWhereInput = {
+      userId,
+      trip: visibleTripWhere(userId),
+    };
+    const key = (tripId: string) => ({ userId_tripId: { userId, tripId } });
+    await assertCursorInList(query, (cursor) =>
+      this.prisma.tripSave.findFirst({
+        where: { ...where, tripId: cursor },
+        select: { tripId: true },
+      }),
+    );
+
+    const saves = await this.prisma.tripSave.findMany({
+      where,
+      orderBy: [{ createdAt: 'desc' }, { tripId: 'desc' }],
+      include: { trip: { include: tripInclude(userId) } },
+      ...keyedPageArgs(query, key),
+    });
+
+    return toPage(
+      saves,
+      query,
+      (save) => this.toResponse(save.trip),
+      (save) => save.tripId,
+    );
   }
 
   async listActive(
@@ -262,7 +310,7 @@ export class TripsService {
     const trips = await this.prisma.trip.findMany({
       where: activeTripWhere(ownerId, today),
       orderBy: [{ startDate: 'desc' }, { createdAt: 'desc' }],
-      include: tripInclude,
+      include: tripInclude(ownerId),
     });
 
     return { items: await Promise.all(trips.map((t) => this.toResponse(t))) };
@@ -283,6 +331,8 @@ export class TripsService {
       publishedAt: trip.publishedAt?.toISOString() ?? null,
       postCount: trip._count.posts,
       coverImageUrl: coverKey ? await this.storage.getReadUrl(coverKey) : null,
+      saveCount: trip._count.saves,
+      savedByMe: trip.saves.length > 0,
       createdAt: trip.createdAt.toISOString(),
       updatedAt: trip.updatedAt.toISOString(),
     };

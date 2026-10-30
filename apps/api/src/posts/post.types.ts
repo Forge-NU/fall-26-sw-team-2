@@ -36,6 +36,11 @@ export type PostResponse = {
   location: LocationResponse | null;
   customLocationName: string | null;
   media: MediaResponse[];
+  likeCount: number;
+  saveCount: number;
+  // Whether the viewer has liked or saved this post
+  likedByMe: boolean;
+  savedByMe: boolean;
   createdAt: string;
   updatedAt: string;
 };

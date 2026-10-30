@@ -12,33 +12,43 @@ import {
   Page,
   PaginationQueryDto,
   assertCursorInList,
+  keyedPageArgs,
   pageArgs,
   toPage,
 } from '../common/pagination';
 import { toUserSummary, userSummarySelect } from '../common/user-summary';
 import { POST_ORDER, TripsService } from '../trips/trips.service';
-import { canViewTrip } from '../trips/trip-rules';
+import { canViewTrip, visibleTripWhere } from '../trips/trip-rules';
 import { lockTripForShare } from '../trips/trip-locks';
 import { CreatePostDto } from './dto/create-post.dto';
 import { MediaItemDto } from './dto/media-item.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { LocationResponse, PostResponse } from './post.types';
 
-const postInclude = {
-  trip: {
-    select: {
-      ownerId: true,
-      status: true,
-      startDate: true,
-      endDate: true,
-      owner: { select: userSummarySelect },
+// `viewerId` is who's reading, for likedByMe and savedByMe. Each of those
+// relations has at most one row for them (it's the primary key).
+function postInclude(viewerId: string) {
+  return {
+    trip: {
+      select: {
+        ownerId: true,
+        status: true,
+        startDate: true,
+        endDate: true,
+        owner: { select: userSummarySelect },
+      },
     },
-  },
-  location: true,
-  media: { orderBy: { position: 'asc' } },
-} satisfies Prisma.PostInclude;
+    location: true,
+    media: { orderBy: { position: 'asc' } },
+    _count: { select: { likes: true, saves: true } },
+    likes: { where: { userId: viewerId }, select: { userId: true } },
+    saves: { where: { userId: viewerId }, select: { userId: true } },
+  } satisfies Prisma.PostInclude;
+}
 
-type PostWithDetails = Prisma.PostGetPayload<{ include: typeof postInclude }>;
+type PostWithDetails = Prisma.PostGetPayload<{
+  include: ReturnType<typeof postInclude>;
+}>;
 
 @Injectable()
 export class PostsService {
@@ -80,7 +90,7 @@ export class PostsService {
             customLocationName: dto.customLocationName ?? null,
             media: { create: toMediaRows(dto.media) },
           },
-          include: postInclude,
+          include: postInclude(userId),
         });
       }),
     );
@@ -91,7 +101,7 @@ export class PostsService {
   async findOne(viewerId: string, id: string): Promise<PostResponse> {
     const post = await this.prisma.post.findUnique({
       where: { id },
-      include: postInclude,
+      include: postInclude(viewerId),
     });
 
     if (!post || !canViewTrip(viewerId, post.trip)) {
@@ -163,7 +173,7 @@ export class PostsService {
             // Prisma doesn't bump @updatedAt for a media-only change
             updatedAt: new Date(),
           },
-          include: postInclude,
+          include: postInclude(userId),
         });
 
         return { updated, removedKeys };
@@ -220,11 +230,46 @@ export class PostsService {
     const posts = await this.prisma.post.findMany({
       where: { tripId },
       orderBy: POST_ORDER,
-      include: postInclude,
+      include: postInclude(viewerId),
       ...pageArgs(query),
     });
 
     return toPage(posts, query, (post) => this.toResponse(post));
+  }
+
+  // The posts in the Saved tab, most recently saved first. Only ever the
+  // current user's own saves. The cursor is a post ID.
+  async listSaved(
+    userId: string,
+    query: PaginationQueryDto,
+  ): Promise<Page<PostResponse>> {
+    // Saves stay visible only while their trip is. Every saved post was
+    // visible when saved, and publishing can't be undone, so this is a guard.
+    const where: Prisma.PostSaveWhereInput = {
+      userId,
+      post: { trip: visibleTripWhere(userId) },
+    };
+    const key = (postId: string) => ({ userId_postId: { userId, postId } });
+    await assertCursorInList(query, (cursor) =>
+      this.prisma.postSave.findFirst({
+        where: { ...where, postId: cursor },
+        select: { postId: true },
+      }),
+    );
+
+    const saves = await this.prisma.postSave.findMany({
+      where,
+      orderBy: [{ createdAt: 'desc' }, { postId: 'desc' }],
+      include: { post: { include: postInclude(userId) } },
+      ...keyedPageArgs(query, key),
+    });
+
+    return toPage(
+      saves,
+      query,
+      (save) => this.toResponse(save.post),
+      (save) => save.postId,
+    );
   }
 
   // Takes a share lock on the trip (see trip-locks.ts) and re-reads it, since
@@ -243,7 +288,7 @@ export class PostsService {
   private async getOwnedPost(userId: string, id: string) {
     const post = await this.prisma.post.findUnique({
       where: { id },
-      include: postInclude,
+      include: postInclude(userId),
     });
 
     if (!post || !canViewTrip(userId, post.trip)) {
@@ -339,6 +384,10 @@ export class PostsService {
           durationMs: m.durationMs,
         })),
       ),
+      likeCount: post._count.likes,
+      saveCount: post._count.saves,
+      likedByMe: post.likes.length > 0,
+      savedByMe: post.saves.length > 0,
       createdAt: post.createdAt.toISOString(),
       updatedAt: post.updatedAt.toISOString(),
     };

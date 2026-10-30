@@ -1,0 +1,15 @@
+// One like per user per post (#49 INT-1). The pair is the primary key, so
+// liking twice can't make a second row.
+model PostLike {
+  userId    String   @map("user_id")
+  postId    String   @map("post_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@id([userId, postId])
+  // Who liked a post, newest first, and the post's like count
+  @@index([postId, createdAt, userId])
+  @@map("post_likes")
+}
