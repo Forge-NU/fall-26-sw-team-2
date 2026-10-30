@@ -17,6 +17,9 @@ export type TripResponse = {
   publishedAt: string | null;
   postCount: number;
   coverImageUrl: string | null;
+  saveCount: number;
+  // Whether the viewer has saved this trip
+  savedByMe: boolean;
   createdAt: string;
   updatedAt: string;
 };
