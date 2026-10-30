@@ -16,6 +16,7 @@ model Post {
   media    PostMedia[]
   likes    PostLike[]
   saves    PostSave[]
+  comments Comment[]
 
   @@index([tripId, visitedOn, createdAt])
   @@index([locationId])

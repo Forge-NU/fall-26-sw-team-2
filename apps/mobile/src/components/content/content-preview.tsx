@@ -66,6 +66,7 @@ const post: PostResponse = {
   media: photos.slice(0, 3),
   likeCount: 12,
   saveCount: 2,
+  commentCount: 4,
   likedByMe: false,
   savedByMe: false,
   createdAt: "2026-09-12T18:00:00Z",

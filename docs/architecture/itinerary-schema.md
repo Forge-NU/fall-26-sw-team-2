@@ -316,6 +316,7 @@ These are TypeScript types in `apps/api` for now (`trips/trip.types.ts`, `posts/
   ],
   "likeCount": 12,
   "saveCount": 2,
+  "commentCount": 4,
   "likedByMe": true,
   "savedByMe": false,
   "createdAt": "2026-09-12T18:40:00.000Z",
@@ -326,7 +327,7 @@ These are TypeScript types in `apps/api` for now (`trips/trip.types.ts`, `posts/
 - Exactly one of `location` and `customLocationName` is set.
 - `media` is in carousel order.
 - Media URLs are presigned S3 GET URLs that expire after an hour. Locally, with no `S3_BUCKET_NAME` set, they point at `https://media.invalid/<key>`, which never loads.
-- `likeCount`, `saveCount`, `likedByMe` and `savedByMe` come from #49 ([`likes-and-saves.md`](likes-and-saves.md)). The flags are for the user making the request. Comment counts get added by #50.
+- `likeCount`, `saveCount`, `likedByMe` and `savedByMe` come from #49 ([`likes-and-saves.md`](likes-and-saves.md)). The flags are for the user making the request. `commentCount` (every comment, replies included) comes from #50 ([`comments.md`](comments.md)).
 
 ### Trips
 
