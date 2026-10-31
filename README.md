@@ -27,10 +27,14 @@ git clone https://github.com/Forge-NU/fall-26-sw-team-2.git
 cd fall-26-sw-team-2
 nvm use
 
-# install (each app has its own dependencies)
-cd apps/api && npm install && cp .env.example .env && cd ../..
-cd apps/mobile && npm install && cp .env.example .env && cd ../..
+# install every app from the repo root (npm workspaces, one package-lock.json)
+npm install
+npm run build -w shared-types   # the API imports shared-types from its built dist/
+cp apps/api/.env.example apps/api/.env
+cp apps/mobile/.env.example apps/mobile/.env
 ```
+
+The repo has a single `package-lock.json` at the root. To add a dependency, run `npx expo install <package>` from `apps/mobile` (it picks versions that match the Expo SDK), or `npm install <package> -w api` (or `-w shared-types`) from the root. Never use `--workspaces=false`, which would create a separate lockfile inside the app.
 
 ### Local database
 The API uses PostgreSQL through [Prisma](https://www.prisma.io/). For development, run Postgres in Docker (requires [Docker Desktop](https://www.docker.com/products/docker-desktop/) to be running). It listens on port **5433** so it won't clash with a Postgres you may already have on 5432, and the default `DATABASE_URL` in `apps/api/.env.example` already points at it.
@@ -60,13 +64,18 @@ In the Expo terminal, press `i` for the iOS simulator, `a` for the Android emula
 
 ### Checks (same as CI)
 ```
+# shared-types (the API needs it built)
+npm run build -w shared-types
+
 # API
 cd apps/api
 npm run lint && npm test && npm run build
+npm run test:e2e   # needs the local database running and migrated (see Local database)
 
 # Mobile
 cd apps/mobile
-npm run lint && npm run typecheck
+npm run lint && npm run typecheck && npm run test:ui
+npx expo export --platform all
 ```
 
 ## Repo Structure

@@ -18,21 +18,17 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: 'npm'
-          cache-dependency-path: apps/api/package-lock.json
 
-      - name: Install shared-types
-        working-directory: apps/shared-types
+      - name: Install dependencies
+        working-directory: .
         run: npm ci
 
       - name: Build shared-types
-        working-directory: apps/shared-types
-        run: npm run build
-
-      - name: Install dependencies
-        run: npm ci --include=dev
+        working-directory: .
+        run: npm run build -w shared-types
 
       - name: Generate Prisma client
-        run: ./node_modules/.bin/prisma generate
+        run: npx prisma generate
 
       - name: Build
         run: npm run build
@@ -50,17 +46,13 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: 'npm'
-          cache-dependency-path: apps/mobile/package-lock.json
 
       - name: Install dependencies
+        working-directory: .
         run: npm ci
-
-      - name: Rebuild native modules
-        run: npm rebuild
 
       - name: Lint
         run: npm run lint
 
-      # Build check disabled temporarily due to React 19 compatibility issues from main
-      # - name: Build check
-      #   run: npx expo export --platform all
+      - name: Build check
+        run: npx expo export --platform all
