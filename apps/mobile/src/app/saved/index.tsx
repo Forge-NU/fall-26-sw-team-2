@@ -1,5 +1,5 @@
-import { PlaceholderScreen } from '@/components/placeholder-screen';
+import { SavedView } from '@/components/saved/saved-view';
 
 export default function SavedScreen() {
-  return <PlaceholderScreen title="Saved" />;
+  return <SavedView />;
 }
