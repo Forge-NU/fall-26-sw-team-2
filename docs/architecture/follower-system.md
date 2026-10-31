@@ -234,8 +234,7 @@ Counts reflect the current follow relationships. Following or unfollowing update
 ## Pending Integrations
 
 - **API-1 (#28):** Replace the local helper in `follow-pagination.ts` with the
-  shared pagination helper and move the response contracts in
-  `follow-list.types.ts` into shared-types. Adopt `@CurrentUser()` and the global
+  shared pagination helper. Adopt `@CurrentUser()` and the global
   API prefix when available, keeping existing URLs unchanged.
 - **Account (#29):** Include counts in the username profile response by reusing
   `getCounts(user.id)`. Counts currently appear on `/api/me` and `/api/users/:id`.

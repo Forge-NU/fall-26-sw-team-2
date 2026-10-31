@@ -79,7 +79,7 @@ loaded so far.
 ```tsx
 const users = useInfiniteList({
   queryKey: ['users'],
-  fetchPage: (cursor, signal) => apiGet<PaginatedResponse<UserResponse>>(
+  fetchPage: (cursor, signal) => apiGet<PaginatedResponse<UserSummary>>(
     '/api/users', { cursor, limit: 20 }, { signal },
   ),
 });

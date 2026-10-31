@@ -17,9 +17,10 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { UpdateMeDto } from './dto/update-me.dto';
 import { CreateProfileDto } from './dto/create-profile.dto';
 import { FollowsService } from '../follows/follows.service';
-import {
-  UserResponse,
+import type {
   PaginatedResponse,
+  UserResponse,
+  UserSummary,
   UsernameAvailabilityResponse,
 } from 'shared-types';
 import { PaginationDto } from '../common/decorators/pagination.dto';
@@ -127,7 +128,7 @@ export class UsersController {
   @UseGuards(ClerkAuthGuard)
   async listUsers(
     @Query() pagination: PaginationDto,
-  ): Promise<PaginatedResponse<UserResponse>> {
+  ): Promise<PaginatedResponse<UserSummary>> {
     const result = await this.usersService.listUsers(pagination);
 
     return {
