@@ -1,9 +1,9 @@
-import { UserResponse } from 'shared-types';
+import type { UserSummary } from 'shared-types';
 import { resolveAvatarUrl } from '../../common/avatar';
 import type { StorageService } from '../../storage/storage.service';
 
 /**
- * Maps a Prisma User entity to the UserResponse shape
+ * Maps a Prisma User entity to the UserSummary shape
  */
 export async function mapUserToResponse(
   storage: StorageService,
@@ -14,7 +14,7 @@ export async function mapUserToResponse(
     username: string | null;
     avatarUrl: string | null;
   },
-): Promise<UserResponse> {
+): Promise<UserSummary> {
   return {
     id: user.id,
     firstName: user.firstName,
