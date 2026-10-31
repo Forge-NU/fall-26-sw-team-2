@@ -104,6 +104,11 @@ export function toggleSave(target: SaveTarget, item: Pick<PostResponse | TripRes
   ).toggle(item.savedByMe);
 }
 
+/** Moves the post's commentCount everywhere it's on screen, after a comment is added or deleted. */
+export function adjustCommentCount(postId: string, delta: number) {
+  patch('post', postId, (item: PostResponse) => ({ ...item, commentCount: Math.max(0, item.commentCount + delta) }));
+}
+
 function setFollowing(userId: string, isFollowing: boolean) {
   for (const query of queryClient.getQueryCache().findAll({ predicate: (q) => isLikesKey(q.queryKey) })) {
     const data = query.state.data;
