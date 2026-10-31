@@ -115,7 +115,10 @@ function SavedPosts() {
       renderItem={({ item }) => (
         <PostCard
           post={item}
-          stats={postStats(item)}
+          stats={postStats(item, {
+            onCommentsPress: () =>
+              router.push({ pathname: '/saved/posts/[id]/comments', params: { id: item.id } }),
+          })}
           onLikesPress={() =>
             router.push({ pathname: '/saved/posts/[id]/likes', params: { id: item.id } })
           }

@@ -63,6 +63,8 @@ export type PostResponse = {
   media: MediaResponse[];
   likeCount: number;
   saveCount: number;
+  /** Every comment on the post, replies included */
+  commentCount: number;
   /** Whether the viewer has liked this post */
   likedByMe: boolean;
   /** Whether the viewer has saved this post */
@@ -90,4 +92,30 @@ export type PostLikerResponse = UserSummary & {
 export type SaveStatusResponse = {
   saved: boolean;
   saveCount: number;
+};
+
+// Comments (#50 INT-2). See docs/architecture/comments.md.
+
+/** A comment or reply. Used by POST /api/posts/:id/comments and the comment lists. */
+export type CommentResponse = {
+  id: string;
+  postId: string;
+  /** null for a top-level comment, else the top-level comment it's under */
+  parentCommentId: string | null;
+  author: UserSummary;
+  /** The @mention on a reply to a reply, or null */
+  replyTo: UserSummary | null;
+  /** 1 to 500 characters */
+  body: string;
+  /** Replies under a top-level comment. Always 0 for a reply. */
+  replyCount: number;
+  createdAt: string;
+};
+
+/** Body of POST /api/posts/:id/comments */
+export type CreateCommentRequest = {
+  /** 1 to 500 characters, after trimming */
+  body: string;
+  /** The comment being replied to. A reply to a reply goes under the same top-level comment. */
+  parentCommentId?: string;
 };

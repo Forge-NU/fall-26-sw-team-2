@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, type Ref } from 'react';
 import {
   Platform,
   StyleSheet,
   Text,
   TextInput,
   View,
+  type TextInputInstance,
   type TextInputProps,
   type StyleProp,
   type ViewStyle,
@@ -18,6 +19,8 @@ export type InputProps = TextInputProps & {
   disabled?: boolean;
   hint?: string;
   containerStyle?: StyleProp<ViewStyle>;
+  /** For focusing the field, e.g. when tapping Reply */
+  ref?: Ref<TextInputInstance>;
 };
 
 export function Input({
