@@ -2,8 +2,8 @@
 // Every row has a fixed ID and is upserted, so running this twice doesn't
 // duplicate anything. #45 (DEV-1) owns the seed script overall; this covers
 // the users the trips need plus the #3 tables (trips, posts, post_media,
-// locations), follow relationships for #10, stories (#23), and likes and
-// saves (#49).
+// locations), follow relationships for #10, stories (#23), likes and saves
+// (#49), and comments (#50).
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client';
@@ -408,6 +408,60 @@ const postSaves = [
   { userId: 'user_seed_maya', postId: posts[5].id },
 ];
 
+// Comments (#50 INT-2), on published trips. The first is a reply thread:
+// Priya comments, Maya replies, and Alex replies to Maya's reply, which the
+// API stores under Priya's comment with an @mention of Maya.
+type SeedComment = {
+  id: string;
+  postId: string;
+  authorId: string;
+  body: string;
+  parentCommentId?: string;
+  replyToUserId?: string;
+  createdAt: Date;
+};
+
+const comments: SeedComment[] = [
+  {
+    id: '00000000-0000-4000-d000-000000000001',
+    postId: posts[0].id,
+    authorId: 'user_seed_priya',
+    body: 'How long was the queue? Thinking of going in December.',
+    createdAt: new Date('2026-09-18T16:00:00Z'),
+  },
+  {
+    id: '00000000-0000-4000-d000-000000000002',
+    postId: posts[0].id,
+    authorId: 'user_seed_maya',
+    body: 'About 40 minutes at opening. Get there 15 minutes early!',
+    parentCommentId: '00000000-0000-4000-d000-000000000001',
+    createdAt: new Date('2026-09-18T16:20:00Z'),
+  },
+  {
+    id: '00000000-0000-4000-d000-000000000003',
+    postId: posts[0].id,
+    authorId: 'user_seed_alex',
+    body: 'Good tip, adding it to my list.',
+    parentCommentId: '00000000-0000-4000-d000-000000000001',
+    replyToUserId: 'user_seed_maya',
+    createdAt: new Date('2026-09-18T17:05:00Z'),
+  },
+  {
+    id: '00000000-0000-4000-d000-000000000004',
+    postId: posts[1].id,
+    authorId: 'user_seed_alex',
+    body: 'Six is the correct number.',
+    createdAt: new Date('2026-09-18T18:00:00Z'),
+  },
+  {
+    id: '00000000-0000-4000-d000-000000000005',
+    postId: posts[9].id,
+    authorId: 'user_seed_maya',
+    body: 'Tivoli at night is on my list now.',
+    createdAt: new Date('2026-09-28T12:00:00Z'),
+  },
+];
+
 async function main() {
   for (const user of users) {
     await prisma.user.upsert({
@@ -499,8 +553,22 @@ async function main() {
   await prisma.tripSave.createMany({ data: tripSaves, skipDuplicates: true });
   await prisma.postSave.createMany({ data: postSaves, skipDuplicates: true });
 
+  // In order, so each reply's parent is already there
+  for (const { id, ...comment } of comments) {
+    const data = {
+      ...comment,
+      parentCommentId: comment.parentCommentId ?? null,
+      replyToUserId: comment.replyToUserId ?? null,
+    };
+    await prisma.comment.upsert({
+      where: { id },
+      update: data,
+      create: { id, ...data },
+    });
+  }
+
   console.log(
-    `Seeded ${users.length} users, ${follows.length} follows, ${locations.length} locations, ${trips.length} trips, ${posts.length} posts, ${stories.length} stories, ${postLikes.length} likes, ${tripSaves.length + postSaves.length} saves`,
+    `Seeded ${users.length} users, ${follows.length} follows, ${locations.length} locations, ${trips.length} trips, ${posts.length} posts, ${stories.length} stories, ${postLikes.length} likes, ${tripSaves.length + postSaves.length} saves, ${comments.length} comments`,
   );
 }
 
