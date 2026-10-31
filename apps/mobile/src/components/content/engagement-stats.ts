@@ -2,8 +2,11 @@ import type { PostResponse, TripResponse } from "shared-types";
 import { toggleLike, toggleSave } from "@/lib/engagement";
 import type { Stat } from "./stat-row";
 
-/** Like and save buttons with their counts, for PostCard and post detail. */
-export function postStats(post: PostResponse): Stat[] {
+/**
+ * Like, comment and save buttons with their counts, for PostCard and post
+ * detail. Without `onCommentsPress` the comment count isn't shown.
+ */
+export function postStats(post: PostResponse, { onCommentsPress }: { onCommentsPress?: () => void } = {}): Stat[] {
   return [
     {
       key: "likes",
@@ -13,6 +16,17 @@ export function postStats(post: PostResponse): Stat[] {
       selected: post.likedByMe,
       onPress: () => toggleLike(post),
     },
+    ...(onCommentsPress
+      ? [
+          {
+            key: "comments",
+            label: "comments",
+            icon: "message-circle",
+            count: post.commentCount,
+            onPress: onCommentsPress,
+          } satisfies Stat,
+        ]
+      : []),
     {
       key: "saves",
       label: "saves",
