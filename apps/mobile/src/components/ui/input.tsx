@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 
 import { InputTokens } from '@/constants/input-tokens';
+import { Spacing } from '@/constants/theme';
 
 export type InputProps = TextInputProps & {
   label?: string;
@@ -97,7 +98,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   field: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.two,
     borderRadius: InputTokens.borderRadius,
     paddingHorizontal: InputTokens.paddingHorizontal,
   },

@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { Palette, Radii } from '@/constants/theme';
+import { Palette, Radii, Spacing } from '@/constants/theme';
 
 type ToggleProps = {
   value: boolean;
@@ -28,7 +28,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 22,
     borderRadius: Radii.circle,
-    padding: 2,
+    padding: Spacing.half,
     justifyContent: 'center',
   },
   trackOn: {

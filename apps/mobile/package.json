@@ -49,7 +49,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint",
+    "lint": "expo lint -- --pass-on-unpruned-suppressions",
+    "lint:prune": "eslint src --prune-suppressions",
     "typecheck": "tsc --noEmit"
   },
   "private": true

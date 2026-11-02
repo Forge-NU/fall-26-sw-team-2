@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/ui/app-text';
 import { Icon } from '@/components/icon';
-import { Palette, Radii, Spacing } from '@/constants/theme';
+import { Palette, Radii, Spacing, Theme } from '@/constants/theme';
 
 type BottomSheetProps = {
   visible: boolean;
@@ -74,13 +74,13 @@ const styles = StyleSheet.create({
   },
   scrim: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: `${Palette.black}59`,
+    backgroundColor: Theme.colors.scrim,
   },
   sheet: {
     backgroundColor: Palette.warmWhite,
     borderTopLeftRadius: Radii.pill,
     borderTopRightRadius: Radii.pill,
-    paddingTop: 10,
+    paddingTop: Spacing.two,
     paddingHorizontal: Spacing.three,
   },
   handleRow: {
@@ -95,11 +95,11 @@ const styles = StyleSheet.create({
   heading: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: Spacing.two,
   },
   headingText: {
     flex: 1,
-    gap: 5,
+    gap: Spacing.one,
   },
   close: {
     minWidth: 32,
