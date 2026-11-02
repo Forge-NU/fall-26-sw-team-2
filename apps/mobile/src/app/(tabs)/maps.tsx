@@ -1,1 +1,1 @@
-export { default } from '@/features/explore/ExploreScreen';
+export { default } from '@/components/explore/explore-screen';

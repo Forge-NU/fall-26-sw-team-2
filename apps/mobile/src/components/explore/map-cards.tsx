@@ -2,8 +2,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, radius, shadow } from '../theme';
-import type { AroundItem } from '../useExplore';
+import { colors, radius, shadow } from '@/components/explore/explore-theme';
+import type { AroundItem } from '@/hooks/use-explore';
 
 interface AroundProps {
   title: string;

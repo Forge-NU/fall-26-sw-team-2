@@ -1,9 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { logWeight, nearest, zoomLevelFor } from './geo';
-import { aggregate } from './stats';
-import { AREA_BY_ID, AREAS, COUNTRIES, COUNTRY_BY_ID, PLACES } from './mockData';
-import { formatCount } from './theme';
+import { aggregate } from '@/components/explore/explore-stats';
+import { formatCount } from '@/components/explore/explore-theme';
+import { AREA_BY_ID, AREAS, COUNTRIES, COUNTRY_BY_ID, PLACES } from '@/components/explore/mock-data';
 import type {
   Audience,
   CategoryFilter,
@@ -14,12 +13,8 @@ import type {
   SearchResult,
   Stats,
   ZoomLevel,
-} from './types';
-
-interface Region extends LatLng {
-  latitudeDelta: number;
-  longitudeDelta: number;
-}
+} from '@/components/explore/types';
+import { logWeight, type MapRegion as Region, nearest, zoomLevelFor } from '@/lib/map-zoom';
 
 export interface AroundItem {
   key: string;
@@ -33,17 +28,22 @@ const normalize = (str: string) =>
 
 const KIND_ORDER: Record<ResultKind, number> = { destination: 0, place: 1, activity: 2 };
 
+/** "1 friend", "3 friends", "1.2k travelers" */
+const count = (n: number, one: string, many = `${one}s`) => `${formatCount(n)} ${n === 1 ? one : many}`;
+
 function statsLine(kind: ResultKind, st: Stats, audience: Audience) {
   if (audience === 'me') return st.logs > 0 ? `${st.logs} of your logs` : 'You haven’t logged this yet';
-  if (audience === 'global') return `${formatCount(st.logs)} logs · ${formatCount(st.people)} travelers`;
+  if (audience === 'global') return `${count(st.logs, 'log')} · ${count(st.people, 'traveler')}`;
   const verb = kind === 'activity' ? 'tried this' : st.people === 1 ? 'has been' : 'have been';
-  return `${st.logs} logs · ${st.people} ${st.people === 1 ? 'friend' : 'friends'} ${verb}`;
+  return `${count(st.logs, 'log')} · ${count(st.people, 'friend')} ${verb}`;
 }
 
 export function aroundSubtitle(audience: Audience, st: Stats) {
-  if (audience === 'me') return st.logs > 0 ? `${st.logs} travel logs from you` : 'You haven’t logged anything here yet';
-  if (audience === 'friends') return `${st.logs} travel logs from ${st.people} friends`;
-  return `${formatCount(st.logs)} travel logs from ${formatCount(st.people)} travelers`;
+  if (audience === 'me') {
+    return st.logs > 0 ? `${count(st.logs, 'travel log')} from you` : 'You haven’t logged anything here yet';
+  }
+  if (audience === 'friends') return `${count(st.logs, 'travel log')} from ${count(st.people, 'friend')}`;
+  return `${count(st.logs, 'travel log')} from ${count(st.people, 'traveler')}`;
 }
 
 export function useExplore(initialRegion: Region) {
@@ -183,7 +183,6 @@ export function useExplore(initialRegion: Region) {
   const selectedArea = selected ? AREA_BY_ID[selected.areaId] : null;
 
   return {
-    level: view.level,
     onRegionChange,
     query, setQuery,
     audience, setAudience,

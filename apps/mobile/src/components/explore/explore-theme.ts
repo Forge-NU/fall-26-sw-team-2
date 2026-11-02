@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 
-// Palette taken from the Explore wireframes (docs/design/map-wireframes.pdf).
+// Palette taken from the Search and Map wireframes in Figma (linked from #44).
 export const colors = {
   forest: '#24413B', // active toggles, headings, primary dark buttons
   coral: '#F47A68', // brand accent: Post, Log a visit, active chip

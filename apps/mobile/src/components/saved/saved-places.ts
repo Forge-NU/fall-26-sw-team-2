@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 
-import type { Place } from '../explore/types';
+import type { Place } from '@/components/explore/types';
 
 // Shared list of saved places, used by the Maps tab and the Saved tab.
 // Lives in memory for now, so it clears when the app reloads. Swap this for

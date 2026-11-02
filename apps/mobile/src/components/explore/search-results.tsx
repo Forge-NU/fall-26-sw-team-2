@@ -1,8 +1,8 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { colors, radius } from '../theme';
-import type { KindFilter, ResultKind, SearchResult } from '../types';
+import { colors, radius } from '@/components/explore/explore-theme';
+import type { KindFilter, ResultKind, SearchResult } from '@/components/explore/types';
 
 const FILTERS: { value: KindFilter; label: string }[] = [
   { value: 'all', label: 'All' },

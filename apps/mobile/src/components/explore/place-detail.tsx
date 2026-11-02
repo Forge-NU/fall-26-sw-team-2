@@ -2,16 +2,15 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { colors, formatCount, radius } from '../theme';
-import type { Area, Audience, Person, Place, Stats } from '../types';
-import { Avatar } from './Avatar';
+import { colors, formatCount, radius } from '@/components/explore/explore-theme';
+import type { Area, Audience, Place, Stats } from '@/components/explore/types';
+import { Avatar } from '@/components/ui/avatar';
 
 interface BodyProps {
   place: Place;
   area: Area;
   audience: Audience;
   onClose: () => void;
-  onViewTrip: (person: Person) => void;
 }
 
 /** Splits an average into whole-star counts that add up to `reviews`, 5 stars first. */
@@ -35,7 +34,7 @@ const RATINGS_LABEL: Record<Audience, (n: number) => string> = {
   global: (n) => `${formatCount(n)} ratings`,
 };
 
-export function PlaceDetailBody({ place, area, audience, onClose, onViewTrip }: BodyProps) {
+export function PlaceDetailBody({ place, area, audience, onClose }: BodyProps) {
   const [sortBy, setSortBy] = useState<'saves' | 'reviews'>('saves');
 
   const own = place.stats[audience];
@@ -45,8 +44,11 @@ export function PlaceDetailBody({ place, area, audience, onClose, onViewTrip }: 
   const people = [...place.people].sort((a, b) => b[sortBy] - a[sortBy]);
   const friendCount = place.stats.friends.people;
   const named = place.friendNames.slice(0, 2);
+  const others = friendCount - named.length;
   const visitedLine =
-    friendCount > named.length ? `${named.join(', ')} + ${friendCount - named.length} friends visited` : `${named.join(' and ')} visited`;
+    others > 0
+      ? `${named.join(', ')} + ${others} ${others === 1 ? 'friend' : 'friends'} visited`
+      : `${named.join(' and ')} visited`;
 
   return (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -132,7 +134,7 @@ export function PlaceDetailBody({ place, area, audience, onClose, onViewTrip }: 
           <View style={styles.people}>
             {people.map((pr) => (
               <View key={pr.id} style={styles.person}>
-                <Avatar id={pr.id} name={pr.name} size={44} />
+                <Avatar name={pr.name} size="medium" />
                 <View style={styles.personText}>
                   <View style={styles.personTop}>
                     <Text style={styles.personName}>{pr.name}</Text>
@@ -144,9 +146,7 @@ export function PlaceDetailBody({ place, area, audience, onClose, onViewTrip }: 
                     {pr.trip.location} · {pr.trip.title}
                   </Text>
                 </View>
-                <Pressable style={styles.viewTrip} onPress={() => onViewTrip(pr)}>
-                  <Text style={styles.viewTripText}>View trip ›</Text>
-                </Pressable>
+                {/* "View trip ›" comes back with MAP-3 (#47), once people and trips are real */}
               </View>
             ))}
           </View>
@@ -258,16 +258,6 @@ const styles = StyleSheet.create({
   personName: { fontSize: 17, fontWeight: '700', color: colors.forest },
   personStats: { fontSize: 14, color: colors.forest },
   personTrip: { fontSize: 14, color: colors.textMuted },
-  viewTrip: {
-    paddingHorizontal: 14,
-    height: 38,
-    justifyContent: 'center',
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.surface,
-  },
-  viewTripText: { fontSize: 14, fontWeight: '600', color: colors.forest },
   quote: { fontSize: 15, color: colors.text, lineHeight: 21 },
   visited: { fontSize: 13, color: colors.textMuted, marginTop: -6 },
   actions: { flexDirection: 'row', gap: 12 },

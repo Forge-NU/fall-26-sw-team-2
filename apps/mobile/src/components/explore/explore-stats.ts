@@ -1,4 +1,4 @@
-import type { Audience, Place, Stats } from './types';
+import type { Audience, Place, Stats } from '@/components/explore/types';
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 

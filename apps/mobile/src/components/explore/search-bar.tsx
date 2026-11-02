@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { colors, radius, shadow } from '../theme';
+import { colors, radius, shadow } from '@/components/explore/explore-theme';
 
 interface Props {
   value: string;

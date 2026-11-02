@@ -2,8 +2,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, radius, shadow } from '../theme';
-import type { CategoryFilter } from '../types';
+import { colors, radius, shadow } from '@/components/explore/explore-theme';
+import type { CategoryFilter } from '@/components/explore/types';
 
 const OPTIONS: { value: CategoryFilter; label: string }[] = [
   { value: 'all', label: 'All categories' },

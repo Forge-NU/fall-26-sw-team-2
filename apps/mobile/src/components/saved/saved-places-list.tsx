@@ -1,11 +1,12 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { AREA_BY_ID } from '../explore/mockData';
-import { colors, radius } from '../explore/theme';
-import { savedPlaces, useSavedPlaces } from './savedPlaces';
+import { AREA_BY_ID } from '@/components/explore/mock-data';
+import { colors, radius } from '@/components/explore/explore-theme';
+import { savedPlaces, useSavedPlaces } from '@/components/saved/saved-places';
+import { EmptyState } from '@/components/ui/empty-state';
 
-/** List of places saved from the Maps tab. Drop it into the Saved screen. */
+/** List of places saved from the Maps tab. */
 export function SavedPlacesList() {
   const places = useSavedPlaces();
 
@@ -15,11 +16,11 @@ export function SavedPlacesList() {
       keyExtractor={(p) => p.id}
       contentContainerStyle={places.length === 0 ? styles.emptyWrap : styles.list}
       ListEmptyComponent={
-        <View style={styles.empty}>
-          <MaterialCommunityIcons name="bookmark-outline" size={36} color={colors.textFaint} />
-          <Text style={styles.emptyTitle}>No saved places yet</Text>
-          <Text style={styles.emptyBody}>Tap Save place on any spot in Maps and it shows up here.</Text>
-        </View>
+        <EmptyState
+          icon="bookmark-outline"
+          title="No saved places yet"
+          description="Tap Save place on any spot in Maps and it shows up here."
+        />
       }
       renderItem={({ item }) => (
         <View style={styles.row}>
@@ -53,10 +54,7 @@ export function SavedPlacesList() {
 
 const styles = StyleSheet.create({
   list: { padding: 16, gap: 10 },
-  emptyWrap: { flexGrow: 1, justifyContent: 'center', padding: 32 },
-  empty: { alignItems: 'center', gap: 8 },
-  emptyTitle: { fontSize: 17, fontWeight: '600', color: colors.text },
-  emptyBody: { fontSize: 15, color: colors.textMuted, textAlign: 'center', lineHeight: 21 },
+  emptyWrap: { flexGrow: 1, justifyContent: 'center', alignItems: 'center' },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

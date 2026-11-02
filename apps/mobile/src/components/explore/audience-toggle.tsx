@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, radius, shadow } from '../theme';
-import type { Audience } from '../types';
+import { colors, radius, shadow } from '@/components/explore/explore-theme';
+import type { Audience } from '@/components/explore/types';
 
 const OPTIONS: { value: Audience; label: string }[] = [
   { value: 'me', label: 'Me' },

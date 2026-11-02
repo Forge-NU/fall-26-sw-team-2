@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Animated, Pressable, StyleSheet, View } from 'react-native';
 
-import { colors, radius, shadow } from '../theme';
+import { colors, radius, shadow } from '@/components/explore/explore-theme';
 
 interface Props {
   bottom: number;

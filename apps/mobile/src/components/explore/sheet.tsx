@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, PanResponder, StyleSheet, View } from 'react-native';
 
-import { colors, radius, shadow } from '../theme';
+import { colors, radius, shadow } from '@/components/explore/explore-theme';
 
 interface Props {
   /** Owned by the screen so map controls can move with the sheet. */
@@ -44,6 +44,8 @@ export function Sheet({ height, snapPoints, snapIndex, contentKey, onDismiss, fo
   }, [contentKey, target, height]);
 
   // Drag the handle to resize, flick down to close, tap to toggle half/full.
+  // The handlers read the refs only during a drag, never while rendering.
+  // eslint-disable-next-line react-hooks/refs
   const [pan] = useState(() =>
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,

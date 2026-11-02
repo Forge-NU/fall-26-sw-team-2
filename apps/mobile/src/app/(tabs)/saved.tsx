@@ -1,1 +1,1 @@
-export { default } from '@/features/saved/SavedScreen';
+export { default } from '@/components/saved/saved-screen';

@@ -1,40 +1,40 @@
 import * as Location from 'expo-location';
+import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { type Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { savedPlaces, useSavedPlaces } from '../saved/savedPlaces';
-import { AudienceToggle } from './components/AudienceToggle';
-import { FiltersMenu } from './components/FiltersMenu';
-import { AroundCard } from './components/MapCards';
-import { MapControls } from './components/MapControls';
-import { PlaceActions, PlaceDetailBody } from './components/PlaceDetail';
-import { RatingPin } from './components/RatingPin';
-import { SearchBar } from './components/SearchBar';
-import { SearchResults } from './components/SearchResults';
-import { Sheet } from './components/Sheet';
-import { mapStyle } from './mapStyle';
-import { LISBON_REGION } from './mockData';
-import { colors, formatCount, radius, shadow } from './theme';
-import type { LatLng, Person, PinItem, Place, SearchResult } from './types';
-import { useExplore } from './useExplore';
-
-interface Props {
-  /** Open the Post flow prefilled with this place. */
-  onLogVisit?: (place: Place) => void;
-  /** Open another person's trip. */
-  onViewTrip?: (person: Person) => void;
-}
+import { savedPlaces, useSavedPlaces } from '@/components/saved/saved-places';
+import { AudienceToggle } from '@/components/explore/audience-toggle';
+import { FiltersMenu } from '@/components/explore/filters-menu';
+import { AroundCard } from '@/components/explore/map-cards';
+import { MapControls } from '@/components/explore/map-controls';
+import { PlaceActions, PlaceDetailBody } from '@/components/explore/place-detail';
+import { RatingPin } from '@/components/explore/rating-pin';
+import { SearchBar } from '@/components/explore/search-bar';
+import { SearchResults } from '@/components/explore/search-results';
+import { Sheet } from '@/components/explore/sheet';
+import { mapStyle } from '@/components/explore/map-style';
+import { LISBON_REGION } from '@/components/explore/mock-data';
+import { colors, formatCount, radius, shadow } from '@/components/explore/explore-theme';
+import type { LatLng, PinItem, Place, SearchResult } from '@/components/explore/types';
+import { useToast } from '@/components/ui/toast-provider';
+import { useExplore } from '@/hooks/use-explore';
+import { regionFor, zoomRegion } from '@/lib/map-zoom';
 
 const SEARCH_BAR_HEIGHT = 56;
 
-export default function ExploreScreen({ onLogVisit, onViewTrip }: Props) {
+export default function ExploreScreen() {
   const insets = useSafeAreaInsets();
+  const { showToast } = useToast();
   const mapRef = useRef<MapView>(null);
-  const regionRef = useRef<Region>(LISBON_REGION);
+  // Where the map is heading: set when we animate it, and reset to the real region
+  // once it settles, so taps made mid-animation build on the region it's going to.
+  const targetRegionRef = useRef<Region>(LISBON_REGION);
   const [sheetHeight] = useState(() => new Animated.Value(0));
   const [screenH, setScreenH] = useState(700);
+  const [screenW, setScreenW] = useState(390);
   const [idleStackH, setIdleStackH] = useState(0);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
@@ -76,17 +76,19 @@ export default function ExploreScreen({ onLogVisit, onViewTrip }: Props) {
     extrapolate: 'clamp',
   });
 
-  const flyTo = useCallback((c: LatLng, delta: number, leaveRoomForSheet = false) => {
-    mapRef.current?.animateToRegion(
-      {
-        latitude: c.latitude - (leaveRoomForSheet ? delta * 0.22 : 0),
-        longitude: c.longitude,
-        latitudeDelta: delta,
-        longitudeDelta: delta,
-      },
-      450,
-    );
+  const animateTo = useCallback((region: Region, duration: number) => {
+    targetRegionRef.current = region;
+    mapRef.current?.animateToRegion(region, duration);
   }, []);
+
+  const aspect = screenW / screenH;
+  const flyTo = useCallback(
+    (c: LatLng, delta: number, leaveRoomForSheet = false) => {
+      const center = { latitude: c.latitude - (leaveRoomForSheet ? delta * 0.22 : 0), longitude: c.longitude };
+      animateTo(regionFor(center, delta, aspect), 450);
+    },
+    [animateTo, aspect],
+  );
 
   const selectPlace = useCallback(
     (place: Place) => {
@@ -117,27 +119,23 @@ export default function ExploreScreen({ onLogVisit, onViewTrip }: Props) {
     flyTo(r.target.area.coordinate, 0.06);
   };
 
-  const zoomBy = (factor: number) => {
-    const r = regionRef.current;
-    mapRef.current?.animateToRegion(
-      {
-        ...r,
-        latitudeDelta: Math.min(150, Math.max(0.002, r.latitudeDelta * factor)),
-        longitudeDelta: Math.min(300, Math.max(0.002, r.longitudeDelta * factor)),
-      },
-      250,
-    );
-  };
+  const zoomBy = (factor: number) => animateTo(zoomRegion(targetRegionRef.current, factor), 250);
 
   const locate = async () => {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      mapRef.current?.animateToRegion(LISBON_REGION, 450);
-      return;
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        animateTo(LISBON_REGION, 450);
+        showToast({ message: 'Allow location access in Settings to see where you are.', variant: 'error' });
+        return;
+      }
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      setLocationOn(true);
+      flyTo(pos.coords, 0.02);
+    } catch {
+      // Location Services off, or the position request failed or timed out
+      showToast({ message: 'Couldn’t find your location. Check that Location Services is on.', variant: 'error' });
     }
-    setLocationOn(true);
-    const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-    flyTo(pos.coords, 0.02);
   };
 
   const calloutLine = (pin: PinItem) => {
@@ -149,7 +147,13 @@ export default function ExploreScreen({ onLogVisit, onViewTrip }: Props) {
   const selected = ex.selected;
 
   return (
-    <View style={styles.root} onLayout={(e) => setScreenH(e.nativeEvent.layout.height)}>
+    <View
+      style={styles.root}
+      onLayout={(e) => {
+        setScreenH(e.nativeEvent.layout.height);
+        setScreenW(e.nativeEvent.layout.width);
+      }}
+    >
       <MapView
         ref={mapRef}
         style={StyleSheet.absoluteFill}
@@ -158,11 +162,11 @@ export default function ExploreScreen({ onLogVisit, onViewTrip }: Props) {
         mapType={Platform.OS === 'ios' ? 'mutedStandard' : 'standard'}
         showsUserLocation={locationOn}
         showsMyLocationButton={false}
-        showsPointsOfInterest={false}
+        showsPointsOfInterests={false}
         showsCompass={false}
         toolbarEnabled={false}
         onRegionChangeComplete={(r) => {
-          regionRef.current = r;
+          targetRegionRef.current = r;
           onRegionChange(r);
         }}
         onPress={(e) => {
@@ -223,7 +227,8 @@ export default function ExploreScreen({ onLogVisit, onViewTrip }: Props) {
             selected ? (
               <PlaceActions
                 saved={saved.some((p) => p.id === selected.id)}
-                onLogVisit={() => onLogVisit?.(selected)}
+                // The composer can't take a place yet, so this opens it empty
+                onLogVisit={() => router.push('/posts/new')}
                 onToggleSave={() => savedPlaces.toggle(selected)}
               />
             ) : undefined
@@ -235,7 +240,6 @@ export default function ExploreScreen({ onLogVisit, onViewTrip }: Props) {
               area={ex.selectedArea}
               audience={ex.audience}
               onClose={() => setSelectedId(null)}
-              onViewTrip={(pr) => onViewTrip?.(pr)}
             />
           ) : (
             <SearchResults

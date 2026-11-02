@@ -3,8 +3,8 @@ import { memo, useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Marker } from 'react-native-maps';
 
-import { colors, formatCount } from '../theme';
-import type { PinItem } from '../types';
+import { colors, formatCount } from '@/components/explore/explore-theme';
+import type { PinItem } from '@/components/explore/types';
 
 interface Props {
   item: PinItem;

@@ -1,6 +1,6 @@
-import type { Area, Country, Person, Place, Stats, StatsByAudience } from './types';
+import type { Area, Country, Person, Place, Stats, StatsByAudience } from '@/components/explore/types';
 
-// Temporary data until the API is ready. See docs/design/explore.md for the endpoints.
+// Temporary data until the map endpoints exist (MAP-2, #46).
 
 const NONE: Stats = { rating: 0, reviews: 0, logs: 0, people: 0 };
 const s = (rating: number, reviews: number, logs: number, people: number): Stats => ({
@@ -25,9 +25,9 @@ export const LISBON_REGION = {
 export const COUNTRIES: Country[] = [
   { id: 'pt', name: 'Portugal', coordinate: { latitude: 39.6, longitude: -8.0 }, zoomDelta: 6 },
   { id: 'jp', name: 'Japan', coordinate: { latitude: 36.2, longitude: 138.25 }, zoomDelta: 10 },
-  { id: 'ca', name: 'Canada', coordinate: { latitude: 56.1, longitude: -106.3 }, zoomDelta: 30 },
-  { id: 'br', name: 'Brazil', coordinate: { latitude: -14.2, longitude: -51.9 }, zoomDelta: 30 },
-  { id: 'au', name: 'Australia', coordinate: { latitude: -25.3, longitude: 133.8 }, zoomDelta: 30 },
+  { id: 'ca', name: 'Canada', coordinate: { latitude: 56.1, longitude: -106.3 }, zoomDelta: 20 },
+  { id: 'br', name: 'Brazil', coordinate: { latitude: -14.2, longitude: -51.9 }, zoomDelta: 20 },
+  { id: 'au', name: 'Australia', coordinate: { latitude: -25.3, longitude: 133.8 }, zoomDelta: 20 },
 ];
 
 export const AREAS: Area[] = [
