@@ -18,8 +18,10 @@ Versions live in git tags (`v0.0.1`, `v0.0.2`, …). Nothing is committed to bum
   `gh pr edit <number> --add-label release:patch`.
 - While a PR is open, the **Release** section of its description shows the version it
   will release. It's worked out again at merge time, in case other PRs merge first.
-- On merge, the `Release` workflow tags the merge commit and publishes a GitHub release
-  with generated notes, then comments the release link on the PR.
+- When the merge lands on `main`, the `Release` workflow tags that commit, reads the
+  label from the PR it came from, publishes a GitHub release with generated notes, and
+  comments the release link on the PR. Commits pushed to `main` without a PR aren't
+  released.
 
 The workflows are `.github/workflows/pr-version.yml` and `release.yml`. The version
 logic is `.github/scripts/next-version.mjs`, which has tests next to it.
@@ -27,7 +29,7 @@ logic is `.github/scripts/next-version.mjs`, which has tests next to it.
 ## App previews
 
 `.github/workflows/app-preview.yml` runs on every PR that changes `apps/mobile/`,
-drafts included, and adds two sections to the PR description:
+`apps/shared-types/` or the root `package-lock.json`, drafts included, and adds two sections to the PR description:
 
 - **Expo Go preview:** the PR's JavaScript is published as an EAS Update on its own
   branch (`pr-<number>`), with a QR code. Install [Expo Go](https://expo.dev/go) and

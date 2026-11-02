@@ -1,14 +1,13 @@
 name: Release
 
-# Tags and publishes a GitHub release for every PR merged into main.
-# pull_request_target runs this workflow from main with a write token. That's safe
-# here because nothing from the PR is checked out or run.
+# Tags and publishes a GitHub release for every PR merged into main. It runs on the
+# push to main, so it tags exactly the commit that landed, then looks up the PR that
+# commit came from to read its release label.
 on:
-  pull_request_target:
+  push:
     branches: [main]
-    types: [closed]
 
-# One release at a time, so two quick merges don't claim the same version.
+# One release at a time, in push order, so two quick merges don't claim the same version.
 concurrency:
   group: release
   cancel-in-progress: false
@@ -19,31 +18,69 @@ permissions:
 
 jobs:
   release:
-    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # tags, to find the latest version
 
+      - name: Find the merged PR
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
+          SUBJECT: ${{ github.event.head_commit.message }}
+        run: |
+          # GitHub can take a few seconds to link a new commit to its PR, so retry.
+          for attempt in 1 2 3 4 5 6; do
+            pr=$(gh api "repos/$REPO/commits/$SHA/pulls" \
+              --jq '[.[] | select(.merged_at != null and .base.ref == "main")][0] // empty')
+            [ -n "$pr" ] && break
+            sleep 10
+          done
+
+          if [ -z "$pr" ]; then
+            # Squash merges end their subject with "(#123)". A commit that looks like
+            # one but has no PR is a real problem; anything else was pushed directly.
+            if head -n1 <<<"$SUBJECT" | grep -qE '\(#[0-9]+\)$'; then
+              echo "::error::Couldn't find the PR for $SHA, so it wasn't released."
+              exit 1
+            fi
+            echo "::notice::$SHA wasn't merged from a PR, so there's no release."
+            exit 0
+          fi
+
+          labels=$(jq -r '[.labels[].name] | join(" ")' <<<"$pr")
+          case " $labels " in
+            *" release:major "*) bump=major ;;
+            *" release:minor "*) bump=minor ;;
+            *) bump=patch ;;
+          esac
+          echo "number=$(jq -r .number <<<"$pr")" >> "$GITHUB_OUTPUT"
+          echo "bump=$bump" >> "$GITHUB_OUTPUT"
+
       - name: Setup Node
+        if: steps.pr.outputs.number
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
 
       - name: Work out the version
+        if: steps.pr.outputs.number
         id: next
         env:
-          BUMP: ${{ contains(github.event.pull_request.labels.*.name, 'release:major') && 'major' || contains(github.event.pull_request.labels.*.name, 'release:minor') && 'minor' || 'patch' }}
+          BUMP: ${{ steps.pr.outputs.bump }}
         run: echo "version=$(node .github/scripts/next-version.mjs)" >> "$GITHUB_OUTPUT"
 
       - name: Tag and publish the release
+        if: steps.pr.outputs.number
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.next.outputs.version }}
-          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
-          PR: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.sha }}
+          PR: ${{ steps.pr.outputs.number }}
           REPO: ${{ github.repository }}
         run: |
-          gh release create "v$VERSION" --target "$MERGE_SHA" --title "v$VERSION" --generate-notes
+          gh release create "v$VERSION" --target "$SHA" --title "v$VERSION" --generate-notes
           gh pr comment "$PR" --body "Released as [v$VERSION](https://github.com/$REPO/releases/tag/v$VERSION)."
