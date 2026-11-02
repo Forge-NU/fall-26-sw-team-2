@@ -1,6 +1,6 @@
 import { Alert } from 'react-native';
 
-import { TripChooserSheet } from '@/components/trip-chooser-sheet';
+import { TripChooserSheet, type ChooserTrip } from '@/components/trip-chooser-sheet';
 import { useToast } from '@/components/ui/toast-provider';
 import { UnpublishedTrips, type ActiveTrip } from '@/data/mock';
 import { isWithin, toIsoDate } from '@/utils/dates';
@@ -13,7 +13,16 @@ type AddToTripSheetProps = {
   onClose: () => void;
 };
 
-function tripStatus(trip: ActiveTrip) {
+// Mock trips until this sheet loads real ones
+const chooserTrips: ChooserTrip[] = UnpublishedTrips.map((trip) => ({
+  id: trip.id,
+  title: trip.title,
+  startDate: trip.startDate,
+  endDate: trip.endDate,
+  status: trip.status === 'Published' ? 'published' : 'draft',
+}));
+
+function tripStatus(trip: ChooserTrip) {
   const today = toIsoDate(new Date());
   if (isWithin(today, trip.startDate, trip.endDate)) return 'In progress';
   return today < trip.startDate ? 'Upcoming' : 'Ended';
@@ -27,7 +36,7 @@ export function AddToTripSheet({ visible, placeCount, onAdded, onClose }: AddToT
     <TripChooserSheet
       visible={visible}
       title="Add to a trip"
-      trips={UnpublishedTrips}
+      trips={chooserTrips}
       selectedId={null}
       describe={tripStatus}
       onSelect={(tripId) => {
