@@ -1,3 +1,4 @@
+import { PATH_METADATA } from '@nestjs/common/constants';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ResolveLocationDto } from './dto/resolve-location.dto';
 import { LocationsController } from './locations.controller';
@@ -28,6 +29,13 @@ describe('LocationsController', () => {
 
   it('should be defined', () => {
     expect(controller).toBeDefined();
+  });
+
+  // The global 'api' prefix comes from main.ts, so the path must not repeat it (#87)
+  it('is mounted at locations', () => {
+    expect(Reflect.getMetadata(PATH_METADATA, LocationsController)).toBe(
+      'locations',
+    );
   });
 
   describe('resolve', () => {

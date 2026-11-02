@@ -115,6 +115,7 @@ describe('Follow HTTP routes', () => {
       ],
     }).compile();
     app = module.createNestApplication();
+    app.setGlobalPrefix('api');
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,
@@ -222,6 +223,14 @@ describe('Follow HTTP routes', () => {
       .auth('test-viewer', { type: 'bearer' })
       .expect(400);
     expect(prisma.user.findMany).not.toHaveBeenCalled();
+  });
+
+  // #87: the controller once hardcoded 'api/users' on top of the global prefix
+  it('is not served under the doubled /api/api prefix', async () => {
+    await request(app.getHttpServer())
+      .post('/api/api/users/target/follow')
+      .auth('test-viewer', { type: 'bearer' })
+      .expect(404);
   });
 
   it('rejects self-follow with 400', async () => {
