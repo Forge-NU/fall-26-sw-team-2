@@ -10,6 +10,8 @@ on:
     types: [opened, synchronize, reopened]
     paths:
       - 'apps/mobile/**'
+      - 'apps/shared-types/**'
+      - 'package-lock.json'
 
 # A newer push to the same PR cancels the previews in progress.
 concurrency:
@@ -55,7 +57,6 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: 'npm'
-          cache-dependency-path: apps/mobile/package-lock.json
 
       - name: Setup EAS
         uses: expo/expo-github-action@v9
@@ -63,8 +64,8 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
+      # npm workspaces: one lockfile at the root installs every app.
       - name: Install dependencies
-        working-directory: apps/mobile
         run: npm ci
 
       - name: Publish the update
@@ -113,7 +114,6 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: 'npm'
-          cache-dependency-path: apps/mobile/package-lock.json
 
       - name: Setup EAS
         uses: expo/expo-github-action@v9
@@ -121,8 +121,8 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
+      # npm workspaces: one lockfile at the root installs every app.
       - name: Install dependencies
-        working-directory: apps/mobile
         run: npm ci
 
       # Writes the EAS "preview" environment variables (e.g. EXPO_PUBLIC_API_URL) to

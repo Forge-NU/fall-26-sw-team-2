@@ -1,5 +1,5 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { DefaultTheme, ThemeProvider } from "expo-router";
+import { DefaultTheme, Stack, ThemeProvider } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
 import { useEffect } from "react";
@@ -14,7 +14,6 @@ import {
 import { BarlowCondensed_600SemiBold } from "@expo-google-fonts/barlow-condensed";
 
 import { AnimatedSplashOverlay } from "@/components/animated-icon";
-import AppTabs from "@/components/app-tabs";
 import { AuthGate } from "@/components/auth-gate";
 import { queryClient } from "@/lib/query-client";
 
@@ -63,7 +62,12 @@ export default function TabLayout() {
         <ToastProvider>
           <AnimatedSplashOverlay />
           <AuthGate>
-            <AppTabs />
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="trips/new" options={{ presentation: "modal" }} />
+              <Stack.Screen name="trips/[id]/edit" options={{ presentation: "modal" }} />
+              <Stack.Screen name="posts/new" options={{ presentation: "modal" }} />
+            </Stack>
           </AuthGate>
         </ToastProvider>
       </ThemeProvider>
