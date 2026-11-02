@@ -17,7 +17,9 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config ./test/jest-e2e.json --runInBand"
+    "test:e2e": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config ./test/jest-e2e.json --runInBand",
+    "stories:cleanup": "node dist/stories/cleanup.main",
+    "stories:cleanup:dev": "ts-node -r dotenv/config src/stories/cleanup.main.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1151.0",

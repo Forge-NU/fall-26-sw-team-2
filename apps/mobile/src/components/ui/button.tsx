@@ -8,6 +8,7 @@ import {
 } from "react-native";
 
 import { ButtonTokens } from "@/constants/button-tokens";
+import { Spacing, Typography } from "@/constants/theme";
 
 export type ButtonProps = Omit<PressableProps, 'children'> & {
   title: string;
@@ -15,6 +16,7 @@ export type ButtonProps = Omit<PressableProps, 'children'> & {
   variant?: "coral" | "teal";
   disabled?: boolean;
   loading?: boolean;
+  size?: "default" | "compact";
 };
 
 export function Button({
@@ -23,6 +25,7 @@ export function Button({
   variant = "coral",
   disabled = false,
   loading = false,
+  size = "default",
   style,
   onHoverIn,
   onHoverOut,
@@ -38,6 +41,7 @@ export function Button({
 
   return (
     <Pressable
+      hitSlop={size === "compact" ? (ButtonTokens.minHeight - Spacing.five) / 2 : undefined}
       {...props}
       accessibilityRole="button"
       accessibilityState={{ ...accessibilityState, disabled: isDisabled, busy: loading }}
@@ -64,6 +68,7 @@ export function Button({
 
         return [
           styles.button,
+          size === "compact" && styles.compact,
           {
             backgroundColor: active
               ? colors.activeBackground
@@ -87,6 +92,7 @@ export function Button({
             <Text
               style={[
                 styles.label,
+                size === "compact" && Typography.label,
                 { color: active ? colors.activeText : colors.defaultText },
               ]}
             >
@@ -100,6 +106,12 @@ export function Button({
 }
 
 const styles = StyleSheet.create({
+  compact: {
+    minWidth: 0,
+    minHeight: Spacing.five,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.one,
+  },
   button: {
     minWidth: ButtonTokens.minWidth,
     minHeight: ButtonTokens.minHeight,
