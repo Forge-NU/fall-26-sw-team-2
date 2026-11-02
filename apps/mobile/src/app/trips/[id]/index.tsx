@@ -12,8 +12,9 @@ import { AppText } from '@/components/ui/app-text';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Pill, type PillState } from '@/components/ui/pill';
+import { IconButton } from '@/components/ui/icon-button';
 import { Screen } from '@/components/ui/screen';
-import { IconButton, ScreenHeader } from '@/components/ui/screen-header';
+import { ScreenHeader } from '@/components/ui/screen-header';
 import { Palette } from '@/constants/palette';
 import { Radii, Spacing, Typography } from '@/constants/theme';
 import { useTrip, useTripPosts } from '@/hooks/use-trips';
@@ -23,8 +24,8 @@ import {
   formatDate,
   formatDateRange,
   formatWeekdayDate,
-  tripDayCount,
   todayLocalIso,
+  tripDayCount,
   tripDayNumber,
   tripDays,
 } from '@/utils/local-date';
@@ -38,19 +39,21 @@ export default function TripScreen() {
   const isOwner = trip.data?.owner.id === user.id;
 
   return (
-    <Screen>
-      <ScreenHeader
-        left={{ icon: 'arrow-back', label: 'Back', onPress: () => router.back() }}
-        right={
-          isOwner ? (
-            <IconButton
-              icon="create-outline"
-              label="Edit trip"
-              onPress={() => router.push({ pathname: '/trips/[id]/edit', params: { id } })}
-            />
-          ) : null
-        }
-      />
+    <Screen
+      header={
+        <ScreenHeader
+          left={{ icon: 'arrow-left', label: 'Back', onPress: () => router.back() }}
+          right={
+            isOwner ? (
+              <IconButton
+                icon="pencil"
+                accessibilityLabel="Edit trip"
+                onPress={() => router.push({ pathname: '/trips/[id]/edit', params: { id } })}
+              />
+            ) : null
+          }
+        />
+      }>
       {trip.isPending || posts.isPending ? (
         <TripLoading />
       ) : trip.isError || posts.isError ? (
@@ -251,7 +254,7 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
   },
   empty: { alignSelf: 'center' },
-  days: { gap: 6 },
+  days: { gap: Spacing.two },
   dayHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   actions: { gap: Spacing.two },
   fullWidth: { width: '100%' },

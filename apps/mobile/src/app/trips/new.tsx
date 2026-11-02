@@ -14,11 +14,13 @@ export default function NewTripScreen() {
   const { showToast } = useToast();
 
   return (
-    <Screen>
-      <ScreenHeader
-        title="New trip"
-        left={{ icon: 'close', label: 'Close', onPress: () => router.back() }}
-      />
+    <Screen
+      header={
+        <ScreenHeader
+          title="New trip"
+          left={{ icon: 'x', label: 'Close', onPress: () => router.back() }}
+        />
+      }>
       <TripForm
         initialValues={{
           title: '',

@@ -110,11 +110,13 @@ export default function PublishTripScreen() {
   }
 
   return (
-    <Screen>
-      <ScreenHeader
-        title="Publish trip"
-        left={{ icon: 'arrow-back', label: 'Back', onPress: () => router.back() }}
-      />
+    <Screen
+      header={
+        <ScreenHeader
+          title="Publish trip"
+          left={{ icon: 'arrow-left', label: 'Back', onPress: () => router.back() }}
+        />
+      }>
       {body}
     </Screen>
   );

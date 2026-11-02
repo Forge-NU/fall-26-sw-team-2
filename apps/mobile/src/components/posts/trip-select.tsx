@@ -60,7 +60,7 @@ export function TripSelect({ trip, subtitle, trips, loading, disabled, onChange,
             <View style={styles.sheetContent}>
               <ScreenHeader
                 title="Choose trip"
-                left={{ icon: 'close', label: 'Close', onPress: () => setOpen(false) }}
+                left={{ icon: 'x', label: 'Close', onPress: () => setOpen(false) }}
               />
               <FlatList
                 data={trips}

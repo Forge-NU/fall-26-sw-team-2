@@ -168,7 +168,7 @@ function LocationSearchSheet({ onPick, onClose }: LocationSearchSheetProps) {
         <View style={styles.sheetContent}>
           <ScreenHeader
             title="Add location"
-            left={{ icon: 'close', label: 'Close', onPress: onClose }}
+            left={{ icon: 'x', label: 'Close', onPress: onClose }}
           />
           <Input
             autoFocus

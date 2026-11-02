@@ -6,12 +6,11 @@ import { router } from 'expo-router';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import type { TripResponse } from '@/api/types';
-import { TripError } from '@/components/trips/trip-states';
 import { AppText } from '@/components/ui/app-text';
-import { EmptyState } from '@/components/ui/empty-state';
+import { IconButton } from '@/components/ui/icon-button';
 import { Pill } from '@/components/ui/pill';
 import { Screen } from '@/components/ui/screen';
-import { IconButton, ScreenHeader } from '@/components/ui/screen-header';
+import { ScreenHeader } from '@/components/ui/screen-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Palette } from '@/constants/palette';
 import { Radii, Spacing } from '@/constants/theme';
@@ -23,40 +22,43 @@ export default function ProfileScreen() {
   const newTrip = () => router.push('/trips/new');
 
   return (
-    <Screen edges={['top']}>
-      <ScreenHeader
-        title="My trips"
-        right={<IconButton icon="add" label="New trip" onPress={newTrip} />}
-      />
-      {trips.isPending ? (
+    <Screen
+      edges={['top']}
+      header={
+        <ScreenHeader
+          title="My trips"
+          right={<IconButton icon="plus" accessibilityLabel="New trip" onPress={newTrip} />}
+        />
+      }
+      loading={trips.isPending}
+      loadingFallback={
         <View style={styles.grid}>
           {[0, 1, 2, 3].map((i) => (
             <Skeleton key={i} height={190} style={styles.cell} />
           ))}
         </View>
-      ) : trips.isError ? (
-        <TripError error={trips.error} onRetry={() => void trips.refetch()} />
-      ) : (
-        <FlatList
-          data={trips.data}
-          keyExtractor={(trip) => trip.id}
-          numColumns={2}
-          columnWrapperStyle={styles.row}
-          contentContainerStyle={styles.list}
-          refreshing={trips.isRefetching}
-          onRefresh={() => void trips.refetch()}
-          renderItem={({ item }) => <TripTile trip={item} />}
-          ListEmptyComponent={
-            <EmptyState
-              icon="airplane-outline"
-              title="No trips yet"
-              description="Make a trip, then add posts to it as you go."
-              action={{ title: 'New trip', onPress: newTrip }}
-              style={styles.empty}
-            />
-          }
-        />
-      )}
+      }
+      error={trips.error}
+      onRetry={() => void trips.refetch()}
+      errorState={{ title: "Couldn't load your trips" }}
+      empty={
+        trips.data?.length === 0 && {
+          icon: 'airplane-outline',
+          title: 'No trips yet',
+          description: 'Make a trip, then add posts to it as you go.',
+          action: { title: 'New trip', onPress: newTrip },
+        }
+      }>
+      <FlatList
+        data={trips.data}
+        keyExtractor={(trip) => trip.id}
+        numColumns={2}
+        columnWrapperStyle={styles.row}
+        contentContainerStyle={styles.list}
+        refreshing={trips.isRefetching}
+        onRefresh={() => void trips.refetch()}
+        renderItem={({ item }) => <TripTile trip={item} />}
+      />
     </Screen>
   );
 }
@@ -101,6 +103,5 @@ const styles = StyleSheet.create({
   coverEmpty: { backgroundColor: Palette.peach, alignItems: 'center', justifyContent: 'center' },
   badge: { position: 'absolute', top: Spacing.two, left: Spacing.two },
   muted: { color: Palette.placeholderGray },
-  empty: { alignSelf: 'center', marginTop: Spacing.six },
   pressed: { opacity: 0.7 },
 });

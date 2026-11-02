@@ -162,15 +162,17 @@ export default function NewPostScreen() {
     photo.s3Key ? ('uploaded' as const) : failedDraft ? ('failed' as const) : uploading ? ('pending' as const) : undefined;
 
   return (
-    <Screen>
-      <ScreenHeader
-        title="Add post"
-        left={{
-          icon: 'close',
-          label: 'Close',
-          onPress: () => (photos.length > 0 && !failedDraft && !uploading ? setConfirmClose(true) : close()),
-        }}
-      />
+    <Screen
+      header={
+        <ScreenHeader
+          title="Add post"
+          left={{
+            icon: 'x',
+            label: 'Close',
+            onPress: () => (photos.length > 0 && !failedDraft && !uploading ? setConfirmClose(true) : close()),
+          }}
+        />
+      }>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -341,7 +343,7 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between' },
   sectionLabel: { color: Palette.placeholderGray },
   error: { color: Palette.coral },
-  days: { gap: 6 },
+  days: { gap: Spacing.two },
   caption: { minHeight: 88, textAlignVertical: 'top' },
   banner: {
     gap: Spacing.two,
