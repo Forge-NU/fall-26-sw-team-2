@@ -26,8 +26,7 @@ import { deleteDraft, getDraft, listDrafts, newDraftId, type DraftPhoto, type Po
 import { defaultVisitedOn, POST_LIMITS, suggestTrip, validatePostForm, type PostFormErrors } from '@/lib/post-form';
 import { isDraftInFlight, submitPostDraft, type UploadProgress } from '@/lib/post-upload';
 import { charCount } from '@/lib/trip-form';
-import { todayLocalIso } from '@/utils/local-date';
-import { formatWeekdayDate, tripDayNumber, tripDays } from '@/utils/trip-dates';
+import { formatWeekdayDate, todayLocalIso, tripDayNumber, tripDays } from '@/utils/local-date';
 
 type Params = { tripId?: string; visitedOn?: string; draftId?: string };
 

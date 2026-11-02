@@ -5,7 +5,7 @@ import { BottomSheet } from '@/components/bottom-sheet';
 import { Icon } from '@/components/icon';
 import { Palette, Radii } from '@/constants/theme';
 import type { ActiveTrip } from '@/data/mock';
-import { formatRange } from '@/utils/dates';
+import { formatDateRange } from '@/utils/local-date';
 
 type TripChooserSheetProps = {
   visible: boolean;
@@ -52,7 +52,7 @@ export function TripChooserSheet({
                     {trip.title}
                   </AppText>
                   <AppText variant="caption" color="placeholderGray">
-                    {formatRange(trip.startDate, trip.endDate)} · {trip.status}
+                    {formatDateRange(trip.startDate, trip.endDate)} · {trip.status}
                   </AppText>
                   <AppText variant="caption" color="placeholderGray">
                     {describe(trip)}

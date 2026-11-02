@@ -19,15 +19,15 @@ import { Radii, Spacing, Typography } from '@/constants/theme';
 import { useTrip, useTripPosts } from '@/hooks/use-trips';
 import { useCurrentUser } from '@/lib/current-user';
 import { isActiveTrip } from '@/lib/trips';
-import { todayLocalIso } from '@/utils/local-date';
 import {
   formatDate,
   formatDateRange,
   formatWeekdayDate,
   tripDayCount,
+  todayLocalIso,
   tripDayNumber,
   tripDays,
-} from '@/utils/trip-dates';
+} from '@/utils/local-date';
 
 export default function TripScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();

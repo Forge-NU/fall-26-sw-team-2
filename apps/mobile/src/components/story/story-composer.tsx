@@ -14,7 +14,7 @@ import { Toggle } from '@/components/ui/toggle';
 import { Palette, Radii, Spacing, Typography } from '@/constants/theme';
 import { StoryDraft, type ActiveTrip, type NearbyPlace } from '@/data/mock';
 import { useStoryComposer } from '@/hooks/use-story-composer';
-import { formatDay, formatRange, tripDayNumber } from '@/utils/dates';
+import { formatDate, formatDateRange, tripDayNumber } from '@/utils/local-date';
 
 type Sheet = 'trip' | 'date' | 'location' | null;
 
@@ -53,7 +53,7 @@ export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; 
         : null;
 
   const tripDetail = trip
-    ? `${formatRange(trip.startDate, trip.endDate)} · ${chooserTrip?.status}`
+    ? `${formatDateRange(trip.startDate, trip.endDate)} · ${chooserTrip?.status}`
     : composer.tripsLoading
       ? 'Loading your trips…'
       : composer.tripsError
@@ -217,7 +217,7 @@ export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; 
               <Icon name="calendar" size={16} color="coral" />
               <View style={styles.grow}>
                 <AppText variant="caption">
-                  {`${formatDay(storyDate)} · Day ${tripDayNumber(storyDate, trip.startDate)}`}
+                  {`${formatDate(storyDate)} · Day ${tripDayNumber(trip.startDate, storyDate)}`}
                 </AppText>
                 <AppText variant="caption" color="placeholderGray">
                   {storyDate === composer.today ? 'Today · editable' : 'Picked manually · editable'}

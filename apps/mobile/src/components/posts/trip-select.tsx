@@ -10,7 +10,7 @@ import { Pill } from '@/components/ui/pill';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Palette } from '@/constants/palette';
 import { MaxContentWidth, Radii, Spacing, Theme } from '@/constants/theme';
-import { formatDateRange } from '@/utils/trip-dates';
+import { formatDateRange } from '@/utils/local-date';
 
 export type TripSelectProps = {
   trip: TripResponse | null;

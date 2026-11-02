@@ -5,9 +5,8 @@ import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/ui/app-text';
 import { InputTokens } from '@/constants/input-tokens';
 import { Palette } from '@/constants/palette';
-import { Radii, Spacing } from '@/constants/theme';
-import { toIsoDate, todayLocalIso } from '@/utils/local-date';
-import { formatDate, monthName } from '@/utils/trip-dates';
+import { Radii, Spacing, Theme } from '@/constants/theme';
+import { formatDate, monthName, toIsoDate, todayLocalIso } from '@/utils/local-date';
 
 export type DateFieldProps = {
   label: string;

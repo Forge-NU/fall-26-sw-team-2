@@ -16,7 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Palette } from '@/constants/palette';
 import { Radii, Spacing } from '@/constants/theme';
 import { useMyTrips } from '@/hooks/use-trips';
-import { formatDateRange } from '@/utils/trip-dates';
+import { formatDateRange } from '@/utils/local-date';
 
 export default function ProfileScreen() {
   const trips = useMyTrips();
