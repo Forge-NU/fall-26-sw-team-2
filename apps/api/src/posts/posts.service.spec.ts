@@ -47,6 +47,9 @@ function makePost(overrides: Record<string, unknown> = {}) {
     updatedAt: new Date('2026-10-13T12:00:00Z'),
     trip: { ...makeTrip(), owner },
     location: null,
+    _count: { likes: 0, saves: 0 },
+    likes: [],
+    saves: [],
     media: [
       {
         id: 'm1',
@@ -92,6 +95,7 @@ describe('PostsService', () => {
       deleteMany: jest.fn(),
     },
     postMedia: { findMany: jest.fn(), deleteMany: jest.fn() },
+    postSave: { findFirst: jest.fn(), findMany: jest.fn() },
     location: { findUnique: jest.fn() },
     $transaction: jest.fn(),
     $queryRaw: jest.fn(),
@@ -432,6 +436,90 @@ describe('PostsService', () => {
         }),
       );
       expect(page.nextCursor).toBeNull();
+    });
+  });
+
+  describe('counts and viewer flags', () => {
+    it("returns like and save counts and whether you've liked or saved it", async () => {
+      prisma.post.findUnique.mockResolvedValue(
+        makePost({
+          _count: { likes: 7, saves: 2 },
+          likes: [{ userId: ownerId }],
+          saves: [],
+        }),
+      );
+
+      const post = await service.findOne(ownerId, postId);
+
+      const [args] = prisma.post.findUnique.mock.calls[0] as [
+        { include: Record<string, unknown> },
+      ];
+      expect(args.include).toMatchObject({
+        _count: { select: { likes: true, saves: true } },
+        likes: { where: { userId: ownerId }, select: { userId: true } },
+        saves: { where: { userId: ownerId }, select: { userId: true } },
+      });
+      expect(post).toMatchObject({
+        likeCount: 7,
+        saveCount: 2,
+        likedByMe: true,
+        savedByMe: false,
+      });
+    });
+  });
+
+  describe('listSaved', () => {
+    it("lists only the user's own visible saves, most recent first", async () => {
+      prisma.postSave.findMany.mockResolvedValue([
+        { postId, post: makePost({ saves: [{ userId: 'user_saver' }] }) },
+      ]);
+
+      const page = await service.listSaved('user_saver', {});
+
+      expect(prisma.postSave.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            userId: 'user_saver',
+            post: {
+              trip: {
+                OR: [{ status: 'published' }, { ownerId: 'user_saver' }],
+              },
+            },
+          },
+          orderBy: [{ createdAt: 'desc' }, { postId: 'desc' }],
+        }),
+      );
+      expect(page.items[0]).toMatchObject({ id: postId, savedByMe: true });
+      expect(page.nextCursor).toBeNull();
+    });
+
+    it('pages by post ID within your own saves', async () => {
+      prisma.postSave.findFirst.mockResolvedValue({ postId });
+      prisma.postSave.findMany.mockResolvedValue([
+        { postId, post: makePost() },
+        { postId: 'next', post: makePost({ id: 'next' }) },
+      ]);
+
+      const page = await service.listSaved('user_saver', {
+        cursor: postId,
+        limit: 1,
+      });
+
+      expect(prisma.postSave.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cursor: { userId_postId: { userId: 'user_saver', postId } },
+          skip: 1,
+          take: 2,
+        }),
+      );
+      expect(page.nextCursor).toBe(postId);
+    });
+
+    it("rejects a cursor that isn't one of your saves", async () => {
+      prisma.postSave.findFirst.mockResolvedValue(null);
+      await expect(
+        service.listSaved('user_saver', { cursor: postId }),
+      ).rejects.toThrow('Invalid cursor');
     });
   });
 });

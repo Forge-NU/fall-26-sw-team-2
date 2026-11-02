@@ -50,6 +50,8 @@ const trip: TripResponse = {
   publishedAt: "2026-09-18T15:00:00Z",
   postCount: 6,
   coverImageUrl: photos[0].url,
+  saveCount: 3,
+  savedByMe: false,
   createdAt: "2026-09-10T12:00:00Z",
   updatedAt: "2026-09-18T15:00:00Z",
 };
@@ -62,6 +64,10 @@ const post: PostResponse = {
   location: null,
   customLocationName: "Belém Tower, Lisbon",
   media: photos.slice(0, 3),
+  likeCount: 12,
+  saveCount: 2,
+  likedByMe: false,
+  savedByMe: false,
   createdAt: "2026-09-12T18:00:00Z",
   updatedAt: "2026-09-12T18:00:00Z",
 };

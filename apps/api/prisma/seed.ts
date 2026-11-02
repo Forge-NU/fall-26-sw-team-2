@@ -2,7 +2,8 @@
 // Every row has a fixed ID and is upserted, so running this twice doesn't
 // duplicate anything. #45 (DEV-1) owns the seed script overall; this covers
 // the users the trips need plus the #3 tables (trips, posts, post_media,
-// locations), follow relationships for #10, and stories (#23).
+// locations), follow relationships for #10, stories (#23), and likes and
+// saves (#49).
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client';
@@ -378,6 +379,35 @@ const stories: SeedStory[] = [
   },
 ];
 
+// Likes and saves (#49 INT-1). Only on published trips, since nobody else can
+// see a draft. Maya's Lisbon posts get likes from both followers, and Priya's
+// Copenhagen trip gets a couple back. Maya saves her own post too, which is
+// allowed.
+const postLikes = [
+  { userId: 'user_seed_priya', postId: posts[0].id },
+  { userId: 'user_seed_alex', postId: posts[0].id },
+  { userId: 'user_seed_priya', postId: posts[1].id },
+  { userId: 'user_seed_alex', postId: posts[2].id },
+  { userId: 'user_seed_priya', postId: posts[4].id },
+  { userId: 'user_seed_maya', postId: posts[7].id },
+  { userId: 'user_seed_maya', postId: posts[9].id },
+  { userId: 'user_seed_alex', postId: posts[9].id },
+];
+
+const tripSaves = [
+  { userId: 'user_seed_priya', tripId: trips[0].id },
+  { userId: 'user_seed_alex', tripId: trips[0].id },
+  { userId: 'user_seed_maya', tripId: trips[2].id },
+];
+
+const postSaves = [
+  { userId: 'user_seed_alex', postId: posts[1].id },
+  { userId: 'user_seed_alex', postId: posts[4].id },
+  { userId: 'user_seed_priya', postId: posts[2].id },
+  { userId: 'user_seed_maya', postId: posts[8].id },
+  { userId: 'user_seed_maya', postId: posts[5].id },
+];
+
 async function main() {
   for (const user of users) {
     await prisma.user.upsert({
@@ -464,8 +494,13 @@ async function main() {
     });
   }
 
+  // Keyed by (user, post) or (user, trip), so rerunning skips existing rows
+  await prisma.postLike.createMany({ data: postLikes, skipDuplicates: true });
+  await prisma.tripSave.createMany({ data: tripSaves, skipDuplicates: true });
+  await prisma.postSave.createMany({ data: postSaves, skipDuplicates: true });
+
   console.log(
-    `Seeded ${users.length} users, ${follows.length} follows, ${locations.length} locations, ${trips.length} trips, ${posts.length} posts, ${stories.length} stories`,
+    `Seeded ${users.length} users, ${follows.length} follows, ${locations.length} locations, ${trips.length} trips, ${posts.length} posts, ${stories.length} stories, ${postLikes.length} likes, ${tripSaves.length + postSaves.length} saves`,
   );
 }
 

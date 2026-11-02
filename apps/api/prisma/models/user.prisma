@@ -10,6 +10,9 @@ model User {
 
   trips     Trip[]
   stories   Story[]
-  following Follow[] @relation("FollowSource")
-  followers Follow[] @relation("FollowTarget")
+  following Follow[]   @relation("FollowSource")
+  followers Follow[]   @relation("FollowTarget")
+  postLikes PostLike[]
+  postSaves PostSave[]
+  tripSaves TripSave[]
 }

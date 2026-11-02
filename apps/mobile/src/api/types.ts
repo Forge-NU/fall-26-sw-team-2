@@ -30,6 +30,8 @@ export type TripResponse = {
   publishedAt: string | null;
   postCount: number;
   coverImageUrl: string | null;
+  saveCount: number; // #49
+  savedByMe: boolean;
   createdAt: string;
   updatedAt: string;
 };

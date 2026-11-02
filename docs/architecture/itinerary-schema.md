@@ -274,12 +274,15 @@ These are TypeScript types in `apps/api` for now (`trips/trip.types.ts`, `posts/
   "publishedAt": "2026-09-18T15:00:00.000Z" | null,
   "postCount": 6,
   "coverImageUrl": "https://..." | null,
+  "saveCount": 3,
+  "savedByMe": false,
   "createdAt": "2026-09-10T12:00:00.000Z",
   "updatedAt": "2026-09-18T15:00:00.000Z"
 }
 ```
 
 - `coverImageUrl` is the first photo of the trip's first post, or `null` if the trip has no photos yet.
+- `saveCount` and `savedByMe` come from #49 ([`likes-and-saves.md`](likes-and-saves.md)). `savedByMe` is for the user making the request.
 - The number of days is `endDate - startDate + 1`, so it isn't returned.
 
 `Location`:
@@ -311,6 +314,10 @@ These are TypeScript types in `apps/api` for now (`trips/trip.types.ts`, `posts/
   "media": [
     { "id": "uuid", "mediaType": "image", "url": "https://...", "width": 1080, "height": 1350, "durationMs": null }
   ],
+  "likeCount": 12,
+  "saveCount": 2,
+  "likedByMe": true,
+  "savedByMe": false,
   "createdAt": "2026-09-12T18:40:00.000Z",
   "updatedAt": "2026-09-12T18:40:00.000Z"
 }
@@ -319,7 +326,7 @@ These are TypeScript types in `apps/api` for now (`trips/trip.types.ts`, `posts/
 - Exactly one of `location` and `customLocationName` is set.
 - `media` is in carousel order.
 - Media URLs are presigned S3 GET URLs that expire after an hour. Locally, with no `S3_BUCKET_NAME` set, they point at `https://media.invalid/<key>`, which never loads.
-- Like, comment, and save counts get added by #49 and #50.
+- `likeCount`, `saveCount`, `likedByMe` and `savedByMe` come from #49 ([`likes-and-saves.md`](likes-and-saves.md)). The flags are for the user making the request. Comment counts get added by #50.
 
 ### Trips
 
