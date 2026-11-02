@@ -18,7 +18,7 @@ type AuthedRequest = Request & {
   user: { userId: string };
 };
 
-@Controller('api/users')
+@Controller('users')
 @UseGuards(ClerkAuthGuard)
 export class FollowsController {
   constructor(private readonly followsService: FollowsService) {}
