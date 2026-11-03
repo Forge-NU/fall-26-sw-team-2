@@ -1,12 +1,13 @@
-import { useAuth, useUser } from '@clerk/expo';
-import { useEffect, useRef, useState } from 'react';
+import { useUser } from '@clerk/expo';
+import { useEffect, useState } from 'react';
 import { Keyboard, KeyboardAvoidingView, Platform, SafeAreaView, StyleSheet, TouchableWithoutFeedback, View } from 'react-native';
-import type { UserResponse, UsernameAvailabilityResponse } from 'shared-types';
+import type { UserResponse } from 'shared-types';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ThemedText } from '@/components/themed-text';
-import { ApiError, apiRequest } from '@/lib/api';
+import { ApiError } from '@/api/client';
+import { createMyProfile, getUsernameAvailability } from '@/api/users';
 import { Palette, Typography } from '@/constants/theme';
 
 // Same rule as the API (and what Clerk accepts, since usernames are used to
@@ -22,7 +23,6 @@ export default function OnboardingScreen({
   loadError?: string;
   onRetry?: () => void;
 }) {
-  const { getToken } = useAuth();
   const { user } = useUser();
   const [firstName, setFirstName] = useState(user?.firstName ?? '');
   const [lastName, setLastName] = useState(user?.lastName ?? '');
@@ -32,23 +32,13 @@ export default function OnboardingScreen({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Clerk can hand back a new getToken on any render; reading it from a ref
-  // keeps the availability check from re-running unless the username changes.
-  const getTokenRef = useRef(getToken);
-  useEffect(() => {
-    getTokenRef.current = getToken;
-  }, [getToken]);
-
   useEffect(() => {
     const candidate = username.trim();
     if (!USERNAME_PATTERN.test(candidate)) return;
     let cancelled = false;
     const timeout = setTimeout(async () => {
       try {
-        const result = await apiRequest<UsernameAvailabilityResponse>(
-          `/users/username-availability?username=${encodeURIComponent(candidate)}`,
-          () => getTokenRef.current(),
-        );
+        const result = await getUsernameAvailability(candidate);
         if (!cancelled) {
           setCheckedUsername(candidate);
           setAvailability(result.available ? 'available' : 'taken');
@@ -69,9 +59,10 @@ export default function OnboardingScreen({
     setBusy(true);
     setError(null);
     try {
-      const profile = await apiRequest<UserResponse>('/me/profile', () => getToken(), {
-        method: 'POST',
-        body: JSON.stringify({ firstName: firstName.trim(), lastName: lastName.trim(), username: username.trim().toLowerCase() }),
+      const profile = await createMyProfile({
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        username: username.trim().toLowerCase(),
       });
       onComplete?.(profile);
     } catch (cause) {
