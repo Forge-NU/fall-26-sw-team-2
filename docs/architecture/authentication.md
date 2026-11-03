@@ -58,7 +58,7 @@ Requires a valid Clerk token. Looks up a profile by username, case-insensitively
 
 ### `DELETE /api/me`
 
-Requires a valid Clerk token. Removes the user's S3 objects, deletes the Clerk user, then deletes the local user row (related database records cascade). If S3 deletion fails, the API keeps the Clerk account and database rows so the request can be retried.
+Requires a valid Clerk token. Removes the user's S3 objects (everything under `users/{userId}/`, plus any post or story keys stored elsewhere), deletes the Clerk user, then deletes the local user row (related database records cascade). If S3 deletion fails, the API keeps the Clerk account and database rows so the request can be retried.
 
 All protected routes return 401 when the bearer token is missing or invalid.
 

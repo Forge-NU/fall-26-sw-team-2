@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import {
   DeleteObjectsCommand,
   GetObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
@@ -64,6 +65,31 @@ export class StorageService {
       new GetObjectCommand({ Bucket: this.bucket, Key: key }),
       { expiresIn: READ_URL_EXPIRES_IN },
     );
+  }
+
+  // Every key under the prefix, following S3's pagination. Without a bucket
+  // (local dev) there's nothing to list.
+  async listKeys(prefix: string): Promise<string[]> {
+    if (!this.bucket) return [];
+
+    const keys: string[] = [];
+    let continuationToken: string | undefined;
+    do {
+      const result = await this.s3.send(
+        new ListObjectsV2Command({
+          Bucket: this.bucket,
+          Prefix: prefix,
+          ContinuationToken: continuationToken,
+        }),
+      );
+      for (const object of result.Contents ?? []) {
+        if (object.Key) keys.push(object.Key);
+      }
+      continuationToken = result.IsTruncated
+        ? result.NextContinuationToken
+        : undefined;
+    } while (continuationToken);
+    return keys;
   }
 
   // Never throws. Called after the rows are already deleted, so a failure here

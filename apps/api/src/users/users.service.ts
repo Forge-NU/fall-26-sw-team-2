@@ -162,14 +162,29 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    const media = await this.prisma.postMedia.findMany({
-      where: { post: { trip: { ownerId: id } } },
-      select: { s3Key: true },
-    });
+    // Uploads all live under users/{id}/, so listing that prefix also finds
+    // avatars and uploads that never made it into a post or story. The rows'
+    // keys are added in case any were stored somewhere else.
+    const [media, stories, prefixKeys] = await Promise.all([
+      this.prisma.postMedia.findMany({
+        where: { post: { trip: { ownerId: id } } },
+        select: { s3Key: true },
+      }),
+      this.prisma.story.findMany({
+        where: { ownerId: id },
+        select: { s3Key: true },
+      }),
+      this.storage.listKeys(`users/${id}/`),
+    ]);
+    const keys = new Set([
+      ...media.map((item) => item.s3Key),
+      ...stories.map((story) => story.s3Key),
+      ...prefixKeys,
+    ]);
 
     // Keep the database rows (and their S3 keys) available if S3 deletion
     // fails. Retrying is safe because S3 object deletion is idempotent.
-    await this.storage.deleteObjectsStrict(media.map((item) => item.s3Key));
+    await this.storage.deleteObjectsStrict([...keys]);
 
     // Then delete Clerk and rely on foreign-key cascades for the user's trips,
     // posts, media rows, and follows.

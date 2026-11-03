@@ -44,6 +44,9 @@ describe('UsersService', () => {
     postMedia: {
       findMany: jest.fn(),
     },
+    story: {
+      findMany: jest.fn(),
+    },
     // Runs the callback against this same mock, like an interactive transaction.
     $transaction: jest.fn(
       (callback: (tx: unknown) => Promise<unknown>): Promise<unknown> =>
@@ -53,6 +56,7 @@ describe('UsersService', () => {
 
   const mockStorageService = {
     deleteObjectsStrict: jest.fn(),
+    listKeys: jest.fn(),
   };
 
   const mockUser = {
@@ -71,6 +75,8 @@ describe('UsersService', () => {
     mockDeleteClerkUser.mockResolvedValue(undefined);
     mockUpdateClerkUser.mockResolvedValue({});
     mockPrismaService.postMedia.findMany.mockResolvedValue([]);
+    mockPrismaService.story.findMany.mockResolvedValue([]);
+    mockStorageService.listKeys.mockResolvedValue([]);
     mockStorageService.deleteObjectsStrict.mockResolvedValue(undefined);
     service = new UsersService(
       mockPrismaService as unknown as PrismaService,
@@ -427,6 +433,39 @@ describe('UsersService', () => {
       expect(mockStorageService.deleteObjectsStrict).toHaveBeenCalledWith([
         'posts/a.jpg',
         'posts/b.mp4',
+      ]);
+    });
+
+    it("also deletes story photos and anything else under the user's prefix", async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+      mockPrismaService.postMedia.findMany.mockResolvedValue([
+        { s3Key: 'users/user_123/posts/a.jpg' },
+      ]);
+      mockPrismaService.story.findMany.mockResolvedValue([
+        { s3Key: 'users/user_123/stories/b.jpg' },
+      ]);
+      mockStorageService.listKeys.mockResolvedValue([
+        'users/user_123/posts/a.jpg',
+        'users/user_123/stories/b.jpg',
+        'users/user_123/avatars/c.jpg',
+        'users/user_123/posts/never-posted.jpg',
+      ]);
+
+      await service.deleteAccount('user_123');
+
+      expect(mockPrismaService.story.findMany).toHaveBeenCalledWith({
+        where: { ownerId: 'user_123' },
+        select: { s3Key: true },
+      });
+      expect(mockStorageService.listKeys).toHaveBeenCalledWith(
+        'users/user_123/',
+      );
+      // Each key once, even when it's found both in a row and in the listing
+      expect(mockStorageService.deleteObjectsStrict).toHaveBeenCalledWith([
+        'users/user_123/posts/a.jpg',
+        'users/user_123/stories/b.jpg',
+        'users/user_123/avatars/c.jpg',
+        'users/user_123/posts/never-posted.jpg',
       ]);
     });
 
