@@ -21,8 +21,9 @@ model Trip {
   createdAt   DateTime   @default(now()) @map("created_at")
   updatedAt   DateTime   @updatedAt @map("updated_at")
 
-  owner User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  posts Post[]
+  owner   User    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  posts   Post[]
+  stories Story[]
 
   @@index([ownerId, startDate])
   @@index([status, publishedAt])

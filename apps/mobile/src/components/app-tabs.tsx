@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { TabList, TabSlot, TabTrigger, Tabs } from 'expo-router/ui';
 import { useState } from 'react';
-import { Alert, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import { BottomToolbar, ToolbarItem } from '@/components/bottom-toolbar';
 import { PostChooserSheet } from '@/components/post-chooser-sheet';
@@ -43,6 +43,8 @@ export default function AppTabs() {
           {__DEV__ && (
             <TabTrigger name="components-preview" href="/components-preview" style={styles.hidden} />
           )}
+          {/* APP-1's data layer examples: dev-only and not shown in the bar. Open /api-examples. */}
+          {__DEV__ && <TabTrigger name="api-examples" href="/api-examples" style={styles.hidden} />}
         </BottomToolbar>
       </TabList>
 
@@ -51,7 +53,7 @@ export default function AppTabs() {
         onClose={() => setPostChooserOpen(false)}
         onCreateItinerary={() => {
           setPostChooserOpen(false);
-          Alert.alert('Create itinerary', 'Trip creation is coming in a later wireframe.');
+          router.push('/trips/new');
         }}
         onPostStory={() => {
           setPostChooserOpen(false);

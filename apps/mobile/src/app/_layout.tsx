@@ -1,4 +1,5 @@
-import { DefaultTheme, ThemeProvider } from "expo-router";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { DefaultTheme, Stack, ThemeProvider } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
 import { useEffect } from "react";
@@ -13,11 +14,8 @@ import {
 import { BarlowCondensed_600SemiBold } from "@expo-google-fonts/barlow-condensed";
 
 import { AnimatedSplashOverlay } from "@/components/animated-icon";
-import { ClerkProvider } from '@clerk/expo';
-import { tokenCache } from '@clerk/expo/token-cache';
-import AuthGate from '@/components/auth-gate';
-
-const clerkPublishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '';
+import { AuthGate } from "@/components/auth-gate";
+import { queryClient } from "@/lib/query-client";
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -59,13 +57,20 @@ export default function TabLayout() {
   }
 
   return (
-    <ClerkProvider publishableKey={clerkPublishableKey} tokenCache={tokenCache}>
+    <QueryClientProvider client={queryClient}>
       <ThemeProvider value={navigationTheme}>
         <ToastProvider>
           <AnimatedSplashOverlay />
-          <AuthGate />
+          <AuthGate>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="trips/new" options={{ presentation: "modal" }} />
+              <Stack.Screen name="trips/[id]/edit" options={{ presentation: "modal" }} />
+              <Stack.Screen name="posts/new" options={{ presentation: "modal" }} />
+            </Stack>
+          </AuthGate>
         </ToastProvider>
       </ThemeProvider>
-    </ClerkProvider>
+    </QueryClientProvider>
   );
 }

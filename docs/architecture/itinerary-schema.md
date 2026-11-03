@@ -12,7 +12,7 @@ The product rules come from DOC-1 (#33): [`docs/product/mvp-decisions.md`](../pr
 Related work:
 - #15 Auth/Users: defines `User`. Every user reference here is the Clerk user ID (a string like `user_123`).
 - #37 LOC-1: validates the `locations` table against Mapbox and adds the endpoint that creates location rows. See [`locations.md`](locations.md).
-- #38 MEDIA-1: the presigned upload endpoint that produces the S3 keys posts reference.
+- #38 MEDIA-1: the presigned upload endpoint that produces the S3 keys posts reference. See [`media-uploads.md`](media-uploads.md).
 - #23 STORY-1: stories link to trips and use the active-trip rule below.
 - #9 / #41 trip screens, #8 / #42 post composer, #12 / #27 feed: the screens these contracts support.
 
