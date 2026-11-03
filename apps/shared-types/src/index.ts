@@ -10,6 +10,10 @@ export interface UserResponse {
   avatarUrl: string | null;
 }
 
+export interface UsernameAvailabilityResponse {
+  available: boolean;
+}
+
 /**
  * Paginated response shape for list endpoints
  */

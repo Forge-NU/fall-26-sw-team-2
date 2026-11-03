@@ -17,6 +17,8 @@ export type ButtonProps = Omit<PressableProps, 'children'> & {
   disabled?: boolean;
   loading?: boolean;
   size?: "default" | "compact";
+  /** Shows the solid (pressed) colors at rest, e.g. once a form is ready to submit. */
+  filled?: boolean;
 };
 
 export function Button({
@@ -26,6 +28,7 @@ export function Button({
   disabled = false,
   loading = false,
   size = "default",
+  filled = false,
   style,
   onHoverIn,
   onHoverOut,
