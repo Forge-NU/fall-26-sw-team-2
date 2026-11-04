@@ -49,7 +49,7 @@ describe('TripsService', () => {
       update: jest.fn(),
       deleteMany: jest.fn(),
     },
-    post: { count: jest.fn(), findMany: jest.fn() },
+    post: { count: jest.fn(), groupBy: jest.fn() },
     postMedia: { findMany: jest.fn() },
     story: { findMany: jest.fn() },
     user: { findUnique: jest.fn() },
@@ -65,7 +65,7 @@ describe('TripsService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     // The trip's rated posts, for the place ratings
-    prisma.post.findMany.mockResolvedValue([]);
+    prisma.post.groupBy.mockResolvedValue([]);
     prisma.$transaction.mockImplementation(
       (fn: (tx: typeof prisma) => unknown) => fn(prisma),
     );
@@ -271,7 +271,7 @@ describe('TripsService', () => {
     it("recomputes the places the trip's posts rated, after the delete", async () => {
       prisma.trip.findUnique.mockResolvedValue(makeTrip());
       prisma.postMedia.findMany.mockResolvedValue([]);
-      prisma.post.findMany.mockResolvedValue([
+      prisma.post.groupBy.mockResolvedValue([
         { locationId: 'loc_b' },
         { locationId: 'loc_a' },
       ]);
@@ -351,11 +351,11 @@ describe('TripsService', () => {
       prisma.trip.update.mockResolvedValue(
         makeTrip({ status: 'published', publishedAt: new Date() }),
       );
-      prisma.post.findMany.mockResolvedValue([{ locationId: 'loc_a' }]);
+      prisma.post.groupBy.mockResolvedValue([{ locationId: 'loc_a' }]);
 
       await service.publish(owner.id, makeTrip().id);
 
-      expect(prisma.post.findMany).toHaveBeenCalledWith(
+      expect(prisma.post.groupBy).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             tripId: makeTrip().id,

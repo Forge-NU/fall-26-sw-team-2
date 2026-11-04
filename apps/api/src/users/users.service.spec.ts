@@ -31,7 +31,7 @@ describe('UsersService', () => {
       deleteMany: jest.fn(),
       findMany: jest.fn(),
     },
-    post: { findMany: jest.fn() },
+    post: { groupBy: jest.fn() },
     $transaction: jest.fn(),
     $queryRaw: jest.fn(),
     $executeRaw: jest.fn(),
@@ -53,7 +53,7 @@ describe('UsersService', () => {
     mockPrismaService.$transaction.mockImplementation(
       (fn: (tx: typeof mockPrismaService) => unknown) => fn(mockPrismaService),
     );
-    mockPrismaService.post.findMany.mockResolvedValue([]);
+    mockPrismaService.post.groupBy.mockResolvedValue([]);
     service = new UsersService(mockPrismaService as unknown as PrismaService);
   });
 
@@ -255,14 +255,21 @@ describe('UsersService', () => {
       });
     });
 
-    it('recomputes the ratings of the places their posts rated, in the same transaction', async () => {
+    it('recomputes the places their posts rated, then deletes from Clerk, in one transaction', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
-      mockDeleteClerkUser.mockResolvedValue(undefined);
-      mockPrismaService.post.findMany.mockResolvedValue([
+      mockPrismaService.post.groupBy.mockResolvedValue([
         { locationId: 'loc_b' },
         { locationId: 'loc_a' },
       ]);
       const order: string[] = [];
+      mockPrismaService.$queryRaw.mockImplementation(
+        (strings: TemplateStringsArray) => {
+          order.push(
+            strings.join('?').includes('trips') ? 'lock trips' : 'lock places',
+          );
+          return Promise.resolve([]);
+        },
+      );
       mockPrismaService.user.deleteMany.mockImplementation(() => {
         order.push('delete');
         return Promise.resolve({ count: 1 });
@@ -271,21 +278,51 @@ describe('UsersService', () => {
         order.push('refresh');
         return Promise.resolve(2);
       });
+      mockDeleteClerkUser.mockImplementation(() => {
+        order.push('clerk');
+        return Promise.resolve();
+      });
 
       await service.deleteAccount('user_123');
 
-      expect(mockPrismaService.post.findMany).toHaveBeenCalledWith(
+      expect(mockPrismaService.post.groupBy).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             trip: { ownerId: 'user_123' },
           }) as unknown,
         }),
       );
-      expect(order).toEqual(['delete', 'refresh']);
+      expect(order).toEqual([
+        'lock trips',
+        'delete',
+        'lock places',
+        'refresh',
+        'clerk',
+      ]);
       expect(mockPrismaService.$executeRaw.mock.calls[0]).toContainEqual([
         'loc_a',
         'loc_b',
       ]);
+      // A longer timeout than Prisma's 5s default
+      expect(mockPrismaService.$transaction).toHaveBeenCalledWith(
+        expect.any(Function),
+        { timeout: 30_000 },
+      );
+    });
+
+    it('locks their trips in id order', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+
+      await service.deleteAccount('user_123');
+
+      const [strings, ownerId] = mockPrismaService.$queryRaw.mock.calls[0] as [
+        TemplateStringsArray,
+        string,
+      ];
+      expect(strings.join('?')).toMatch(
+        /FROM trips WHERE owner_id = \? ORDER BY id FOR UPDATE/,
+      );
+      expect(ownerId).toBe('user_123');
     });
 
     it('throws NotFoundException when the user does not exist', async () => {
@@ -299,15 +336,30 @@ describe('UsersService', () => {
       expect(mockPrismaService.user.deleteMany).not.toHaveBeenCalled();
     });
 
-    it('does not delete the local record if Clerk deletion fails', async () => {
+    it('fails the transaction, rolling back the local delete, if Clerk deletion fails', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
-      mockDeleteClerkUser.mockRejectedValue(new Error('Clerk deletion failed'));
+      mockDeleteClerkUser.mockRejectedValueOnce(
+        new Error('Clerk deletion failed'),
+      );
 
+      // The error escaping the transaction callback is what makes Prisma roll
+      // back; test/ratings.e2e-spec.ts checks the rollback against Postgres
       await expect(service.deleteAccount('user_123')).rejects.toThrow(
         'Clerk deletion failed',
       );
+      expect(mockDeleteClerkUser).toHaveBeenCalledWith('user_123');
+    });
 
-      expect(mockPrismaService.user.deleteMany).not.toHaveBeenCalled();
+    it('never deletes from Clerk if the local delete fails', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+      mockPrismaService.user.deleteMany.mockRejectedValueOnce(
+        new Error('Transaction timed out'),
+      );
+
+      await expect(service.deleteAccount('user_123')).rejects.toThrow(
+        'Transaction timed out',
+      );
+      expect(mockDeleteClerkUser).not.toHaveBeenCalled();
     });
   });
 

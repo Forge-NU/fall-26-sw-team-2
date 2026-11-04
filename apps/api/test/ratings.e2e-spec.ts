@@ -5,9 +5,14 @@ import { Location, Trip, User } from '../src/generated/prisma/client';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createTestApp, createTestUser } from './utils/test-app';
 
-// Account deletion calls Clerk first; stand in for it
+// Account deletion calls Clerk; stand in for it
+const mockDeleteClerkUser = jest.fn<Promise<void>, [string]>(() =>
+  Promise.resolve(),
+);
 jest.mock('../src/auth/clerk.client', () => ({
-  clerkClient: { users: { deleteUser: jest.fn(() => Promise.resolve()) } },
+  clerkClient: {
+    users: { deleteUser: (id: string) => mockDeleteClerkUser(id) },
+  },
 }));
 
 type PostBody = {
@@ -271,6 +276,26 @@ describe('Place ratings (e2e)', () => {
       await server().delete('/api/me').set(as(leaving)).expect(204);
 
       await expect(totals()).resolves.toEqual({ ratingCount: 1, ratingSum: 4 });
+    });
+
+    it('rolls the account delete back if Clerk deletion fails', async () => {
+      const leaving = await createTestUser(prisma, 'clerkfails');
+      const trip = await createTrip(leaving, true);
+      await createPost(trip, { rating: 2 }, leaving);
+      mockDeleteClerkUser.mockRejectedValueOnce(new Error('Clerk is down'));
+
+      await server().delete('/api/me').set(as(leaving)).expect(500);
+
+      // Nothing local was deleted, so the rating still counts
+      await expect(
+        prisma.user.findUnique({ where: { id: leaving.id } }),
+      ).resolves.not.toBeNull();
+      await expect(
+        prisma.post.count({ where: { tripId: trip.id } }),
+      ).resolves.toBe(1);
+      await expect(totals()).resolves.toEqual({ ratingCount: 1, ratingSum: 2 });
+
+      await prisma.user.deleteMany({ where: { id: leaving.id } });
     });
   });
 

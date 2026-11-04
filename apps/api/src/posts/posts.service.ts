@@ -79,7 +79,7 @@ export class PostsService {
         const visitedOn = parseDateOnly(dto.visitedOn);
         assertWithinTrip(trip, visitedOn);
 
-        const { id } = await tx.post.create({
+        const created = await tx.post.create({
           data: {
             tripId: trip.id,
             visitedOn,
@@ -89,13 +89,16 @@ export class PostsService {
             rating: dto.rating ?? null,
             media: { create: toMediaRows(dto.media) },
           },
-          select: { id: true },
+          include: postInclude,
         });
 
+        // Only a rating in a published trip counts toward the place. The
+        // trip's share lock means it can't be published mid-transaction.
+        if (!countsTowardPlace(trip, dto.rating)) return created;
         await refreshLocationRatings(tx, [dto.locationId]);
         // Read after the refresh, so the place's rating includes this post
         return tx.post.findUniqueOrThrow({
-          where: { id },
+          where: { id: created.id },
           include: postInclude,
         });
       }),
@@ -149,13 +152,9 @@ export class PostsService {
         }
 
         // Locked so two edits to the same post run one at a time, and the
-        // removed keys and the old location are worked out from what's
-        // actually there
-        const [current] = await tx.$queryRaw<{ location_id: string | null }[]>`
-          SELECT location_id FROM posts WHERE id = ${id}::uuid FOR UPDATE`;
-        if (!current) {
-          throw new NotFoundException('Post not found');
-        }
+        // removed keys and the old location and rating are worked out from
+        // what's actually there
+        const current = await this.lockPost(tx, id);
 
         const locationChanged =
           dto.locationId !== undefined || dto.customLocationName !== undefined;
@@ -166,6 +165,18 @@ export class PostsService {
         if (dto.rating != null && nextLocationId == null) {
           throw new BadRequestException(CUSTOM_LOCATION_RATING);
         }
+        const nextRating =
+          dto.customLocationName !== undefined
+            ? null
+            : dto.rating !== undefined
+              ? dto.rating
+              : current.rating;
+        // The place totals can only change if the rating or location changed
+        // and the post was or will be rated, in a published trip
+        const refreshPlaces =
+          (dto.rating !== undefined || locationChanged) &&
+          (countsTowardPlace(trip, current.rating) ||
+            countsTowardPlace(trip, nextRating));
 
         let removedKeys: string[] = [];
         if (media) {
@@ -180,7 +191,7 @@ export class PostsService {
           await tx.postMedia.deleteMany({ where: { postId: id } });
         }
 
-        await tx.post.update({
+        const edited = await tx.post.update({
           where: { id },
           data: {
             visitedOn: dto.visitedOn ? parseDateOnly(dto.visitedOn) : undefined,
@@ -203,14 +214,11 @@ export class PostsService {
             // Prisma doesn't bump @updatedAt for a media-only change
             updatedAt: new Date(),
           },
+          include: postInclude,
         });
 
-        if (dto.rating !== undefined || locationChanged) {
-          await refreshLocationRatings(tx, [
-            current.location_id,
-            nextLocationId,
-          ]);
-        }
+        if (!refreshPlaces) return { updated: edited, removedKeys };
+        await refreshLocationRatings(tx, [current.location_id, nextLocationId]);
         // Read after the refresh, so the place's rating includes this edit
         const updated = await tx.post.findUniqueOrThrow({
           where: { id },
@@ -234,19 +242,17 @@ export class PostsService {
 
     const keys = await this.prisma.$transaction(async (tx) => {
       // Locked so publishing can't count this post while it's being deleted
-      await this.lockedTrip(tx, post.tripId);
-      // Locked so the location read is the one being deleted
-      const located = await tx.$queryRaw<{ location_id: string | null }[]>`
-        SELECT location_id FROM posts WHERE id = ${id}::uuid FOR UPDATE`;
+      const trip = await this.lockedTrip(tx, post.tripId);
+      // Locked so the location and rating read are the ones being deleted
+      const current = await this.lockPost(tx, id);
       const media = await tx.postMedia.findMany({
         where: { postId: id },
         select: { s3Key: true },
       });
       await tx.post.deleteMany({ where: { id } });
-      await refreshLocationRatings(
-        tx,
-        located.map((p) => p.location_id),
-      );
+      if (countsTowardPlace(trip, current.rating)) {
+        await refreshLocationRatings(tx, [current.location_id]);
+      }
       return media.map((m) => m.s3Key);
     });
 
@@ -294,6 +300,18 @@ export class PostsService {
       throw new NotFoundException('Trip not found');
     }
     return trip;
+  }
+
+  // Locks the post row for an edit or delete and reads what the place totals
+  // depend on. 404 if it was deleted since the ownership check.
+  private async lockPost(tx: Prisma.TransactionClient, id: string) {
+    const [row] = await tx.$queryRaw<
+      { location_id: string | null; rating: number | null }[]
+    >`SELECT location_id, rating FROM posts WHERE id = ${id}::uuid FOR UPDATE`;
+    if (!row) {
+      throw new NotFoundException('Post not found');
+    }
+    return row;
   }
 
   // Same rules as trips: 404 if the viewer can't see the post's trip, 403 if
@@ -424,6 +442,15 @@ function assertMediaDurations(media: MediaItemDto[]) {
       throw new BadRequestException("Images can't have a durationMs");
     }
   }
+}
+
+// Whether a post with this rating, in this trip, counts toward its place's
+// rating (see locations/location-ratings.ts)
+function countsTowardPlace(
+  trip: Pick<Trip, 'status'>,
+  rating: number | null | undefined,
+): boolean {
+  return trip.status === 'published' && rating != null;
 }
 
 function toMediaRows(media: MediaItemDto[]) {

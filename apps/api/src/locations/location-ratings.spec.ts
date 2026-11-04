@@ -25,7 +25,7 @@ function makeTx() {
         return Promise.resolve(0);
       },
     ),
-    post: { findMany: jest.fn() },
+    post: { groupBy: jest.fn() },
   };
   return { tx, calls, client: tx as unknown as Prisma.TransactionClient };
 }
@@ -58,7 +58,7 @@ describe('refreshLocationRatings', () => {
 describe('ratedLocationIds', () => {
   it('returns the distinct places of the rated posts', async () => {
     const { tx, client } = makeTx();
-    tx.post.findMany.mockResolvedValue([
+    tx.post.groupBy.mockResolvedValue([
       { locationId: 'loc_a' },
       { locationId: 'loc_b' },
     ]);
@@ -66,14 +66,14 @@ describe('ratedLocationIds', () => {
     await expect(
       ratedLocationIds(client, { tripId: 'trip_1' }),
     ).resolves.toEqual(['loc_a', 'loc_b']);
-    expect(tx.post.findMany).toHaveBeenCalledWith({
+    // Grouped in the database, so each place comes back once
+    expect(tx.post.groupBy).toHaveBeenCalledWith({
+      by: ['locationId'],
       where: {
         tripId: 'trip_1',
         rating: { not: null },
         locationId: { not: null },
       },
-      select: { locationId: true },
-      distinct: ['locationId'],
     });
   });
 });

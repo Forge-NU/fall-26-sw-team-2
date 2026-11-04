@@ -17,6 +17,7 @@ import {
   ratedLocationIds,
   refreshLocationRatings,
 } from '../locations/location-ratings';
+import { lockOwnerTripsForUpdate } from '../trips/trip-locks';
 
 @Injectable()
 export class UsersService {
@@ -103,21 +104,24 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    // Delete from Clerk first.
-    await clerkClient.users.deleteUser(id);
-
-    // Then delete the local database record. That cascades to their trips and
-    // posts, so the places those posts rated are recomputed in the same
-    // transaction. The trips are locked first (as trip-locks.ts does for one
-    // trip) so no post goes in between reading the places and deleting.
-    await this.prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT id FROM trips WHERE owner_id = ${id} FOR UPDATE`;
-      const locationIds = await ratedLocationIds(tx, {
-        trip: { ownerId: id },
-      });
-      await tx.user.deleteMany({ where: { id } });
-      await refreshLocationRatings(tx, locationIds);
-    });
+    // The local delete cascades to their trips and posts, so the places those
+    // posts rated are recomputed in the same transaction. The trips are locked
+    // first so no post goes in between reading the places and deleting.
+    // Clerk is deleted last, inside the transaction: if anything local fails,
+    // Clerk is never called, and if Clerk fails, the local delete rolls back.
+    await this.prisma.$transaction(
+      async (tx) => {
+        await lockOwnerTripsForUpdate(tx, id);
+        const locationIds = await ratedLocationIds(tx, {
+          trip: { ownerId: id },
+        });
+        await tx.user.deleteMany({ where: { id } });
+        await refreshLocationRatings(tx, locationIds);
+        await clerkClient.users.deleteUser(id);
+      },
+      // Prisma's 5s default is tight for a user with many trips plus a Clerk call
+      { timeout: 30_000 },
+    );
   }
 
   async listUsers(pagination: PaginationDto) {

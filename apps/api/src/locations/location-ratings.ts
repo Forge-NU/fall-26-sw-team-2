@@ -10,7 +10,9 @@ import { LocationRating } from './location.types';
 // same transaction as any write that changes which rated posts count toward a
 // place: a post created, deleted, or with its rating or location changed, and
 // a trip published or deleted. Recomputing instead of adding and subtracting
-// means the totals can't drift.
+// means the totals can't drift. A caller may skip it when no counted rating
+// can change (an unrated post, or a post in a draft trip), which saves locking
+// the location.
 //
 // Callers make their own change first. The locations are then locked, in id
 // order so two callers can't deadlock, and the totals are computed in a new
@@ -40,16 +42,16 @@ export async function refreshLocationRatings(
 
 // The distinct locations of the rated posts matching `where`, for writes that
 // touch many posts at once (publishing or deleting a trip, deleting a user).
+// GROUP BY dedups in the database.
 export async function ratedLocationIds(
   tx: Prisma.TransactionClient,
   where: Prisma.PostWhereInput,
-): Promise<string[]> {
-  const posts = await tx.post.findMany({
+): Promise<(string | null)[]> {
+  const rows = await tx.post.groupBy({
+    by: ['locationId'],
     where: { ...where, rating: { not: null }, locationId: { not: null } },
-    select: { locationId: true },
-    distinct: ['locationId'],
   });
-  return posts.flatMap((p) => (p.locationId ? [p.locationId] : []));
+  return rows.map((r) => r.locationId);
 }
 
 // null until a place has a rating. The average is rounded to one decimal;

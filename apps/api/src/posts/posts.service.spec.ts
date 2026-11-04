@@ -113,8 +113,8 @@ describe('PostsService', () => {
     prisma.post.create.mockResolvedValue(makePost());
     prisma.post.update.mockResolvedValue(makePost());
     prisma.post.findUniqueOrThrow.mockResolvedValue(makePost());
-    // Row locks; the post lock also reads the post's location
-    prisma.$queryRaw.mockResolvedValue([{ location_id: null }]);
+    // Row locks; the post lock also reads the post's location and rating
+    prisma.$queryRaw.mockResolvedValue([{ location_id: null, rating: null }]);
 
     const module = await Test.createTestingModule({
       providers: [
@@ -213,6 +213,9 @@ describe('PostsService', () => {
 
     it('saves a rating on a Mapbox place and refreshes its rating', async () => {
       prisma.location.findUnique.mockResolvedValue({ id: locationId });
+      prisma.trip.findUnique.mockResolvedValue(
+        makeTrip({ status: 'published' }),
+      );
       await service.create(
         ownerId,
         createDto({ customLocationName: undefined, locationId, rating: 4 }),
@@ -225,6 +228,28 @@ describe('PostsService', () => {
       expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
       // Read back after the refresh, so the place's rating is current
       expect(prisma.post.findUniqueOrThrow).toHaveBeenCalled();
+    });
+
+    it("doesn't refresh the place for a post that can't count toward it", async () => {
+      prisma.location.findUnique.mockResolvedValue({ id: locationId });
+      // Unrated, in a published trip
+      prisma.trip.findUnique.mockResolvedValue(
+        makeTrip({ status: 'published' }),
+      );
+      await service.create(
+        ownerId,
+        createDto({ customLocationName: undefined, locationId }),
+      );
+      // Rated, in a draft
+      prisma.trip.findUnique.mockResolvedValue(makeTrip());
+      await service.create(
+        ownerId,
+        createDto({ customLocationName: undefined, locationId, rating: 4 }),
+      );
+
+      expect(prisma.$executeRaw).not.toHaveBeenCalled();
+      // The created post is returned as is, with no second read
+      expect(prisma.post.findUniqueOrThrow).not.toHaveBeenCalled();
     });
 
     it('rejects a rating on a custom location', async () => {
@@ -414,8 +439,17 @@ describe('PostsService', () => {
     });
 
     describe('rating', () => {
-      const ratedPlace = () =>
-        prisma.$queryRaw.mockResolvedValue([{ location_id: locationId }]);
+      // The locked post is at a place, rated 4 unless given
+      const ratedPlace = (rating: number | null = 4) =>
+        prisma.$queryRaw.mockResolvedValue([
+          { location_id: locationId, rating },
+        ]);
+
+      beforeEach(() => {
+        prisma.trip.findUnique.mockResolvedValue(
+          makeTrip({ status: 'published' }),
+        );
+      });
 
       it('sets and clears the rating, refreshing the place', async () => {
         ratedPlace();
@@ -478,6 +512,42 @@ describe('PostsService', () => {
         await service.update(ownerId, postId, { caption: 'New caption' });
         expect(prisma.$executeRaw).not.toHaveBeenCalled();
       });
+
+      it('refreshes the place for a first rating', async () => {
+        ratedPlace(null);
+        await service.update(ownerId, postId, { rating: 3 });
+        expect(prisma.$executeRaw.mock.calls[0]).toContainEqual([locationId]);
+      });
+
+      it("doesn't refresh when an unrated post moves", async () => {
+        const newLocationId = '44444444-4444-4444-8444-444444444444';
+        ratedPlace(null);
+        prisma.location.findUnique.mockResolvedValue({ id: newLocationId });
+
+        await service.update(ownerId, postId, { locationId: newLocationId });
+        await service.update(ownerId, postId, { customLocationName: 'Home' });
+
+        expect(prisma.$executeRaw).not.toHaveBeenCalled();
+        expect(prisma.post.findUniqueOrThrow).not.toHaveBeenCalled();
+      });
+
+      it("doesn't refresh for a rating in a draft trip", async () => {
+        prisma.trip.findUnique.mockResolvedValue(makeTrip());
+        ratedPlace();
+        await service.update(ownerId, postId, { rating: 5 });
+        await service.update(ownerId, postId, { rating: null });
+        expect(prisma.$executeRaw).not.toHaveBeenCalled();
+      });
+
+      it("404s if the post was deleted before it's locked", async () => {
+        prisma.$queryRaw
+          .mockResolvedValueOnce([{ id: 'trip' }]) // trip lock
+          .mockResolvedValueOnce([]); // post lock
+        await expect(
+          service.update(ownerId, postId, { rating: 5 }),
+        ).rejects.toThrow(NotFoundException);
+        expect(prisma.post.update).not.toHaveBeenCalled();
+      });
     });
   });
 
@@ -500,7 +570,12 @@ describe('PostsService', () => {
 
     it("refreshes the place's rating after the post is gone", async () => {
       prisma.post.findUnique.mockResolvedValue(makePost());
-      prisma.$queryRaw.mockResolvedValue([{ location_id: locationId }]);
+      prisma.trip.findUnique.mockResolvedValue(
+        makeTrip({ status: 'published' }),
+      );
+      prisma.$queryRaw.mockResolvedValue([
+        { location_id: locationId, rating: 4 },
+      ]);
       const order: string[] = [];
       prisma.post.deleteMany.mockImplementation(() => {
         order.push('delete');
@@ -515,6 +590,38 @@ describe('PostsService', () => {
 
       expect(order).toEqual(['delete', 'refresh']);
       expect(prisma.$executeRaw.mock.calls[0]).toContainEqual([locationId]);
+    });
+
+    it("doesn't refresh the place for a post that didn't count toward it", async () => {
+      prisma.post.findUnique.mockResolvedValue(makePost());
+      // Unrated, in a published trip
+      prisma.trip.findUnique.mockResolvedValue(
+        makeTrip({ status: 'published' }),
+      );
+      prisma.$queryRaw.mockResolvedValue([
+        { location_id: locationId, rating: null },
+      ]);
+      await service.remove(ownerId, postId);
+      // Rated, in a draft
+      prisma.trip.findUnique.mockResolvedValue(makeTrip());
+      prisma.$queryRaw.mockResolvedValue([
+        { location_id: locationId, rating: 4 },
+      ]);
+      await service.remove(ownerId, postId);
+
+      expect(prisma.post.deleteMany).toHaveBeenCalledTimes(2);
+      expect(prisma.$executeRaw).not.toHaveBeenCalled();
+    });
+
+    it("404s if the post was deleted before it's locked", async () => {
+      prisma.post.findUnique.mockResolvedValue(makePost());
+      prisma.$queryRaw
+        .mockResolvedValueOnce([{ id: 'trip' }]) // trip lock
+        .mockResolvedValueOnce([]); // post lock
+      await expect(service.remove(ownerId, postId)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(prisma.post.deleteMany).not.toHaveBeenCalled();
     });
   });
 
