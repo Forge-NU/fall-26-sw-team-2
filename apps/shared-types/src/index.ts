@@ -56,3 +56,5 @@ export interface CreateUploadResponse {
   /** ISO timestamp, 15 minutes after the request */
   expiresAt: string;
 }
+
+export type { SearchType, SearchSort, SearchRequest, SearchPerson, SearchPlace, SearchItems, SearchPreview, SearchPage, SearchResponse } from './search.js';

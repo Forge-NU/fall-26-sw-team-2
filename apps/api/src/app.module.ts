@@ -8,6 +8,7 @@ import { TripsModule } from './trips/trips.module';
 import { PostsModule } from './posts/posts.module';
 import { StoriesModule } from './stories/stories.module';
 import { MediaModule } from './media/media.module';
+import { SearchModule } from './search/search.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { MediaModule } from './media/media.module';
     LocationsModule,
     StoriesModule,
     MediaModule,
+    SearchModule,
   ],
   controllers: [AppController],
   providers: [AppService],
