@@ -72,6 +72,7 @@ function mockLocation(name: string, city: string, latitude: number, longitude: n
     city,
     region: null,
     countryCode: 'PT',
+    rating: null,
   };
 }
 
@@ -91,6 +92,7 @@ function mockPost(
     visitedOn,
     location: typeof location === 'string' ? null : location,
     customLocationName: typeof location === 'string' ? location : null,
+    rating: null,
     media: photoIds.map((photoId) => ({
       id: mockId('media'),
       mediaType: 'image',
@@ -256,6 +258,12 @@ export async function mockCreatePost(body: CreatePostRequest): Promise<PostRespo
   if (Boolean(body.locationId) === Boolean(body.customLocationName)) {
     throw new ApiError(400, 'Exactly one of locationId and customLocationName is required');
   }
+  if (body.rating != null && body.customLocationName) {
+    throw new ApiError(400, 'Only posts at a Mapbox place can be rated, not a custom location');
+  }
+  if (body.rating != null && (!Number.isInteger(body.rating) || body.rating < 1 || body.rating > 5)) {
+    throw new ApiError(400, 'rating must be a whole number from 1 to 5');
+  }
   if (body.caption && textLength(body.caption) > 2200) {
     throw new ApiError(400, 'caption must be at most 2200 characters');
   }
@@ -271,6 +279,7 @@ export async function mockCreatePost(body: CreatePostRequest): Promise<PostRespo
     visitedOn: body.visitedOn,
     location: location ?? null,
     customLocationName: body.customLocationName?.trim() ?? null,
+    rating: body.rating ?? null,
     // Uploads never really happen in mock mode, so show stock photos
     media: body.media.map((item, i) => ({
       id: mockId('media'),
@@ -340,6 +349,7 @@ export async function mockResolveLocation(body: ResolveLocationRequest): Promise
     city: body.city ?? null,
     region: body.region ?? null,
     countryCode: body.countryCode?.toUpperCase() ?? null,
+    rating: null,
   };
   resolvedLocations.set(location.id, location);
   return { kind: 'mapbox', location };
