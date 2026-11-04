@@ -2,7 +2,7 @@
 // Custom locations are stored on the post instead, so a location never
 // belongs to one user and is never deleted.
 // Check constraints (added in the migration): latitude -90 to 90, longitude
-// -180 to 180.
+// -180 to 180; 0 <= rating_count and rating_count <= rating_sum <= 5 * rating_count.
 model Location {
   id              String   @id @default(uuid()) @db.Uuid
   provider        String   @db.VarChar(20)
@@ -14,6 +14,11 @@ model Location {
   city            String?
   region          String?
   countryCode     String?  @map("country_code") @db.Char(2)
+  // Totals of the ratings on posts here in published trips. Derived: only
+  // refreshLocationRatings (locations/location-ratings.ts) writes them, by
+  // recomputing. The average is rating_sum / rating_count.
+  ratingCount     Int      @default(0) @map("rating_count")
+  ratingSum       Int      @default(0) @map("rating_sum")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 

@@ -2,6 +2,10 @@
 // API-1 (#28) adds shared-types, then move there unchanged.
 // Contract: docs/architecture/locations.md
 
+// A place's average star rating, from posts there in published trips.
+// Rounded to one decimal.
+export type LocationRating = { average: number; count: number };
+
 export type Location = {
   id: string;
   provider: 'mapbox';
@@ -13,6 +17,8 @@ export type Location = {
   city: string | null;
   region: string | null;
   countryCode: string | null;
+  // null until a post in a published trip rates the place
+  rating: LocationRating | null;
 };
 
 // Body of POST /api/locations/resolve

@@ -31,6 +31,10 @@ describe('UsersService', () => {
       deleteMany: jest.fn(),
       findMany: jest.fn(),
     },
+    post: { findMany: jest.fn() },
+    $transaction: jest.fn(),
+    $queryRaw: jest.fn(),
+    $executeRaw: jest.fn(),
   };
 
   const mockUser = {
@@ -46,6 +50,10 @@ describe('UsersService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPrismaService.$transaction.mockImplementation(
+      (fn: (tx: typeof mockPrismaService) => unknown) => fn(mockPrismaService),
+    );
+    mockPrismaService.post.findMany.mockResolvedValue([]);
     service = new UsersService(mockPrismaService as unknown as PrismaService);
   });
 
@@ -245,6 +253,39 @@ describe('UsersService', () => {
       expect(mockPrismaService.user.deleteMany).toHaveBeenCalledWith({
         where: { id: 'user_123' },
       });
+    });
+
+    it('recomputes the ratings of the places their posts rated, in the same transaction', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+      mockDeleteClerkUser.mockResolvedValue(undefined);
+      mockPrismaService.post.findMany.mockResolvedValue([
+        { locationId: 'loc_b' },
+        { locationId: 'loc_a' },
+      ]);
+      const order: string[] = [];
+      mockPrismaService.user.deleteMany.mockImplementation(() => {
+        order.push('delete');
+        return Promise.resolve({ count: 1 });
+      });
+      mockPrismaService.$executeRaw.mockImplementation(() => {
+        order.push('refresh');
+        return Promise.resolve(2);
+      });
+
+      await service.deleteAccount('user_123');
+
+      expect(mockPrismaService.post.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            trip: { ownerId: 'user_123' },
+          }) as unknown,
+        }),
+      );
+      expect(order).toEqual(['delete', 'refresh']);
+      expect(mockPrismaService.$executeRaw.mock.calls[0]).toContainEqual([
+        'loc_a',
+        'loc_b',
+      ]);
     });
 
     it('throws NotFoundException when the user does not exist', async () => {

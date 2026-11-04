@@ -1,4 +1,5 @@
 import { UserSummary } from '../common/user-summary';
+import { LocationRating } from '../locations/location.types';
 
 // Response shapes for the post endpoints (docs/architecture/itinerary-schema.md).
 // Moves to shared-types with API-1 (#28).
@@ -16,6 +17,8 @@ export type LocationResponse = {
   city: string | null;
   region: string | null;
   countryCode: string | null;
+  // null until a post in a published trip rates the place
+  rating: LocationRating | null;
 };
 
 export type MediaResponse = {
@@ -35,6 +38,8 @@ export type PostResponse = {
   visitedOn: string;
   location: LocationResponse | null;
   customLocationName: string | null;
+  // 1-5 stars for the place, or null. Always null with a custom location.
+  rating: number | null;
   media: MediaResponse[];
   createdAt: string;
   updatedAt: string;

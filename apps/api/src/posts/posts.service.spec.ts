@@ -86,6 +86,7 @@ describe('PostsService', () => {
     post: {
       create: jest.fn(),
       findUnique: jest.fn(),
+      findUniqueOrThrow: jest.fn(),
       findFirst: jest.fn(),
       findMany: jest.fn(),
       update: jest.fn(),
@@ -95,6 +96,7 @@ describe('PostsService', () => {
     location: { findUnique: jest.fn() },
     $transaction: jest.fn(),
     $queryRaw: jest.fn(),
+    $executeRaw: jest.fn(),
   };
   const storage = {
     getReadUrl: jest.fn((key: string) => Promise.resolve(`https://s3/${key}`)),
@@ -110,6 +112,9 @@ describe('PostsService', () => {
     prisma.postMedia.findMany.mockResolvedValue([]);
     prisma.post.create.mockResolvedValue(makePost());
     prisma.post.update.mockResolvedValue(makePost());
+    prisma.post.findUniqueOrThrow.mockResolvedValue(makePost());
+    // Row locks; the post lock also reads the post's location
+    prisma.$queryRaw.mockResolvedValue([{ location_id: null }]);
 
     const module = await Test.createTestingModule({
       providers: [
@@ -204,6 +209,29 @@ describe('PostsService', () => {
       await expect(
         service.create(ownerId, createDto({ locationId })),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('saves a rating on a Mapbox place and refreshes its rating', async () => {
+      prisma.location.findUnique.mockResolvedValue({ id: locationId });
+      await service.create(
+        ownerId,
+        createDto({ customLocationName: undefined, locationId, rating: 4 }),
+      );
+      expect(prisma.post.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ locationId, rating: 4 }) as unknown,
+        }),
+      );
+      expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
+      // Read back after the refresh, so the place's rating is current
+      expect(prisma.post.findUniqueOrThrow).toHaveBeenCalled();
+    });
+
+    it('rejects a rating on a custom location', async () => {
+      await expect(
+        service.create(ownerId, createDto({ rating: 4 })),
+      ).rejects.toThrow('Only posts at a Mapbox place can be rated');
+      expect(prisma.post.create).not.toHaveBeenCalled();
     });
 
     it("rejects a location that doesn't exist", async () => {
@@ -384,6 +412,73 @@ describe('PostsService', () => {
       ).rejects.toThrow(BadRequestException);
       expect(prisma.post.update).not.toHaveBeenCalled();
     });
+
+    describe('rating', () => {
+      const ratedPlace = () =>
+        prisma.$queryRaw.mockResolvedValue([{ location_id: locationId }]);
+
+      it('sets and clears the rating, refreshing the place', async () => {
+        ratedPlace();
+        await service.update(ownerId, postId, { rating: 5 });
+        await service.update(ownerId, postId, { rating: null });
+
+        const data = prisma.post.update.mock.calls.map(
+          ([args]: [{ data: { rating?: number | null } }]) => args.data.rating,
+        );
+        expect(data).toEqual([5, null]);
+        expect(prisma.$executeRaw).toHaveBeenCalledTimes(2);
+      });
+
+      it('refreshes both the old and the new place when the post moves', async () => {
+        const newLocationId = '44444444-4444-4444-8444-444444444444';
+        ratedPlace();
+        prisma.location.findUnique.mockResolvedValue({ id: newLocationId });
+
+        await service.update(ownerId, postId, { locationId: newLocationId });
+
+        expect(prisma.$executeRaw.mock.calls[0]).toContainEqual(
+          [locationId, newLocationId].sort(),
+        );
+      });
+
+      it('clears the rating when switching to a custom location', async () => {
+        ratedPlace();
+        await service.update(ownerId, postId, { customLocationName: 'Home' });
+        expect(prisma.post.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              locationId: null,
+              customLocationName: 'Home',
+              rating: null,
+            }) as unknown,
+          }),
+        );
+        expect(prisma.$executeRaw.mock.calls[0]).toContainEqual([locationId]);
+      });
+
+      it('rejects a rating sent with a custom location', async () => {
+        await expect(
+          service.update(ownerId, postId, {
+            customLocationName: 'Home',
+            rating: 3,
+          }),
+        ).rejects.toThrow('Only posts at a Mapbox place can be rated');
+      });
+
+      it('rejects a rating on a post that has a custom location', async () => {
+        // The locked row has no location_id (the default mock)
+        await expect(
+          service.update(ownerId, postId, { rating: 3 }),
+        ).rejects.toThrow('Only posts at a Mapbox place can be rated');
+        expect(prisma.post.update).not.toHaveBeenCalled();
+      });
+
+      it("doesn't refresh the place for an edit that can't change it", async () => {
+        ratedPlace();
+        await service.update(ownerId, postId, { caption: 'New caption' });
+        expect(prisma.$executeRaw).not.toHaveBeenCalled();
+      });
+    });
   });
 
   describe('remove', () => {
@@ -401,6 +496,25 @@ describe('PostsService', () => {
       expect(storage.deleteObjects).toHaveBeenCalledWith([
         `users/${ownerId}/posts/a.jpg`,
       ]);
+    });
+
+    it("refreshes the place's rating after the post is gone", async () => {
+      prisma.post.findUnique.mockResolvedValue(makePost());
+      prisma.$queryRaw.mockResolvedValue([{ location_id: locationId }]);
+      const order: string[] = [];
+      prisma.post.deleteMany.mockImplementation(() => {
+        order.push('delete');
+        return Promise.resolve({ count: 1 });
+      });
+      prisma.$executeRaw.mockImplementation(() => {
+        order.push('refresh');
+        return Promise.resolve(1);
+      });
+
+      await service.remove(ownerId, postId);
+
+      expect(order).toEqual(['delete', 'refresh']);
+      expect(prisma.$executeRaw.mock.calls[0]).toContainEqual([locationId]);
     });
   });
 

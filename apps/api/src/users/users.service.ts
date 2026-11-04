@@ -13,6 +13,10 @@ import {
   buildPaginatedResponse,
 } from '../common/utils/pagination.helper';
 import { Prisma } from '../generated/prisma/client';
+import {
+  ratedLocationIds,
+  refreshLocationRatings,
+} from '../locations/location-ratings';
 
 @Injectable()
 export class UsersService {
@@ -102,9 +106,17 @@ export class UsersService {
     // Delete from Clerk first.
     await clerkClient.users.deleteUser(id);
 
-    // Then delete the local database record.
-    await this.prisma.user.deleteMany({
-      where: { id },
+    // Then delete the local database record. That cascades to their trips and
+    // posts, so the places those posts rated are recomputed in the same
+    // transaction. The trips are locked first (as trip-locks.ts does for one
+    // trip) so no post goes in between reading the places and deleting.
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM trips WHERE owner_id = ${id} FOR UPDATE`;
+      const locationIds = await ratedLocationIds(tx, {
+        trip: { ownerId: id },
+      });
+      await tx.user.deleteMany({ where: { id } });
+      await refreshLocationRatings(tx, locationIds);
     });
   }
 

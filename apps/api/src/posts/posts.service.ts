@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Location, Prisma, Trip } from '../generated/prisma/client';
+import { Prisma, Trip } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { formatDateOnly, parseDateOnly } from '../common/dates';
@@ -19,10 +19,12 @@ import { toUserSummary, userSummarySelect } from '../common/user-summary';
 import { POST_ORDER, TripsService } from '../trips/trips.service';
 import { canViewTrip } from '../trips/trip-rules';
 import { lockTripForShare } from '../trips/trip-locks';
+import { toLocation } from '../locations/locations.service';
+import { refreshLocationRatings } from '../locations/location-ratings';
 import { CreatePostDto } from './dto/create-post.dto';
 import { MediaItemDto } from './dto/media-item.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
-import { LocationResponse, PostResponse } from './post.types';
+import { PostResponse } from './post.types';
 
 const postInclude = {
   trip: {
@@ -40,6 +42,9 @@ const postInclude = {
 
 type PostWithDetails = Prisma.PostGetPayload<{ include: typeof postInclude }>;
 
+const CUSTOM_LOCATION_RATING =
+  'Only posts at a Mapbox place can be rated, not a custom location';
+
 @Injectable()
 export class PostsService {
   constructor(
@@ -56,6 +61,9 @@ export class PostsService {
         'Send exactly one of locationId and customLocationName',
       );
     }
+    if (dto.rating != null && dto.customLocationName != null) {
+      throw new BadRequestException(CUSTOM_LOCATION_RATING);
+    }
     if (dto.locationId) {
       await this.assertLocationExists(dto.locationId);
     }
@@ -71,15 +79,23 @@ export class PostsService {
         const visitedOn = parseDateOnly(dto.visitedOn);
         assertWithinTrip(trip, visitedOn);
 
-        return tx.post.create({
+        const { id } = await tx.post.create({
           data: {
             tripId: trip.id,
             visitedOn,
             caption: dto.caption || null,
             locationId: dto.locationId ?? null,
             customLocationName: dto.customLocationName ?? null,
+            rating: dto.rating ?? null,
             media: { create: toMediaRows(dto.media) },
           },
+          select: { id: true },
+        });
+
+        await refreshLocationRatings(tx, [dto.locationId]);
+        // Read after the refresh, so the place's rating includes this post
+        return tx.post.findUniqueOrThrow({
+          where: { id },
           include: postInclude,
         });
       }),
@@ -113,6 +129,9 @@ export class PostsService {
         'Send only one of locationId and customLocationName',
       );
     }
+    if (dto.rating != null && dto.customLocationName !== undefined) {
+      throw new BadRequestException(CUSTOM_LOCATION_RATING);
+    }
     if (dto.locationId) {
       await this.assertLocationExists(dto.locationId);
     }
@@ -129,9 +148,25 @@ export class PostsService {
           assertWithinTrip(trip, parseDateOnly(dto.visitedOn));
         }
 
-        // Locked so two edits to the same post's media run one at a time,
-        // and the removed keys are worked out from what's actually there
-        await tx.$queryRaw`SELECT id FROM posts WHERE id = ${id}::uuid FOR UPDATE`;
+        // Locked so two edits to the same post run one at a time, and the
+        // removed keys and the old location are worked out from what's
+        // actually there
+        const [current] = await tx.$queryRaw<{ location_id: string | null }[]>`
+          SELECT location_id FROM posts WHERE id = ${id}::uuid FOR UPDATE`;
+        if (!current) {
+          throw new NotFoundException('Post not found');
+        }
+
+        const locationChanged =
+          dto.locationId !== undefined || dto.customLocationName !== undefined;
+        const nextLocationId =
+          dto.customLocationName !== undefined
+            ? null
+            : (dto.locationId ?? current.location_id);
+        if (dto.rating != null && nextLocationId == null) {
+          throw new BadRequestException(CUSTOM_LOCATION_RATING);
+        }
+
         let removedKeys: string[] = [];
         if (media) {
           const newKeys = new Set(media.map((m) => m.s3Key));
@@ -145,7 +180,7 @@ export class PostsService {
           await tx.postMedia.deleteMany({ where: { postId: id } });
         }
 
-        const updated = await tx.post.update({
+        await tx.post.update({
           where: { id },
           data: {
             visitedOn: dto.visitedOn ? parseDateOnly(dto.visitedOn) : undefined,
@@ -155,14 +190,30 @@ export class PostsService {
               locationId: dto.locationId,
               customLocationName: null,
             }),
+            // The rating was for the place, so switching to a custom
+            // location (which can't be rated) clears it
             ...(dto.customLocationName !== undefined && {
               locationId: null,
               customLocationName: dto.customLocationName,
+              rating: null,
             }),
+            ...(dto.rating !== undefined &&
+              dto.customLocationName === undefined && { rating: dto.rating }),
             ...(media && { media: { create: toMediaRows(media) } }),
             // Prisma doesn't bump @updatedAt for a media-only change
             updatedAt: new Date(),
           },
+        });
+
+        if (dto.rating !== undefined || locationChanged) {
+          await refreshLocationRatings(tx, [
+            current.location_id,
+            nextLocationId,
+          ]);
+        }
+        // Read after the refresh, so the place's rating includes this edit
+        const updated = await tx.post.findUniqueOrThrow({
+          where: { id },
           include: postInclude,
         });
 
@@ -184,11 +235,18 @@ export class PostsService {
     const keys = await this.prisma.$transaction(async (tx) => {
       // Locked so publishing can't count this post while it's being deleted
       await this.lockedTrip(tx, post.tripId);
+      // Locked so the location read is the one being deleted
+      const located = await tx.$queryRaw<{ location_id: string | null }[]>`
+        SELECT location_id FROM posts WHERE id = ${id}::uuid FOR UPDATE`;
       const media = await tx.postMedia.findMany({
         where: { postId: id },
         select: { s3Key: true },
       });
       await tx.post.deleteMany({ where: { id } });
+      await refreshLocationRatings(
+        tx,
+        located.map((p) => p.location_id),
+      );
       return media.map((m) => m.s3Key);
     });
 
@@ -327,8 +385,9 @@ export class PostsService {
       author: toUserSummary(post.trip.owner),
       caption: post.caption,
       visitedOn: formatDateOnly(post.visitedOn),
-      location: post.location ? toLocationResponse(post.location) : null,
+      location: post.location ? toLocation(post.location) : null,
       customLocationName: post.customLocationName,
+      rating: post.rating,
       media: await Promise.all(
         post.media.map(async (m) => ({
           id: m.id,
@@ -376,19 +435,4 @@ function toMediaRows(media: MediaItemDto[]) {
     height: m.height ?? null,
     durationMs: m.durationMs ?? null,
   }));
-}
-
-function toLocationResponse(location: Location): LocationResponse {
-  return {
-    id: location.id,
-    provider: location.provider,
-    providerPlaceId: location.providerPlaceId,
-    name: location.name,
-    address: location.address,
-    latitude: location.latitude.toNumber(),
-    longitude: location.longitude.toNumber(),
-    city: location.city,
-    region: location.region,
-    countryCode: location.countryCode,
-  };
 }
