@@ -9,6 +9,7 @@ import { PostsModule } from './posts/posts.module';
 import { StoriesModule } from './stories/stories.module';
 import { MediaModule } from './media/media.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
+import { SearchModule } from './search/search.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
     StoriesModule,
     MediaModule,
     WebhooksModule,
+    SearchModule,
   ],
   controllers: [AppController],
   providers: [AppService],
