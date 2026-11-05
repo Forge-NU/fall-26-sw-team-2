@@ -24,10 +24,14 @@ describe('ClerkWebhookController', () => {
     postMedia: {
       findMany: jest.fn(),
     },
+    story: {
+      findMany: jest.fn(),
+    },
   };
 
   const mockStorageService = {
     deleteObjectsStrict: jest.fn(),
+    listKeys: jest.fn(),
   };
 
   const request = {
@@ -54,6 +58,8 @@ describe('ClerkWebhookController', () => {
     jest.clearAllMocks();
     process.env['CLERK_WEBHOOK_SIGNING_SECRET'] = 'whsec_test';
     mockPrismaService.postMedia.findMany.mockResolvedValue([]);
+    mockPrismaService.story.findMany.mockResolvedValue([]);
+    mockStorageService.listKeys.mockResolvedValue([]);
     controller = new ClerkWebhookController(
       mockPrismaService as unknown as PrismaService,
       mockStorageService as unknown as StorageService,
@@ -108,13 +114,23 @@ describe('ClerkWebhookController', () => {
       data: { id: 'user_123', deleted: true },
     });
     mockPrismaService.postMedia.findMany.mockResolvedValue([
-      { s3Key: 'posts/a.jpg' },
+      { s3Key: 'users/user_123/posts/a.jpg' },
+    ]);
+    mockPrismaService.story.findMany.mockResolvedValue([
+      { s3Key: 'users/user_123/stories/b.jpg' },
+    ]);
+    mockStorageService.listKeys.mockResolvedValue([
+      'users/user_123/posts/a.jpg',
+      'users/user_123/avatars/c.jpg',
     ]);
 
     await controller.receive(request);
 
+    expect(mockStorageService.listKeys).toHaveBeenCalledWith('users/user_123/');
     expect(mockStorageService.deleteObjectsStrict).toHaveBeenCalledWith([
-      'posts/a.jpg',
+      'users/user_123/posts/a.jpg',
+      'users/user_123/stories/b.jpg',
+      'users/user_123/avatars/c.jpg',
     ]);
     expect(mockPrismaService.user.deleteMany).toHaveBeenCalledWith({
       where: { id: 'user_123' },

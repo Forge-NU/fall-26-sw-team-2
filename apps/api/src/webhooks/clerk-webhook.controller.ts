@@ -12,6 +12,7 @@ import { verifyWebhook, type WebhookEvent } from '@clerk/backend/webhooks';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
+import { findUserMediaKeys } from '../users/user-media';
 
 @Controller('webhooks/clerk')
 export class ClerkWebhookController {
@@ -75,11 +76,9 @@ export class ClerkWebhookController {
       });
     } else if (event.type === 'user.deleted' && event.data.id) {
       const userId = event.data.id;
-      const media = await this.prisma.postMedia.findMany({
-        where: { post: { trip: { ownerId: userId } } },
-        select: { s3Key: true },
-      });
-      await this.storage.deleteObjectsStrict(media.map((item) => item.s3Key));
+      await this.storage.deleteObjectsStrict(
+        await findUserMediaKeys(this.prisma, this.storage, userId),
+      );
       await this.prisma.user.deleteMany({ where: { id: userId } });
     }
 
