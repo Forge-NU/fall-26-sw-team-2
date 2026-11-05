@@ -70,7 +70,7 @@ Columns are `timestamp without time zone` in UTC, the same as the rest of the sc
 Cascades remove rows, not S3 objects. Every delete that removes stories has to delete their objects too:
 - `DELETE /api/stories/:id` and the cleanup job do this.
 - **Trip delete** (`TripsService.remove()`, #56) reads the trip's `stories.s3_key` values alongside its `post_media` keys before deleting, then deletes both sets of objects. This PR added that.
-- **Account delete (#15):** doesn't delete any S3 objects yet. The prefix delete of `users/{userId}/` suggested in [data-model.md](data-model.md#account-deletion) would cover stories.
+- **Account delete (#15):** deletes every S3 object under `users/{userId}/`, which includes story photos, before the rows cascade.
 
 ## Visibility
 

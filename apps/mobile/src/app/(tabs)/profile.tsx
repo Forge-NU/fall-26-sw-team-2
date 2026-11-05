@@ -16,16 +16,19 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Palette } from '@/constants/palette';
 import { Radii, Spacing } from '@/constants/theme';
 import { useMyTrips } from '@/hooks/use-trips';
+import { useSignOut } from '@/lib/current-user';
 import { formatDateRange } from '@/utils/trip-dates';
 
 export default function ProfileScreen() {
   const trips = useMyTrips();
+  const signOut = useSignOut();
   const newTrip = () => router.push('/trips/new');
 
   return (
     <Screen edges={['top']}>
       <ScreenHeader
         title="My trips"
+        left={signOut ? { icon: 'log-out-outline', label: 'Sign out', onPress: () => void signOut() } : undefined}
         right={<IconButton icon="add" label="New trip" onPress={newTrip} />}
       />
       {trips.isPending ? (

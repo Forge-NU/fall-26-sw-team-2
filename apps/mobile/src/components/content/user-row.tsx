@@ -27,7 +27,7 @@ export function UserRow({
   onPress,
   action,
 }: UserRowProps) {
-  const name = `${user.firstName} ${user.lastName}`.trim() || user.username;
+  const name = `${user.firstName} ${user.lastName}`.trim() || (user.username ?? "");
   const identity = (
     <>
       <Avatar name={name} uri={user.avatarUrl} size="small" />

@@ -6,8 +6,12 @@ export interface UserResponse {
   id: string;
   firstName: string;
   lastName: string;
-  username: string;
+  username: string | null;
   avatarUrl: string | null;
+}
+
+export interface UsernameAvailabilityResponse {
+  available: boolean;
 }
 
 /**

@@ -7,7 +7,7 @@ export function mapUserToResponse(user: {
   id: string;
   firstName: string;
   lastName: string;
-  username: string;
+  username: string | null;
   avatarUrl: string | null;
 }): UserResponse {
   return {
