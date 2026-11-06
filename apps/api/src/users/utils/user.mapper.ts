@@ -1,7 +1,7 @@
-import { UserResponse } from 'shared-types';
+import type { UserSummary } from 'shared-types';
 
 /**
- * Maps a Prisma User entity to the UserResponse shape
+ * Maps a Prisma User entity to the UserSummary shape
  */
 export function mapUserToResponse(user: {
   id: string;
@@ -9,7 +9,7 @@ export function mapUserToResponse(user: {
   lastName: string;
   username: string | null;
   avatarUrl: string | null;
-}): UserResponse {
+}): UserSummary {
   return {
     id: user.id,
     firstName: user.firstName,

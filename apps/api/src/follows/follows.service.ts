@@ -5,11 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import type { FollowListQueryDto } from './dto/follow-list-query.dto';
-import type {
-  FollowCounts,
-  FollowListPage,
-  FollowStatus,
-} from './follow-list.types';
+import type { FollowCounts, FollowListPage, FollowStatus } from 'shared-types';
 import { Prisma } from '../generated/prisma/client';
 import { decodeFollowCursor, followPage } from './follow-pagination';
 

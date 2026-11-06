@@ -112,7 +112,7 @@ const s3Key = await uploadPhoto(photo.uri, 'post', {
 - **`uploadPhotos(uris, purpose, { onProgress })`** uploads several photos one at a time and returns a result for each, in order. One failure doesn't stop the rest, so a retry only needs the failed ones.
 - **`usePhotoUpload(purpose)`** is a hook for screens without their own queue or drafts, like the avatar on Edit profile. `upload(photos)` resolves to the photos with their keys, or `null` if any failed. `retry()` redoes only the failed ones. It also returns `items` (status and progress for each photo), `state`, and overall `progress`.
 - **Avatars:** pass `{ square: true }` to `choosePhoto` / `takePhoto` and to `preparePhoto`. The picker only enforces the crop on Android, so `preparePhoto` center-crops too.
-- **Mock mode** (`USE_MOCK_API`) fakes the URL and the upload, with progress. It's off unless `EXPO_PUBLIC_USE_MOCK_API=true` is in `.env`, so never set that in a build. Set `EXPO_PUBLIC_MOCK_UPLOAD_FAILURE_RATE=1` to make every upload fail.
+- **Mocks:** with `EXPO_PUBLIC_API_MOCKS=all` in `.env`, `createUpload` and `putObject` fake the URL and the upload, with progress. Never set that in a build. Set `EXPO_PUBLIC_MOCK_UPLOAD_FAILURE_RATE=1` to make every upload fail.
 - The S3 PUT uses `XMLHttpRequest`, not the API client: `fetch` can't report upload progress, and an `Authorization` header would make S3 reject the request.
 
 ## Bucket setup (INF-1, #34)

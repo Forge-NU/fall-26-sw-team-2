@@ -1,15 +1,7 @@
+import type { UserSummary } from 'shared-types';
 import { User } from '../generated/prisma/client';
 
-// The user fields shown next to content (trip owner, post author).
-// Moves to shared-types with API-1 (#28).
-export type UserSummary = {
-  id: string;
-  username: string | null;
-  firstName: string;
-  lastName: string;
-  avatarUrl: string | null;
-};
-
+// The Prisma select for UserSummary, the user shown next to content (trip owner, post author)
 export const userSummarySelect = {
   id: true,
   username: true,

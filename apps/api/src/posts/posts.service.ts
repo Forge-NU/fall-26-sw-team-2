@@ -22,7 +22,7 @@ import { lockTripForShare } from '../trips/trip-locks';
 import { CreatePostDto } from './dto/create-post.dto';
 import { MediaItemDto } from './dto/media-item.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
-import { LocationResponse, PostResponse } from './post.types';
+import type { LocationResponse, PostResponse } from 'shared-types';
 
 const postInclude = {
   trip: {

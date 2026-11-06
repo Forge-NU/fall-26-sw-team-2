@@ -1,9 +1,9 @@
-import type { PaginatedResponse, UserResponse, UsernameAvailabilityResponse } from 'shared-types';
+import type { PaginatedResponse, UserResponse, UserSummary, UsernameAvailabilityResponse } from 'shared-types';
 
 import { apiGet, apiRequest } from '@/api/client';
 
 /** API-1's example list endpoint. Needs sign-in. */
-export function listUsers(cursor: string | null, signal?: AbortSignal): Promise<PaginatedResponse<UserResponse>> {
+export function listUsers(cursor: string | null, signal?: AbortSignal): Promise<PaginatedResponse<UserSummary>> {
   return apiGet('/api/users', { cursor, limit: 20 }, { signal });
 }
 

@@ -1,8 +1,8 @@
 /**
- * User profile response shape
- * Used by GET /api/me and GET /api/users/:id
+ * The user fields shown next to content (trip owner, post author) and in user lists
+ * Used by GET /api/users
  */
-export interface UserResponse {
+export interface UserSummary {
   id: string;
   firstName: string;
   lastName: string;
@@ -12,6 +12,15 @@ export interface UserResponse {
 
 export interface UsernameAvailabilityResponse {
   available: boolean;
+}
+
+/**
+ * User profile response shape
+ * Used by GET /api/me, GET /api/users/:id, POST /api/me/profile and PATCH /api/me
+ */
+export interface UserResponse extends UserSummary {
+  followerCount: number;
+  followingCount: number;
 }
 
 /**
@@ -35,7 +44,12 @@ export interface ApiErrorResponse {
   timestamp: string;
 }
 
-export type { TripStatus, TripResponse, ActiveTripsResponse, MediaType, MediaResponse, LocationResponse, PostResponse } from './content';
+// Relative imports need the .js extension: the API resolves this package with
+// nodenext, which can't find extensionless paths and turns them into `any`.
+export type { TripStatus, TripResponse, ActiveTripsResponse, CreateTripRequest, UpdateTripRequest, MediaType, MediaResponse, PostResponse, CreatePostRequest, CreatePostMedia } from './content.js';
+export type { LocationResponse, PlaceSuggestion, ResolveLocationRequest, ResolveLocationResponse } from './locations.js';
+export type { StoryResponse, StoryGroup, StoriesFeedResponse, TripStoriesResponse, CreateStoryRequest } from './stories.js';
+export type { FollowListUser, FollowListPage, FollowStatus, FollowCounts } from './follows.js';
 
 /**
  * Photo uploads (MEDIA-1)

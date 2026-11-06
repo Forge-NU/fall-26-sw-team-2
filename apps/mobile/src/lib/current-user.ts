@@ -1,9 +1,11 @@
 import { createContext, useContext } from 'react';
+import type { UserSummary } from 'shared-types';
 
-import type { UserSummary } from '@/api/types';
+/** AuthGate only lets users through once they've picked a username. */
+export type CurrentUser = UserSummary & { username: string };
 
 export type CurrentUserState = {
-  user: UserSummary;
+  user: CurrentUser;
   /** Undefined in mock mode, where there's no session to end. */
   signOut?: () => Promise<void>;
 };
@@ -12,7 +14,7 @@ export type CurrentUserState = {
 export const CurrentUserContext = createContext<CurrentUserState | null>(null);
 
 /** The signed-in user. Only call it from screens inside AuthGate. */
-export function useCurrentUser(): UserSummary {
+export function useCurrentUser(): CurrentUser {
   return useCurrentUserState().user;
 }
 
