@@ -1,4 +1,5 @@
-import type { CreateStoryRequest, ResolveLocationResponse } from '@/api/types';
+import type { CreateStoryRequest, ResolveLocationResponse } from 'shared-types';
+
 import type { PickedPhoto } from '@/lib/media/pick-photo';
 
 export const STORY_TEXT_MAX = 200;

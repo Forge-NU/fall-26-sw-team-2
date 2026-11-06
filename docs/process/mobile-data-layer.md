@@ -48,7 +48,14 @@ A non-2xx response throws an `ApiError` with `status` and the API's error body
 a response (no internet, server down) throws fetch's own `TypeError` instead, so
 retry logic can tell "the server said no" from "we don't know if it arrived".
 
-`getErrorMessage(error)` turns either one into text for the user.
+`getErrorMessage(error, fallbacks?)` turns either one into text for the user.
+The server's message wins. `fallbacks` covers responses without one: a message
+per status, plus `other` for anything else.
+
+```ts
+// lib/trips.ts has the trip wording for 403 and 404
+getErrorMessage(error, { ...TRIP_ERROR_FALLBACKS, other: "Couldn't save your changes. Try again." });
+```
 
 ## React Query
 
@@ -139,11 +146,21 @@ Helpers in `src/api/mock.ts`:
 `EXPO_PUBLIC_API_MOCKS` in `.env` picks what's mocked:
 
 - `auto` (default): only endpoints with `live: false`
-- `all`: every endpoint that has a mock, e.g. for a demo without the API running
+- `all`: every endpoint that has a mock, e.g. for a demo without the API running.
+  It also skips Clerk and signs in as a mock user, so you don't need an account
+  or a Clerk key. Never set it in a build.
 - `none`: no mocks, to try a new endpoint against your local API before setting `live: true`
 
-Once an endpoint is live and nothing needs its mock, delete the `withMock`
-wrapper and keep just the real call.
+Endpoints that are already live keep their mocks with `live: true`, so `all`
+runs the trip, post and story screens without the API. Their mocks share one
+in-memory fake backend in `src/api/mock-backend.ts` (trips, posts, places and
+stories), so a trip you create shows up in the story composer. The user
+endpoints in `src/api/users.ts` have no mocks, so the dev API examples tab still
+needs the API.
+
+Place search calls Mapbox, not our API, so it doesn't use `withMock`. It returns
+mock places when `EXPO_PUBLIC_MAPBOX_TOKEN` isn't set or the mode is `all`, even
+with `none`.
 
 ## Where sign-in plugs in (ACCT-1, #29)
 

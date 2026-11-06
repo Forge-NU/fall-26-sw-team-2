@@ -35,6 +35,11 @@ export type CreateTripRequest = {
   endDate: string; // YYYY-MM-DD
 };
 
+// PATCH /api/trips/:id. Only description can be cleared with null.
+export type UpdateTripRequest = Partial<Omit<CreateTripRequest, "description">> & {
+  description?: string | null;
+};
+
 export type MediaType = "image" | "video";
 
 export type MediaResponse = {
@@ -46,15 +51,34 @@ export type MediaResponse = {
   durationMs: number | null;
 };
 
+// Exactly one of location and customLocationName is set
 export type PostResponse = {
   id: string;
   tripId: string;
   author: UserSummary;
   caption: string | null;
-  visitedOn: string;
+  visitedOn: string; // YYYY-MM-DD
   location: LocationResponse | null;
   customLocationName: string | null;
-  media: MediaResponse[];
+  media: MediaResponse[]; // carousel order
   createdAt: string;
   updatedAt: string;
+};
+
+// POST /api/posts. Exactly one of locationId and customLocationName.
+export type CreatePostRequest = {
+  tripId: string;
+  visitedOn: string; // YYYY-MM-DD, within the trip's dates
+  caption?: string | null; // up to 2,200 characters
+  locationId?: string;
+  customLocationName?: string; // 1-100 characters
+  media: CreatePostMedia[]; // 1-30, carousel order
+};
+
+export type CreatePostMedia = {
+  s3Key: string;
+  mediaType: MediaType;
+  width?: number;
+  height?: number;
+  durationMs?: number; // videos only (#53)
 };

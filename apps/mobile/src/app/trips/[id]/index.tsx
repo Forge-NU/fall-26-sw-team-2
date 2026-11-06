@@ -3,8 +3,8 @@ import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import type { PostResponse, TripResponse } from 'shared-types';
 
-import type { PostResponse, TripResponse } from '@/api/types';
 import { PostDraftsBanner } from '@/components/posts/post-drafts-banner';
 import { DayPosts } from '@/components/trips/day-posts';
 import { TripError, TripLoading } from '@/components/trips/trip-states';

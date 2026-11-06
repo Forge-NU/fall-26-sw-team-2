@@ -1,16 +1,15 @@
-import { ApiError, apiRequest, USE_MOCK_API } from '@/api/client';
-import { mockResolveLocation, mockRetrievePlace, mockSearchPlaces } from '@/api/mocks';
-import type {
-  PlaceSuggestion,
-  ResolveLocationRequest,
-  ResolveLocationResponse,
-} from '@/api/types';
+import type { PlaceSuggestion, ResolveLocationRequest, ResolveLocationResponse } from 'shared-types';
 
-// Public token, bundled into the app. Search falls back to mock places without it.
+import { ApiError, apiRequest } from '@/api/client';
+import { getMockMode, withMock } from '@/api/mock';
+import { mockResolveLocation, mockRetrievePlace, mockSearchPlaces } from '@/api/mock-backend';
+
+// Public token, bundled into the app. Search falls back to mock places without
+// it, or when EXPO_PUBLIC_API_MOCKS=all.
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN;
 const SEARCH_BOX_URL = 'https://api.mapbox.com/search/searchbox/v1';
 
-export const canSearchMapbox = Boolean(MAPBOX_TOKEN) && !USE_MOCK_API;
+export const canSearchMapbox = Boolean(MAPBOX_TOKEN) && getMockMode() !== 'all';
 
 // Mapbox bills a search session as one /suggest run plus the /retrieve that ends it.
 // Not security sensitive, so Math.random is fine.
@@ -94,7 +93,9 @@ export async function retrievePlace(mapboxId: string, sessionToken: string): Pro
 }
 
 // LOC-1 (#62). A custom name comes back unchanged and isn't stored.
-export function resolveLocation(body: ResolveLocationRequest): Promise<ResolveLocationResponse> {
-  if (USE_MOCK_API) return mockResolveLocation(body);
-  return apiRequest('POST', '/api/locations/resolve', body);
-}
+export const resolveLocation = withMock({
+  live: true,
+  real: (body: ResolveLocationRequest) =>
+    apiRequest<ResolveLocationResponse>('POST', '/api/locations/resolve', body),
+  mock: mockResolveLocation,
+});

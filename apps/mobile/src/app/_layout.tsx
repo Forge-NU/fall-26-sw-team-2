@@ -17,16 +17,17 @@ import { ClerkProvider } from "@clerk/expo";
 import { tokenCache } from "@clerk/expo/token-cache";
 import type { ReactNode } from "react";
 
-import { USE_MOCK_API } from "@/api/client";
+import { getMockMode } from "@/api/mock";
 import { AnimatedSplashOverlay } from "@/components/animated-icon";
 import { AuthGate } from "@/components/auth-gate";
 import { queryClient } from "@/lib/query-client";
 
 const clerkPublishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
 
-// Mock mode signs in as the mock user, so it runs without a Clerk key
+// With EXPO_PUBLIC_API_MOCKS=all, AuthGate signs in as the mock user, so the
+// app runs without a Clerk key
 function AuthProvider({ children }: { children: ReactNode }) {
-  if (USE_MOCK_API) return children;
+  if (getMockMode() === "all") return children;
   return (
     <ClerkProvider publishableKey={clerkPublishableKey} tokenCache={tokenCache}>
       {children}

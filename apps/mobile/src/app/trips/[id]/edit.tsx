@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 
+import { getErrorMessage } from '@/api/client';
 import { TripForm } from '@/components/trips/trip-form';
 import { TripError, TripLoading } from '@/components/trips/trip-states';
 import { AppText } from '@/components/ui/app-text';
@@ -12,8 +13,8 @@ import { useToast } from '@/components/ui/toast-provider';
 import { Palette } from '@/constants/palette';
 import { Spacing } from '@/constants/theme';
 import { useDeleteTrip, useTrip, useTripPosts, useUpdateTrip } from '@/hooks/use-trips';
-import { describeError } from '@/lib/api-errors';
 import { toUpdateTripRequest, type TripFormValues } from '@/lib/trip-form';
+import { TRIP_ERROR_FALLBACKS } from '@/lib/trips';
 
 export default function EditTripScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -56,7 +57,7 @@ export default function EditTripScreen() {
           postDates={posts.data.map((post) => post.visitedOn)}
           submitLabel="Save changes"
           submitting={updateTrip.isPending}
-          formError={updateTrip.error ? describeError(updateTrip.error, "Couldn't save your changes. Try again.") : null}
+          formError={updateTrip.error ? getErrorMessage(updateTrip.error, { ...TRIP_ERROR_FALLBACKS, other: "Couldn't save your changes. Try again." }) : null}
           onSubmit={(values) => {
             const changes = toUpdateTripRequest(initialValues, values);
             if (Object.keys(changes).length === 0) return close();
@@ -99,7 +100,7 @@ export default function EditTripScreen() {
               },
               onError: (error) => {
                 setConfirmingDelete(false);
-                showToast({ message: describeError(error, "Couldn't delete the trip. Try again."), variant: 'error' });
+                showToast({ message: getErrorMessage(error, { ...TRIP_ERROR_FALLBACKS, other: "Couldn't delete the trip. Try again." }), variant: 'error' });
               },
             })
           }
