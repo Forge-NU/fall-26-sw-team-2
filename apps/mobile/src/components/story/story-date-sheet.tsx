@@ -5,8 +5,8 @@ import { AppText } from '@/components/ui/app-text';
 import { Button } from '@/components/ui/button';
 import { BottomSheet } from '@/components/bottom-sheet';
 import { Icon } from '@/components/icon';
-import { Palette, Radii } from '@/constants/theme';
-import type { ActiveTrip } from '@/data/mock';
+import type { TripResponse } from '@/api/types';
+import { Palette, Radii, Spacing } from '@/constants/theme';
 import {
   formatDay,
   formatMonth,
@@ -21,7 +21,7 @@ const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 type StoryDateSheetProps = {
   visible: boolean;
   /** When set, only the trip's dates can be picked. */
-  trip: ActiveTrip | null;
+  trip: Pick<TripResponse, 'title' | 'startDate' | 'endDate'> | null;
   value: string;
   /** When the photo was taken. The "From photo" suggestion only shows when set. */
   capturedAt?: { date: string; time: string };
@@ -55,7 +55,7 @@ function StoryDateSheetContent({ trip, value, capturedAt, onConfirm, onClose }: 
       onClose={onClose}
       title="Choose story date"
       closeSize={28}
-      gap={8}>
+      gap={Spacing.two}>
       {trip && (
         <AppText variant="caption" color="placeholderGray">
           {trip.title} · {formatRange(trip.startDate, trip.endDate)}
@@ -154,15 +154,15 @@ const styles = StyleSheet.create({
   suggestion: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.two,
     borderRadius: Radii.small,
     backgroundColor: Palette.peach,
   },
   suggestionText: {
     flex: 1,
-    gap: 2,
+    gap: Spacing.half,
   },
   monthNav: {
     // Grows with the heading text so the month name never clips.
@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   calendar: {
-    gap: 2,
+    gap: Spacing.half,
   },
   weekdays: {
     height: 20,
@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
   week: {
     height: 30,
     flexDirection: 'row',
-    gap: 2,
+    gap: Spacing.half,
   },
   cell: {
     flex: 1,
@@ -208,16 +208,16 @@ const styles = StyleSheet.create({
   keyItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: Spacing.one,
   },
   swatch: {
     width: 8,
     height: 8,
-    borderRadius: 2,
+    borderRadius: Spacing.half,
     backgroundColor: Palette.teal,
   },
   confirm: {
     alignSelf: 'stretch',
-    marginBottom: 4,
+    marginBottom: Spacing.one,
   },
 });
