@@ -46,7 +46,7 @@ export interface ApiErrorResponse {
 
 // Relative imports need the .js extension: the API resolves this package with
 // nodenext, which can't find extensionless paths and turns them into `any`.
-export type { TripStatus, TripResponse, ActiveTripsResponse, CreateTripRequest, MediaType, MediaResponse, PostResponse } from './content.js';
+export type { TripStatus, TripResponse, ActiveTripsResponse, CreateTripRequest, UpdateTripRequest, MediaType, MediaResponse, PostResponse, CreatePostRequest, CreatePostMedia } from './content.js';
 export type { LocationResponse, PlaceSuggestion, ResolveLocationRequest, ResolveLocationResponse } from './locations.js';
 export type { StoryResponse, StoryGroup, StoriesFeedResponse, TripStoriesResponse, CreateStoryRequest } from './stories.js';
 export type { FollowListUser, FollowListPage, FollowStatus, FollowCounts } from './follows.js';

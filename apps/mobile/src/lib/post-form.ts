@@ -1,5 +1,6 @@
 // Post field rules from DOC-1 (#33)
-import type { TripResponse } from '@/api/types';
+import type { TripResponse } from 'shared-types';
+
 import type { PickedLocation } from '@/components/location/location-picker';
 import { pickSuggestedTrip } from '@/lib/trips';
 import { charCount } from '@/lib/trip-form';

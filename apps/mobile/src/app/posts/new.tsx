@@ -2,9 +2,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState, type ReactNode } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import type { TripResponse } from 'shared-types';
 
 import { queryKeys } from '@/api/query-keys';
-import type { TripResponse } from '@/api/types';
 import { LocationPicker, type PickedLocation } from '@/components/location/location-picker';
 import { PhotoGrid } from '@/components/posts/photo-grid';
 import { TripSelect } from '@/components/posts/trip-select';

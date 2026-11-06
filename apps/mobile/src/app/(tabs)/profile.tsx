@@ -4,8 +4,8 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import type { TripResponse } from 'shared-types';
 
-import type { TripResponse } from '@/api/types';
 import { TripError } from '@/components/trips/trip-states';
 import { AppText } from '@/components/ui/app-text';
 import { EmptyState } from '@/components/ui/empty-state';
