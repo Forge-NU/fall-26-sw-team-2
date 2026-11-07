@@ -21,7 +21,13 @@ import { queryClient } from '@/lib/query-client';
 export const AuthGate = USE_MOCK_API ? MockAuthGate : ClerkAuthGate;
 
 function MockAuthGate({ children }: { children: ReactNode }) {
-  return <CurrentUserContext.Provider value={{ user: mockUser }}>{children}</CurrentUserContext.Provider>;
+  const [user, setUser] = useState<UserSummary>(mockUser);
+  return (
+    <CurrentUserContext.Provider
+      value={{ user, setUser: (updated) => setUser({ ...updated, username: updated.username ?? user.username }) }}>
+      {children}
+    </CurrentUserContext.Provider>
+  );
 }
 
 function ClerkAuthGate({ children }: { children: ReactNode }) {
@@ -81,7 +87,12 @@ function ClerkAuthGate({ children }: { children: ReactNode }) {
     setProfileState(null);
   };
   return (
-    <CurrentUserContext.Provider value={{ user, signOut: handleSignOut }}>
+    <CurrentUserContext.Provider
+      value={{
+        user,
+        signOut: handleSignOut,
+        setUser: (updated) => setProfileState({ userId, profile: updated, error: null }),
+      }}>
       {children}
     </CurrentUserContext.Provider>
   );

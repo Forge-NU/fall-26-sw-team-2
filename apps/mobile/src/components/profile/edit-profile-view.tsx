@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getErrorMessage } from '@/api/client';
-import { getMe, updateMe, type ProfileResponse } from '@/api/profiles';
+import { getMyProfile, updateMe } from '@/api/profiles';
+import { queryKeys } from '@/api/query-keys';
+import type { ProfileResponse } from '@/api/users';
 import { Icon } from '@/components/icon';
 import { AppText } from '@/components/ui/app-text';
 import { Avatar } from '@/components/ui/avatar';
@@ -15,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Palette, Radii, Spacing } from '@/constants/theme';
 import { usePhotoUpload } from '@/hooks/use-photo-upload';
 import { hasChanges, MAX_NAME_LENGTH, nameChanges, nameError, type ProfileDraft } from '@/lib/edit-profile';
-import { profileKeys } from '@/lib/follow-cache';
+import { useSetCurrentUser } from '@/lib/current-user';
 import { choosePhoto, takePhoto, type PickedPhoto, type PickPhotoResult } from '@/lib/media/pick-photo';
 import { preparePhoto } from '@/lib/media/prepare-photo';
 import { showToast } from '@/lib/toast';
@@ -25,7 +27,7 @@ class AvatarUploadError extends Error {}
 
 /** Edit your name and avatar. Nothing is saved, or uploaded, until you tap Save. */
 export function EditProfileView() {
-  const me = useQuery({ queryKey: profileKeys.me, queryFn: ({ signal }) => getMe(signal) });
+  const me = useQuery({ queryKey: queryKeys.myProfile, queryFn: ({ signal }) => getMyProfile(signal) });
 
   if (!me.data) {
     return (
@@ -51,7 +53,10 @@ export function EditProfileView() {
 
 function EditProfileForm({ profile }: { profile: ProfileResponse }) {
   const queryClient = useQueryClient();
+  const setCurrentUser = useSetCurrentUser();
   const avatarUpload = usePhotoUpload('avatar');
+  // The last photo uploaded, so retrying a failed save doesn't upload it again
+  const uploaded = useRef<{ uri: string; s3Key: string } | null>(null);
   const [draft, setDraft] = useState<ProfileDraft & { avatar?: PickedPhoto | null }>({
     firstName: profile.firstName,
     lastName: profile.lastName,
@@ -69,19 +74,25 @@ function EditProfileForm({ profile }: { profile: ProfileResponse }) {
     mutationFn: async () => {
       let avatarKey: string | null | undefined;
       if (draft.avatar) {
-        const [uploaded] = (await avatarUpload.upload([draft.avatar])) ?? [];
-        if (!uploaded) throw new AvatarUploadError();
-        avatarKey = uploaded.s3Key;
+        if (uploaded.current?.uri !== draft.avatar.uri) {
+          const [result] = (await avatarUpload.upload([draft.avatar])) ?? [];
+          if (!result) throw new AvatarUploadError();
+          uploaded.current = { uri: draft.avatar.uri, s3Key: result.s3Key };
+        }
+        avatarKey = uploaded.current.s3Key;
       } else if (draft.avatar === null) {
         avatarKey = null;
       }
       return updateMe({ ...nameChanges(profile, draft), ...(avatarKey !== undefined && { avatarKey }) });
     },
     onSuccess: (updated) => {
-      queryClient.setQueryData(profileKeys.me, updated);
+      queryClient.setQueryData(queryKeys.myProfile, updated);
+      setCurrentUser(updated);
       // Your name and avatar are inside every trip, post, story and list you
       // appear in, so refetch everything rather than chase each cache entry.
-      void queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] !== 'me' });
+      void queryClient.invalidateQueries({
+        predicate: ({ queryKey: [first, second] }) => !(first === 'me' && second === 'profile'),
+      });
       showToast({ message: 'Profile updated', variant: 'success' });
       leave();
     },
@@ -143,7 +154,7 @@ function EditProfileForm({ profile }: { profile: ProfileResponse }) {
   }
 
   const avatarUri = draft.avatar === undefined ? profile.avatarUrl : (draft.avatar?.uri ?? null);
-  const name = `${draft.firstName} ${draft.lastName}`.trim() || profile.username;
+  const name = `${draft.firstName} ${draft.lastName}`.trim() || (profile.username ?? '');
 
   return (
     <SafeAreaView edges={['top']} style={styles.screen}>
@@ -182,7 +193,7 @@ function EditProfileForm({ profile }: { profile: ProfileResponse }) {
 
           <View style={styles.card}>
             <AppText variant="caption" color="placeholderGray">
-              @{profile.username}
+              {profile.username ? `@${profile.username}` : ''}
             </AppText>
             <Input
               label="First name"

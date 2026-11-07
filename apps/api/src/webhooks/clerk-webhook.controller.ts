@@ -69,9 +69,11 @@ export class ClerkWebhookController {
           username: null,
           avatarUrl: clerkUser.image_url || null,
         },
+        // The avatar is only copied from Clerk when the row is created. After
+        // that it's set in the app (PATCH /api/me), and Clerk's image would
+        // overwrite an uploaded or removed photo on every user.updated.
         update: {
           email: primaryEmail ?? null,
-          avatarUrl: clerkUser.image_url || null,
         },
       });
     } else if (event.type === 'user.deleted' && event.data.id) {
