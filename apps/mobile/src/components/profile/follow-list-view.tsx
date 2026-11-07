@@ -3,13 +3,15 @@ import { router } from 'expo-router';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { followListFetchers, getMe, getProfile, type FollowList, type FollowListUser } from '@/api/profiles';
+import { followListFetchers, getMyProfile, getProfile, type FollowList, type FollowListUser } from '@/api/profiles';
+import { queryKeys } from '@/api/query-keys';
 import { UserRow } from '@/components/content/user-row';
 import { AppText } from '@/components/ui/app-text';
 import { BottomTabInset, Palette, Spacing } from '@/constants/theme';
 import { useFollow } from '@/hooks/use-follow';
 import { useInfiniteList } from '@/hooks/use-infinite-list';
-import { profileKeys, uniqueById } from '@/lib/follow-cache';
+import { useCurrentUser } from '@/lib/current-user';
+import { uniqueById } from '@/lib/follow-cache';
 import { ListEmpty, ListFooter } from './list-states';
 import { BackBar } from './profile-view';
 
@@ -22,16 +24,14 @@ type FollowListViewProps = {
 
 /** "Followers (8)" or "Following (16)", with a follow button on everyone but you. */
 export function FollowListView({ userId, list, username }: FollowListViewProps) {
-  const me = useQuery({ queryKey: profileKeys.me, queryFn: ({ signal }) => getMe(signal) });
-  const isOwn = userId === me.data?.id;
-  const other = useQuery({
-    queryKey: profileKeys.profile(userId),
-    queryFn: ({ signal }) => getProfile(userId, signal),
-    enabled: me.isFetched && !isOwn,
+  const currentUser = useCurrentUser();
+  const isOwn = userId === currentUser.id;
+  const { data: profile } = useQuery({
+    queryKey: isOwn ? queryKeys.myProfile : queryKeys.profile(userId),
+    queryFn: ({ signal }) => (isOwn ? getMyProfile(signal) : getProfile(userId, signal)),
   });
-  const profile = isOwn ? me.data : other.data;
   const people = useInfiniteList<FollowListUser>({
-    queryKey: profileKeys.followList(userId, list),
+    queryKey: queryKeys.followList(userId, list),
     fetchPage: (cursor, signal) => followListFetchers[list](userId, cursor, signal),
   });
 
@@ -45,7 +45,7 @@ export function FollowListView({ userId, list, username }: FollowListViewProps) 
       <FlatList
         data={uniqueById(people.items)}
         keyExtractor={(user) => user.id}
-        renderItem={({ item }) => <FollowRow user={item} isMe={item.id === me.data?.id} />}
+        renderItem={({ item }) => <FollowRow user={item} isMe={item.id === currentUser.id} />}
         ItemSeparatorComponent={Separator}
         ListHeaderComponent={
           <AppText variant="heading" accessibilityRole="header" style={styles.title}>

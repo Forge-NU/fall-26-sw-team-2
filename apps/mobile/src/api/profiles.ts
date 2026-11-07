@@ -4,16 +4,10 @@ import type { PaginatedResponse, PostResponse, TripResponse, UserResponse } from
 
 import { apiGet, apiRequest } from '@/api/client';
 import { mockDelay, mockError, mockPage, withMock } from '@/api/mock';
+import { me as mockMe } from '@/api/mocks';
+import { getMe, type ProfileResponse } from '@/api/users';
 
 // Copied from apps/api/src/follows/follow-list.types.ts until they move to shared-types
-
-export type FollowCounts = {
-  followerCount: number;
-  followingCount: number;
-};
-
-/** GET /api/me and GET /api/users/:id add the follow counts to the user */
-export type ProfileResponse = UserResponse & FollowCounts;
 
 export type FollowListUser = UserResponse & {
   /** Whether the signed-in user follows this person */
@@ -26,11 +20,14 @@ export type FollowList = 'followers' | 'following';
 
 type ListFetcher<T> = (userId: string, cursor: string | null, signal?: AbortSignal) => Promise<PaginatedResponse<T>>;
 
+// The follow and trip routes take an id at /api/users/:id/...; the profile itself
+// is /api/users/id/:id, since /api/users/:username looks people up by username.
 const userPath = (id: string) => `/api/users/${encodeURIComponent(id)}`;
 
-export const getMe = withMock<[signal?: AbortSignal], ProfileResponse>({
+/** The signed-in user with their follow counts */
+export const getMyProfile = withMock<[signal?: AbortSignal], ProfileResponse>({
   live: true,
-  real: (signal) => apiGet('/api/me', undefined, { signal }),
+  real: getMe,
   mock: async () => {
     await mockDelay();
     return mockProfile(MOCK_ME_ID);
@@ -39,7 +36,7 @@ export const getMe = withMock<[signal?: AbortSignal], ProfileResponse>({
 
 export const getProfile = withMock<[id: string, signal?: AbortSignal], ProfileResponse>({
   live: true,
-  real: (id, signal) => apiGet(userPath(id), undefined, { signal }),
+  real: (id, signal) => apiGet(`/api/users/id/${encodeURIComponent(id)}`, undefined, { signal }),
   mock: async (id) => {
     await mockDelay();
     return mockProfile(id);
@@ -131,15 +128,15 @@ export const followListFetchers: Record<FollowList, ListFetcher<FollowListUser>>
   following: listFollowing,
 };
 
-// Mocks: the signed-in user, 30 travelers, and who follows whom
+// Mocks: the signed-in user (the same one AuthGate signs in as), 30 travelers, and who follows whom
 
-export const MOCK_ME_ID = 'mock-me';
+const MOCK_ME_ID = mockMe.id;
 const MOCK_TIMESTAMP = '2026-06-01T12:00:00.000Z';
 const FIRST_NAMES = ['Nine', 'Duke', 'Maya', 'Priya', 'Noah', 'Jordan', 'Sofia', 'Kenji', 'Amara', 'Leo'];
 const DESTINATIONS = ['Boston, MA', 'Lake Tahoe, CA', 'Paris, France', 'Osaka, Japan', 'Barcelona, Spain', 'New York City, NY'];
 
 const mockUsers: UserResponse[] = [
-  { id: MOCK_ME_ID, firstName: 'Nine', lastName: 'Vicious', username: 'nine_vicious', avatarUrl: null },
+  mockMe,
   ...Array.from({ length: 30 }, (_, i) => ({
     id: `mock-traveler-${i + 1}`,
     firstName: FIRST_NAMES[(i + 1) % FIRST_NAMES.length],
