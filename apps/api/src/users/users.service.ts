@@ -16,6 +16,7 @@ import {
 } from '../common/utils/pagination.helper';
 import { Prisma } from '../generated/prisma/client';
 import { StorageService } from '../storage/storage.service';
+import { isOwnAvatarKey } from '../common/avatar';
 
 // Clerk API errors carry a list of { code, longMessage }. Translates the ones a
 // username update can produce into HTTP errors; rethrows anything else.
@@ -124,14 +125,31 @@ export class UsersService {
     }
   }
 
-  async update(id: string, data: UpdateMeDto) {
+  async update(id: string, { avatarKey, ...data }: UpdateMeDto) {
+    if (avatarKey != null && !isOwnAvatarKey(avatarKey, id)) {
+      throw new BadRequestException(
+        'avatarKey must be one of your avatar uploads',
+      );
+    }
     const username = data.username?.trim().toLowerCase();
+    const previous =
+      avatarKey === undefined
+        ? null
+        : await this.prisma.user.findUnique({
+            where: { id },
+            select: { avatarUrl: true },
+          });
 
     try {
-      return await this.prisma.$transaction(async (tx) => {
+      const user = await this.prisma.$transaction(async (tx) => {
         const user = await tx.user.update({
           where: { id },
-          data: { ...data, ...(username === undefined ? {} : { username }) },
+          data: {
+            ...data,
+            ...(username === undefined ? {} : { username }),
+            // The column keeps its name; it now holds the key (see common/avatar.ts)
+            ...(avatarKey === undefined ? {} : { avatarUrl: avatarKey }),
+          },
         });
         // Keep Clerk's copy (used for sign-in) in step; see createProfile.
         if (username !== undefined) {
@@ -141,6 +159,13 @@ export class UsersService {
         }
         return user;
       });
+      // The replaced photo isn't shown anywhere any more. If this fails, account
+      // deletion's users/{id}/ prefix delete still removes it.
+      const old = previous?.avatarUrl;
+      if (old && old !== user.avatarUrl && isOwnAvatarKey(old, id)) {
+        await this.storage.deleteObjects([old]);
+      }
+      return user;
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError) {
         if (e.code === 'P2002') {

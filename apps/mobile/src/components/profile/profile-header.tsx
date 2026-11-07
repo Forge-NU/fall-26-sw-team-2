@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import type { ProfileResponse } from '@/api/users';
 import { AppText } from '@/components/ui/app-text';
 import { Avatar } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spacing } from '@/constants/theme';
 import { FollowButton } from './follow-button';
@@ -12,10 +13,12 @@ type ProfileHeaderProps = {
   profile: ProfileResponse;
   /** Null on your own profile, which never shows the follow button */
   isFollowing: boolean | null;
+  /** Shows Edit profile instead of the follow button */
+  isOwn?: boolean;
 };
 
 /** Avatar, @username and the follower/following counts, which open the lists. */
-export function ProfileHeader({ profile, isFollowing }: ProfileHeaderProps) {
+export function ProfileHeader({ profile, isFollowing, isOwn = false }: ProfileHeaderProps) {
   const name = `${profile.firstName} ${profile.lastName}`.trim();
   // Usernames are null until onboarding finishes, so fall back to the name
   const handle = profile.username ? `@${profile.username}` : name;
@@ -44,7 +47,10 @@ export function ProfileHeader({ profile, isFollowing }: ProfileHeaderProps) {
           </View>
         </View>
       </View>
-      {isFollowing !== null && (
+      {isOwn ? (
+        <Button title="Edit profile" variant="teal" onPress={() => router.push('/profile/edit')} />
+      ) : null}
+      {!isOwn && isFollowing !== null && (
         <FollowButton userId={profile.id} handle={handle} isFollowing={isFollowing} />
       )}
     </View>

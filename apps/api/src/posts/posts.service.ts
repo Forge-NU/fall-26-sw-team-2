@@ -324,7 +324,7 @@ export class PostsService {
     return {
       id: post.id,
       tripId: post.tripId,
-      author: toUserSummary(post.trip.owner),
+      author: await toUserSummary(post.trip.owner, this.storage),
       caption: post.caption,
       visitedOn: formatDateOnly(post.visitedOn),
       location: post.location ? toLocationResponse(post.location) : null,

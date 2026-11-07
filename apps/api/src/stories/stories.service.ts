@@ -217,7 +217,7 @@ export class StoriesService {
       const ownerStories = byOwner.get(owner_id);
       if (!ownerStories) continue;
       items.push({
-        owner: toUserSummary(ownerStories[0].owner),
+        owner: await toUserSummary(ownerStories[0].owner, this.storage),
         stories: await Promise.all(ownerStories.map((s) => this.toResponse(s))),
       });
     }
@@ -277,7 +277,7 @@ export class StoriesService {
   private async toResponse(story: StoryWithDetails): Promise<StoryResponse> {
     return {
       id: story.id,
-      owner: toUserSummary(story.owner),
+      owner: await toUserSummary(story.owner, this.storage),
       tripId: story.tripId,
       text: story.text,
       location: story.location ? toLocationResponse(story.location) : null,

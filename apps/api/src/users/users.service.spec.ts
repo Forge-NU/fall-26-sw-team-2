@@ -55,6 +55,7 @@ describe('UsersService', () => {
   };
 
   const mockStorageService = {
+    deleteObjects: jest.fn(),
     deleteObjectsStrict: jest.fn(),
     listKeys: jest.fn(),
   };
@@ -333,6 +334,71 @@ describe('UsersService', () => {
       await service.update('user_123', { firstName: 'New' });
 
       expect(mockUpdateClerkUser).not.toHaveBeenCalled();
+    });
+
+    it('saves an avatar key from your own uploads', async () => {
+      const avatarKey =
+        'users/user_123/avatars/0f8b6c3e-1d2a-4b5c-9e7f-123456789abc.jpg';
+      mockPrismaService.user.update.mockResolvedValue(mockUser);
+
+      await service.update('user_123', { firstName: 'Ada', avatarKey });
+
+      expect(mockPrismaService.user.update).toHaveBeenCalledWith({
+        where: { id: 'user_123' },
+        data: { firstName: 'Ada', avatarUrl: avatarKey },
+      });
+    });
+
+    it('clears the avatar when avatarKey is null', async () => {
+      mockPrismaService.user.update.mockResolvedValue(mockUser);
+
+      await service.update('user_123', { avatarKey: null });
+
+      expect(mockPrismaService.user.update).toHaveBeenCalledWith({
+        where: { id: 'user_123' },
+        data: { avatarUrl: null },
+      });
+    });
+
+    it('deletes the uploaded avatar it replaces', async () => {
+      const oldKey =
+        'users/user_123/avatars/11111111-1d2a-4b5c-9e7f-123456789abc.jpg';
+      const newKey =
+        'users/user_123/avatars/22222222-1d2a-4b5c-9e7f-123456789abc.jpg';
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        avatarUrl: oldKey,
+      });
+      mockPrismaService.user.update.mockResolvedValue({
+        ...mockUser,
+        avatarUrl: newKey,
+      });
+
+      await service.update('user_123', { avatarKey: newKey });
+
+      expect(mockStorageService.deleteObjects).toHaveBeenCalledWith([oldKey]);
+    });
+
+    it('leaves a Clerk image URL alone when the avatar changes', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        avatarUrl: 'https://img.clerk.com/abc',
+      });
+      mockPrismaService.user.update.mockResolvedValue(mockUser);
+
+      await service.update('user_123', { avatarKey: null });
+
+      expect(mockStorageService.deleteObjects).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      'users/someone_else/avatars/0f8b6c3e-1d2a-4b5c-9e7f-123456789abc.jpg',
+      'users/user_123/posts/0f8b6c3e-1d2a-4b5c-9e7f-123456789abc.jpg',
+      'https://example.com/me.jpg',
+      '',
+    ])('rejects %s as an avatarKey', async (avatarKey) => {
+      await expect(service.update('user_123', { avatarKey })).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockPrismaService.user.update).not.toHaveBeenCalled();
     });
 
     it('throws ConflictException when the username is already in use', async () => {

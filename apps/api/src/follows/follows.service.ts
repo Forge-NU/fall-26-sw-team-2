@@ -4,6 +4,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { StorageService } from '../storage/storage.service';
+import { resolveAvatarUrl } from '../common/avatar';
 import type { FollowListQueryDto } from './dto/follow-list-query.dto';
 import type {
   FollowCounts,
@@ -15,7 +17,10 @@ import { decodeFollowCursor, followPage } from './follow-pagination';
 
 @Injectable()
 export class FollowsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
+  ) {}
 
   async getFollowList(
     viewerId: string,
@@ -55,10 +60,13 @@ export class FollowsService {
       },
     });
     const page = followPage(users, limit, scope);
-    const items = page.items.map(({ followers, ...user }) => ({
-      ...user,
-      isFollowing: followers.length > 0,
-    }));
+    const items = await Promise.all(
+      page.items.map(async ({ followers, ...user }) => ({
+        ...user,
+        avatarUrl: await resolveAvatarUrl(this.storage, user.avatarUrl),
+        isFollowing: followers.length > 0,
+      })),
+    );
     return {
       items,
       nextCursor: page.nextCursor,
