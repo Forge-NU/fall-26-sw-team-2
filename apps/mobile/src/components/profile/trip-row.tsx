@@ -9,7 +9,7 @@ import { Palette, Radii, Spacing } from '@/constants/theme';
 
 /**
  * One itinerary on a profile: cover, destination, spot count. Drafts get a coral badge.
- * Not pressable until TRIP-2 (#64) adds a trip screen that loads real trips.
+ * Pressing it opens the trip page.
  */
 export function TripRow({ trip, onPress }: { trip: TripResponse; onPress?: () => void }) {
   const draft = trip.status === 'draft';

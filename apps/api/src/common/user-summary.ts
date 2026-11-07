@@ -6,7 +6,7 @@ import { resolveAvatarUrl } from './avatar';
 // Moves to shared-types with API-1 (#28).
 export type UserSummary = {
   id: string;
-  username: string;
+  username: string | null;
   firstName: string;
   lastName: string;
   avatarUrl: string | null;

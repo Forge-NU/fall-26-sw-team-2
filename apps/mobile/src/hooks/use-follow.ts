@@ -1,14 +1,10 @@
 import { useMutation, useQueryClient, type InfiniteData, type QueryKey } from '@tanstack/react-query';
 import type { PaginatedResponse } from 'shared-types';
 
-import {
-  followUser,
-  unfollowUser,
-  type FollowListUser,
-  type FollowStatus,
-  type ProfileResponse,
-} from '@/api/profiles';
-import { adjustCount, profileKeys, setFollowingInPages } from '@/lib/follow-cache';
+import { followUser, unfollowUser, type FollowListUser, type FollowStatus } from '@/api/profiles';
+import { queryKeys } from '@/api/query-keys';
+import type { ProfileResponse } from '@/api/users';
+import { adjustCount, setFollowingInPages } from '@/lib/follow-cache';
 
 type FollowPages = InfiniteData<PaginatedResponse<FollowListUser>>;
 
@@ -16,41 +12,41 @@ const isFollowList = (key: QueryKey) => key[0] === 'users' && (key[2] === 'follo
 
 /**
  * Follows or unfollows `userId` optimistically: the button, the counts on both
- * profiles and every loaded follow list change at once, and roll back (with the
+ * profiles and every loaded follow list change at once, and change back (with the
  * mutation's error toast) if the request fails.
  */
 export function useFollow(userId: string) {
   const queryClient = useQueryClient();
 
+  // Sets the cache as if `follow` had happened. Undoing a failed request applies the
+  // opposite, rather than restoring a snapshot, so a follow on someone else that
+  // landed in the meantime isn't rolled back with it.
+  const apply = (follow: boolean) => {
+    const delta = follow ? 1 : -1;
+    queryClient.setQueryData<FollowStatus>(queryKeys.followStatus(userId), { isFollowing: follow });
+    queryClient.setQueryData<ProfileResponse>(queryKeys.profile(userId), (profile) =>
+      adjustCount(profile, 'followerCount', delta),
+    );
+    queryClient.setQueryData<ProfileResponse>(queryKeys.myProfile, (me) => adjustCount(me, 'followingCount', delta));
+    queryClient.setQueriesData<FollowPages>({ predicate: (query) => isFollowList(query.queryKey) }, (data) =>
+      setFollowingInPages(data, userId, follow),
+    );
+  };
+
   const mutation = useMutation({
     mutationFn: (follow: boolean) => (follow ? followUser(userId) : unfollowUser(userId)),
     onMutate: async (follow) => {
-      const delta = follow ? 1 : -1;
-      const keys = [profileKeys.followStatus(userId), profileKeys.profile(userId), profileKeys.me];
       await Promise.all([
-        ...keys.map((queryKey) => queryClient.cancelQueries({ queryKey, exact: true })),
+        ...[queryKeys.followStatus(userId), queryKeys.profile(userId), queryKeys.myProfile].map((queryKey) =>
+          queryClient.cancelQueries({ queryKey, exact: true }),
+        ),
         queryClient.cancelQueries({ predicate: (query) => isFollowList(query.queryKey) }),
       ]);
-      const snapshot = [
-        ...keys.map((key) => [key, queryClient.getQueryData(key)] as const),
-        ...queryClient.getQueriesData({ predicate: (query) => isFollowList(query.queryKey) }),
-      ];
-
-      queryClient.setQueryData<FollowStatus>(profileKeys.followStatus(userId), { isFollowing: follow });
-      queryClient.setQueryData<ProfileResponse>(profileKeys.profile(userId), (profile) =>
-        adjustCount(profile, 'followerCount', delta),
-      );
-      queryClient.setQueryData<ProfileResponse>(profileKeys.me, (me) => adjustCount(me, 'followingCount', delta));
-      queryClient.setQueriesData<FollowPages>({ predicate: (query) => isFollowList(query.queryKey) }, (data) =>
-        setFollowingInPages(data, userId, follow),
-      );
-      return snapshot;
+      apply(follow);
     },
-    onError: (_error, _follow, snapshot) => {
-      for (const [key, data] of snapshot ?? []) queryClient.setQueryData(key, data);
-    },
+    onError: (_error, follow) => apply(!follow),
     onSettled: () => {
-      for (const queryKey of [profileKeys.followStatus(userId), profileKeys.profile(userId), profileKeys.me]) {
+      for (const queryKey of [queryKeys.followStatus(userId), queryKeys.profile(userId), queryKeys.myProfile]) {
         void queryClient.invalidateQueries({ queryKey, exact: true });
       }
       // Refetched next time a list opens, so the row you just tapped doesn't vanish

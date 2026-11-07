@@ -11,7 +11,7 @@ export async function mapUserToResponse(
     id: string;
     firstName: string;
     lastName: string;
-    username: string;
+    username: string | null;
     avatarUrl: string | null;
   },
 ): Promise<UserResponse> {

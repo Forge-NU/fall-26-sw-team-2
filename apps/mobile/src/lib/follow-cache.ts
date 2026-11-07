@@ -1,17 +1,8 @@
 import type { InfiniteData } from '@tanstack/react-query';
 import type { PaginatedResponse } from 'shared-types';
 
-import type { FollowCounts, FollowList, FollowListUser } from '@/api/profiles';
-
-export const profileKeys = {
-  me: ['me'] as const,
-  user: (id: string) => ['users', id] as const,
-  profile: (id: string) => ['users', id, 'profile'] as const,
-  followStatus: (id: string) => ['users', id, 'follow-status'] as const,
-  followList: (id: string, list: FollowList) => ['users', id, list] as const,
-  trips: (id: string) => ['users', id, 'trips'] as const,
-  posts: (id: string) => ['users', id, 'posts'] as const,
-};
+import type { FollowListUser } from '@/api/profiles';
+import type { FollowCounts } from '@/api/users';
 
 /** Adds `delta` to one count, never going below zero. */
 export function adjustCount<T extends FollowCounts>(profile: T | undefined, field: keyof FollowCounts, delta: number) {

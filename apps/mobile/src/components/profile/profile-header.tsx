@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import type { ProfileResponse } from '@/api/profiles';
+import type { ProfileResponse } from '@/api/users';
 import { AppText } from '@/components/ui/app-text';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -20,16 +20,18 @@ type ProfileHeaderProps = {
 /** Avatar, @username and the follower/following counts, which open the lists. */
 export function ProfileHeader({ profile, isFollowing, isOwn = false }: ProfileHeaderProps) {
   const name = `${profile.firstName} ${profile.lastName}`.trim();
+  // Usernames are null until onboarding finishes, so fall back to the name
+  const handle = profile.username ? `@${profile.username}` : name;
   const openList = (list: 'followers' | 'following') =>
-    router.push({ pathname: `/profile/users/[id]/${list}`, params: { id: profile.id, username: profile.username } });
+    router.push({ pathname: `/profile/users/[id]/${list}`, params: { id: profile.id, username: profile.username ?? undefined } });
 
   return (
     <View style={styles.header}>
       <View style={styles.identity}>
-        <Avatar name={name || profile.username} uri={profile.avatarUrl} size="large" />
+        <Avatar name={name || handle} uri={profile.avatarUrl} size="large" />
         <View style={styles.copy}>
           <AppText variant="heading" numberOfLines={1} adjustsFontSizeToFit accessibilityRole="header">
-            @{profile.username}
+            {handle}
           </AppText>
           {name ? (
             <AppText variant="label" color="placeholderGray" numberOfLines={1}>
@@ -49,7 +51,7 @@ export function ProfileHeader({ profile, isFollowing, isOwn = false }: ProfileHe
         <Button title="Edit profile" variant="teal" onPress={() => router.push('/profile/edit')} />
       ) : null}
       {!isOwn && isFollowing !== null && (
-        <FollowButton userId={profile.id} username={profile.username} isFollowing={isFollowing} />
+        <FollowButton userId={profile.id} handle={handle} isFollowing={isFollowing} />
       )}
     </View>
   );

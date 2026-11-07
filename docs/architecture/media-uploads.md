@@ -123,7 +123,7 @@ The code needs no changes once the bucket exists. Set these on the API:
 - `S3_BUCKET_NAME`: the media bucket.
 - `AWS_REGION`: the bucket's region.
 
-The API's credentials (the ECS task role on staging, or your AWS profile locally) need `s3:PutObject`, `s3:GetObject`, and `s3:DeleteObject` on `arn:aws:s3:::<bucket>/users/*`. A presigned URL can only do what the credentials that signed it can do.
+The API's credentials (the ECS task role on staging, or your AWS profile locally) need `s3:PutObject`, `s3:GetObject`, and `s3:DeleteObject` on `arn:aws:s3:::<bucket>/users/*`, plus `s3:ListBucket` on `arn:aws:s3:::<bucket>` (limited to the `users/` prefix with an `s3:prefix` condition) so account deletion can find everything under `users/{userId}/`. A presigned URL can only do what the credentials that signed it can do.
 
 The bucket stays private. The app uploads from native code, so the bucket doesn't need CORS for uploads. It only needs CORS if the app's web build uploads too.
 

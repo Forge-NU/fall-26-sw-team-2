@@ -6,14 +6,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { PostResponse, TripResponse } from 'shared-types';
 
 import { getErrorMessage } from '@/api/client';
-import { getFollowStatus, getMe, getProfile, listUserPosts, listUserTrips } from '@/api/profiles';
+import { getFollowStatus, getMyProfile, getProfile, listUserPosts, listUserTrips } from '@/api/profiles';
+import { queryKeys } from '@/api/query-keys';
 import { Icon } from '@/components/icon';
 import { AppText } from '@/components/ui/app-text';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Media } from '@/components/ui/media';
+import { IconButton, ScreenHeader } from '@/components/ui/screen-header';
 import { BottomTabInset, Palette, Spacing } from '@/constants/theme';
 import { useInfiniteList } from '@/hooks/use-infinite-list';
-import { profileKeys, uniqueById } from '@/lib/follow-cache';
+import { useCurrentUser, useSignOut } from '@/lib/current-user';
+import { uniqueById } from '@/lib/follow-cache';
 import { ListEmpty, ListFooter } from './list-states';
 import { ProfileHeader, ProfileHeaderSkeleton } from './profile-header';
 import { TripRow } from './trip-row';
@@ -28,36 +31,45 @@ const TAB_LABELS: Record<ProfileTab, string> = { itineraries: 'Itineraries', pos
  */
 export function ProfileView({ userId: routeUserId }: { userId?: string }) {
   const [tab, setTab] = useState<ProfileTab>('itineraries');
-  const me = useQuery({ queryKey: profileKeys.me, queryFn: ({ signal }) => getMe(signal) });
-  const userId = routeUserId ?? me.data?.id;
+  const currentUser = useCurrentUser();
+  const signOut = useSignOut();
   // Opening your own profile from a list still counts as your own
-  const isOwn = !routeUserId || routeUserId === me.data?.id;
+  const isOwn = !routeUserId || routeUserId === currentUser.id;
+  const userId = isOwn ? currentUser.id : routeUserId;
 
-  const other = useQuery({
-    queryKey: profileKeys.profile(routeUserId ?? ''),
-    queryFn: ({ signal }) => getProfile(routeUserId!, signal),
-    enabled: Boolean(routeUserId) && !isOwn && me.isFetched,
+  const profileQuery = useQuery({
+    queryKey: isOwn ? queryKeys.myProfile : queryKeys.profile(userId),
+    queryFn: ({ signal }) => (isOwn ? getMyProfile(signal) : getProfile(userId, signal)),
   });
   const followStatus = useQuery({
-    queryKey: profileKeys.followStatus(routeUserId ?? ''),
-    queryFn: ({ signal }) => getFollowStatus(routeUserId!, signal),
-    enabled: Boolean(routeUserId) && !isOwn && me.isFetched,
+    queryKey: queryKeys.followStatus(userId),
+    queryFn: ({ signal }) => getFollowStatus(userId, signal),
+    enabled: !isOwn,
   });
-  const profileQuery = isOwn ? me : other;
 
   const trips = useInfiniteList<TripResponse>({
-    queryKey: profileKeys.trips(userId ?? ''),
-    fetchPage: (cursor, signal) => listUserTrips(userId!, cursor, signal),
-    enabled: Boolean(userId) && tab === 'itineraries',
+    queryKey: queryKeys.userTripPages(userId),
+    fetchPage: (cursor, signal) => listUserTrips(userId, cursor, signal),
+    enabled: tab === 'itineraries',
   });
   const posts = useInfiniteList<PostResponse>({
-    queryKey: profileKeys.posts(userId ?? ''),
-    fetchPage: (cursor, signal) => listUserPosts(userId!, cursor, signal),
-    enabled: Boolean(userId) && tab === 'posts',
+    queryKey: queryKeys.userPosts(userId),
+    fetchPage: (cursor, signal) => listUserPosts(userId, cursor, signal),
+    enabled: tab === 'posts',
   });
 
   const tabs: ProfileTab[] = isOwn ? ['itineraries', 'posts', 'saved'] : ['itineraries', 'posts'];
-  const backBar = routeUserId ? <BackBar /> : null;
+  const newTrip = () => router.push('/trips/new');
+  const backBar = routeUserId ? (
+    <BackBar />
+  ) : (
+    <View style={styles.topBar}>
+      <ScreenHeader
+        left={signOut ? { icon: 'log-out-outline', label: 'Sign out', onPress: () => void signOut() } : undefined}
+        right={<IconButton icon="add" label="New trip" onPress={newTrip} />}
+      />
+    </View>
+  );
 
   if (profileQuery.isError && !profileQuery.data) {
     return (
@@ -154,7 +166,10 @@ export function ProfileView({ userId: routeUserId }: { userId?: string }) {
           keyExtractor={(trip) => trip.id}
           renderItem={({ item }) => (
             <View style={styles.rowWrap}>
-              <TripRow trip={item} />
+              <TripRow
+                trip={item}
+                onPress={() => router.push({ pathname: '/trips/[id]', params: { id: item.id } })}
+              />
             </View>
           )}
           ItemSeparatorComponent={Separator}
@@ -177,7 +192,7 @@ export function ProfileView({ userId: routeUserId }: { userId?: string }) {
               />
             )
           }
-          ListFooterComponent={tab === 'itineraries' ? <ListFooter list={trips} /> : null}
+          ListFooterComponent={tab === 'itineraries' ? <ListFooter list={trips} /> : undefined}
           onEndReached={tab === 'itineraries' ? trips.loadMore : undefined}
           onEndReachedThreshold={0.5}
           refreshing={refreshing}
@@ -231,6 +246,7 @@ const styles = StyleSheet.create({
   separator: { height: Spacing.two },
   gridRow: { gap: Spacing.half },
   gridCell: { flex: 1, aspectRatio: 1, marginBottom: Spacing.half },
+  topBar: { paddingHorizontal: Spacing.three },
   backBar: {
     height: 44,
     flexDirection: 'row',
