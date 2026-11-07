@@ -12,6 +12,9 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { StorageService } from '../src/storage/storage.service';
 import { SearchModule } from '../src/search/search.module';
 import { SearchService } from '../src/search/search.service';
+import { TripsService } from '../src/trips/trips.service';
+import { PostsService } from '../src/posts/posts.service';
+import { refreshLocationRatings } from '../src/locations/location-ratings';
 import { SearchPage, SearchPreview, SearchType } from 'shared-types';
 
 jest.mock('../src/auth/clerk.client', () => ({
@@ -35,6 +38,8 @@ describeDatabase('Advanced search HTTP + PostgreSQL', () => {
   let prisma: PrismaClient;
   let app: INestApplication<App>;
   let service: SearchService;
+  let tripsService: TripsService;
+  let postsService: PostsService;
   const trips = Array.from({ length: 7 }, () => randomUUID());
   const locations = Array.from({ length: 4 }, () => randomUUID());
   const posts = Array.from({ length: 8 }, () => randomUUID());
@@ -111,15 +116,18 @@ describeDatabase('Advanced search HTTP + PostgreSQL', () => {
             : locations[i === 2 ? 2 : i === 3 ? 3 : i >= 5 ? 1 : 0],
         customLocationName: i === 7 ? 'Lisbon kitchen' : null,
         caption: 'Lisbon photo',
+        rating: i === 0 ? 5 : i === 1 ? 4 : i === 2 ? 3 : i === 5 ? 5 : null,
         visitedOn: new Date(i === 4 ? '2026-06-02' : '2026-09-13'),
         createdAt: new Date('2026-09-20T00:00:00Z'),
       })),
     });
+    await prisma.$transaction((tx) => refreshLocationRatings(tx, locations));
     const module = await Test.createTestingModule({ imports: [SearchModule] })
       .overrideProvider(PrismaService)
       .useValue(prisma)
       .overrideProvider(StorageService)
       .useValue({
+        deleteObjects: () => Promise.resolve(),
         getReadUrl: (key: string) =>
           Promise.resolve(`https://media.invalid/${key}`),
       })
@@ -135,6 +143,8 @@ describeDatabase('Advanced search HTTP + PostgreSQL', () => {
     );
     await app.init();
     service = module.get(SearchService);
+    tripsService = module.get(TripsService);
+    postsService = module.get(PostsService);
   });
   afterAll(async () => {
     await app?.close();
@@ -177,7 +187,9 @@ describeDatabase('Advanced search HTTP + PostgreSQL', () => {
     expect(
       body.places.find((place) => place.id === locations[0])?.postCount,
     ).toBe(3);
-    expect(body.places.every((place) => place.rating === null)).toBe(true);
+    expect(
+      body.places.find((place) => place.id === locations[0])?.rating,
+    ).toEqual({ average: 4.5, count: 2 });
   });
   it('returns empty results for short queries', async () => {
     const response = await get({ q: ' L ' }).expect(200);
@@ -284,13 +296,7 @@ describeDatabase('Advanced search HTTP + PostgreSQL', () => {
       await get({ q: 'Lisbon', type: 'posts', ...filters }).expect(400);
     }
   });
-  it('does not silently ignore a rating filter before RATE-1 is deployed', async () => {
-    await get({ q: 'Lisbon', type: 'places', minRating: 4 }).expect(503);
-    // RATE-1 column contract simulated only in this private test schema.
-    await pool.query(
-      `ALTER TABLE "${schema}".locations ADD COLUMN rating_count int NOT NULL DEFAULT 0, ADD COLUMN rating_sum int NOT NULL DEFAULT 0`,
-    );
-    await prisma.$executeRaw`UPDATE locations SET rating_count = 2, rating_sum = 9 WHERE id = ${locations[0]}::uuid`;
+  it('filters real RATE-1 ratings with distance', async () => {
     const response = await get({
       q: 'Lisbon',
       type: 'places',
@@ -317,9 +323,56 @@ describeDatabase('Advanced search HTTP + PostgreSQL', () => {
       (result.body as SearchPage<'posts'>).items.map((item) => item.id).sort(),
     ).toEqual([posts[0], posts[1], posts[4]].sort());
     await get({ q: 'Lisbon', type: 'places', minRating: 5 }).expect(200, {
+      type: 'places',
       items: [],
       nextCursor: null,
     });
+  });
+  it('search ratings change after a real post update and draft publish', async () => {
+    await postsService.update('search-owner', posts[0], { rating: 1 });
+    let response = await get({
+      q: 'Lisbon',
+      type: 'places',
+      minRating: 4,
+    }).expect(200);
+    expect((response.body as SearchPage<'places'>).items).toEqual([]);
+    await tripsService.publish('search-owner', trips[5]);
+    response = await get({ q: 'Lisbon', type: 'places', minRating: 5 }).expect(
+      200,
+    );
+    expect((response.body as SearchPage<'places'>).items).toEqual([
+      expect.objectContaining({
+        id: locations[1],
+        rating: { average: 5, count: 1 },
+      }),
+    ]);
+  });
+  it('retains SRCH-1 multiword, whitespace and literal wildcard matching', async () => {
+    const first = await service.page('search-viewer', 'people', {
+      q: 'Lisbon Traveler',
+      limit: 1,
+    });
+    const next = await service.page('search-viewer', 'people', {
+      q: '  Lisbon   Traveler  ',
+      limit: 1,
+      cursor: first.nextCursor!,
+    });
+    expect(next.items).toHaveLength(1);
+    expect(next.items[0].id).not.toBe(first.items[0].id);
+    await get({ q: 'Lisbon\u0000', type: 'people' }).expect(400);
+    const literal = await get({ q: 'Lisbon%', type: 'places' }).expect(200);
+    expect((literal.body as SearchPage<'places'>).items).toEqual([]);
+    // This matches a word in the caption and another in the location name.
+    await prisma.location.update({
+      where: { id: locations[0] },
+      data: { name: 'Belém Tower' },
+    });
+    const combined = await get({ q: 'photo Tower', type: 'posts' }).expect(200);
+    expect(
+      (combined.body as SearchPage<'posts'>).items
+        .map((item) => item.id)
+        .sort(),
+    ).toEqual([posts[0], posts[1], posts[4]].sort());
   });
   it('continues from the sort key when the cursor row has been deleted', async () => {
     await prisma.user.createMany({

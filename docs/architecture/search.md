@@ -8,7 +8,7 @@ when the viewer owns them.
 
 | Parameter | Usage |
 | --- | --- |
-| `q` | Required, trimmed, maximum 200 characters. Fewer than 2 characters returns empty results. |
+| `q` | Required, normalized whitespace, maximum 200 characters. No words of 2+ characters returns empty results. |
 | `type` | `people`, `places`, `trips` or `posts`. Omit for up to 3 results per type. |
 | `from`, `to` | Inclusive YYYY-MM-DD range: overlapping trips or posts visited within the range. |
 | `minRating` | Minimum place average, 1–5. Applies to places and posts. |
@@ -22,18 +22,22 @@ reversed date ranges return 400.
 ## Responses
 
 Without `type`: `{ people, places, trips, posts }`, each an array.
-With `type`: `{ items, nextCursor }`.
+With `type`: `{ type, items, nextCursor }`.
 
-People include `isFollowing`. Places include coordinates, `postCount` and
+People include `isFollowing`. Places retain #21's `coordinate`, `postCount` and
 `rating: { average, count } | null`; custom pins are excluded from place results.
 Trips and posts use the existing response shapes.
 
 Pagination uses the sort key and ID. Cursors are scoped to the viewer and query;
 reusing one with different filters or sort returns 400.
 
-## Pending integrations
+## Dependencies
 
-- **#21:** Reconcile people/place search with the existing implementation branch.
-- **#90:** Replace `search-cursor.ts` with the shared pagination helper.
-- **#91:** Connect and verify real rating data. Until the rating columns exist,
-  place ratings are null and rating-filtered place/post requests return 503.
+- **#21:** Reuses search normalization, multiword matching, result shapes
+  and index migration from `feat/srch-1-search-backend`. #93 adds the preview,
+  trip/post types, filters and sort-scoped cursors.
+- **#91 / [PR #112](https://github.com/Forge-NU/fall-26-sw-team-2/pull/112):**
+  Integrated locally. Search reads the real rating totals and reuses its rating
+  mapper. Database tests verify post updates and publishing change search results.
+- **#90:** Replace `search-cursor.ts` with the shared pagination helper
+  when available.

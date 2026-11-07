@@ -1,4 +1,4 @@
-import { Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type {
   SearchItems,
   SearchPage,
@@ -17,6 +17,8 @@ import {
   searchScope,
 } from './search-cursor';
 import { buildSearchSql } from './search-query';
+import { filterWords, normalizeQuery } from './search-text';
+import { toLocationRating } from '../locations/location-ratings';
 
 const TYPES = ['people', 'places', 'trips', 'posts'] as const;
 type RankedRow = { id: string; key: string };
@@ -43,19 +45,12 @@ export class SearchService {
     ) as SearchPreview;
   }
 
-  private async ratingsReady(): Promise<boolean> {
-    const [row] = await this.prisma.$queryRaw<{ ready: boolean }[]>`
-      SELECT count(*) = 2 AS ready FROM information_schema.columns
-      WHERE table_schema = current_schema() AND table_name = 'locations'
-      AND column_name IN ('rating_count', 'rating_sum')`;
-    return row.ready;
-  }
-
   async page<K extends SearchType>(
     viewerId: string,
     type: K,
     query: SearchQueryDto,
   ): Promise<SearchPage<K>> {
+    query = { ...query, q: normalizeQuery(query.q) };
     const scope = searchScope([
       viewerId,
       type,
@@ -71,19 +66,8 @@ export class SearchService {
     const cursor = query.cursor
       ? decodeSearchCursor(query.cursor, scope)
       : undefined;
-    if ([...query.q].length < 2) return { items: [], nextCursor: null };
-    const usesRatings =
-      type === 'places' || (type === 'posts' && query.minRating !== undefined);
-    const ratingsReady = usesRatings && (await this.ratingsReady());
-    if (
-      (type === 'places' || type === 'posts') &&
-      query.minRating !== undefined &&
-      !ratingsReady
-    ) {
-      throw new ServiceUnavailableException(
-        'Rating search requires RATE-1 (#91) to be deployed',
-      );
-    }
+    if (!filterWords(query.q).length)
+      return { type, items: [], nextCursor: null };
     const limit = query.limit ?? 20;
     // Search is stricter than ordinary visibility: even the viewer's own drafts
     // stay out. Reuse the published branch of the shared visibility rule.
@@ -96,20 +80,18 @@ export class SearchService {
       buildSearchSql(type, query, published.status, limit + 1, cursor),
     );
     const items = await Promise.all(
-      rows
-        .slice(0, limit)
-        .map((row) =>
-          this.toItem(viewerId, type, row.id, Boolean(ratingsReady)),
-        ),
+      rows.slice(0, limit).map((row) => this.toItem(viewerId, type, row.id)),
     );
-    return buildSearchPage(rows, limit, items, (row) => ({ ...row, scope }));
+    return {
+      type,
+      ...buildSearchPage(rows, limit, items, (row) => ({ ...row, scope })),
+    };
   }
 
   private async toItem<K extends SearchType>(
     viewerId: string,
     type: K,
     id: string,
-    ratingsReady: boolean,
   ): Promise<SearchItems[K]> {
     let item: SearchItems[SearchType];
     if (type === 'people') {
@@ -141,27 +123,18 @@ export class SearchService {
           trip: { AND: [visibleTripWhere(viewerId), { status: 'published' }] },
         },
       });
-      let placeRating: { average: number; count: number } | null = null;
-      if (ratingsReady) {
-        const [totals] = await this.prisma.$queryRaw<
-          { count: number; average: number | null }[]
-        >`SELECT rating_count AS count, round(rating_sum::numeric / NULLIF(rating_count, 0), 1)::float8 AS average FROM locations WHERE id = ${id}::uuid`;
-        if (totals.count > 0 && totals.average !== null)
-          placeRating = { average: totals.average, count: totals.count };
-      }
       item = {
         id: place.id,
-        provider: place.provider,
-        providerPlaceId: place.providerPlaceId,
         name: place.name,
-        address: place.address,
-        latitude: place.latitude.toNumber(),
-        longitude: place.longitude.toNumber(),
+        coordinate: {
+          latitude: place.latitude.toNumber(),
+          longitude: place.longitude.toNumber(),
+        },
         city: place.city,
         region: place.region,
         countryCode: place.countryCode,
         postCount,
-        rating: placeRating,
+        rating: toLocationRating(place),
       };
     }
     return item as SearchItems[K];

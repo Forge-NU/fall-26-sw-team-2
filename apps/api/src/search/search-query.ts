@@ -2,19 +2,15 @@ import { Prisma } from '../generated/prisma/client';
 import type { SearchType } from 'shared-types';
 import type { SearchQueryDto } from './dto/search-query.dto';
 import type { SearchCursor } from './search-cursor';
+import { allWordsMatch, escapeLike, filterWords } from './search-text';
 
 function matching(fields: Prisma.Sql[], q: string) {
-  const pattern = `%${q.replace(/[\\%_]/g, '\\$&')}%`;
   return {
-    where: Prisma.sql`(${Prisma.join(
-      fields.map(
-        (field) => Prisma.sql`(${field} ILIKE ${pattern} OR ${field} % ${q})`,
-      ),
-      ' OR ',
-    )})`,
+    where: allWordsMatch(filterWords(q), fields),
     score: Prisma.sql`round(GREATEST(${Prisma.join(fields.map((field) => Prisma.sql`similarity(COALESCE(${field}, ''), ${q})`))})::numeric, 6)`,
   };
 }
+
 function distance(query: SearchQueryDto): Prisma.Sql {
   if (query.radiusKm === undefined) return Prisma.sql`TRUE`;
   const center = Prisma.sql`ll_to_earth(${query.lat}::float8, ${query.lng}::float8)`;
@@ -52,17 +48,21 @@ export function buildSearchSql(
         Prisma.sql`u.username`,
         Prisma.sql`u.first_name`,
         Prisma.sql`u.last_name`,
-        Prisma.sql`(u.first_name || ' ' || u.last_name)`,
       ],
       query.q,
     );
-    source = Prisma.sql`SELECT u.id::text AS id, ${match.score} AS score, u.created_at AS newest FROM "User" u WHERE ${match.where}`;
+    const prefix = `${escapeLike(query.q)}%`;
+    const score = Prisma.sql`round(((CASE WHEN u.username ILIKE ${prefix} OR u.first_name ILIKE ${prefix} OR u.last_name ILIKE ${prefix} OR (u.first_name || ' ' || u.last_name) ILIKE ${prefix} THEN 1 ELSE 0 END)
+      + similarity(u.username || ' ' || u.first_name || ' ' || u.last_name, ${query.q}))::numeric, 6)`;
+    source = Prisma.sql`SELECT u.id::text AS id, ${score} AS score, u.created_at AS newest FROM "User" u WHERE ${match.where}`;
   } else if (type === 'places') {
     const match = matching(
       [Prisma.sql`l.name`, Prisma.sql`l.city`, Prisma.sql`l.region`],
       query.q,
     );
-    source = Prisma.sql`SELECT l.id::text AS id, ${match.score} AS score, l.created_at AS newest FROM locations l
+    const prefix = `${escapeLike(query.q)}%`;
+    const score = Prisma.sql`round(((CASE WHEN l.name ILIKE ${prefix} THEN 1 ELSE 0 END) + similarity(l.name, ${query.q}))::numeric, 6)`;
+    source = Prisma.sql`SELECT l.id::text AS id, ${score} AS score, l.created_at AS newest FROM locations l
       WHERE l.provider <> 'custom' AND ${match.where} AND ${distance(query)} AND ${rating(query)}
       AND EXISTS (SELECT 1 FROM posts p JOIN trips t ON t.id = p.trip_id WHERE p.location_id = l.id AND ${published})`;
   } else if (type === 'trips') {
@@ -88,20 +88,29 @@ export function buildSearchSql(
     );
     // Separate text candidates by table so PostgreSQL can use trigram indexes
     // instead of an OR across a join. IN deduplicates posts matching both.
-    const postMatch = matching(
-      [
-        Prisma.sql`candidate.caption`,
-        Prisma.sql`candidate.custom_location_name`,
-      ],
-      query.q,
+    const words = filterWords(query.q);
+    const postWhere = Prisma.join(
+      words.map((word) =>
+        allWordsMatch(
+          [word],
+          [
+            Prisma.sql`candidate.caption`,
+            Prisma.sql`candidate.custom_location_name`,
+          ],
+        ),
+      ),
+      ' OR ',
     );
-    const placeMatch = matching([Prisma.sql`place.name`], query.q);
+    const placeWhere = Prisma.join(
+      words.map((word) => allWordsMatch([word], [Prisma.sql`place.name`])),
+      ' OR ',
+    );
     source = Prisma.sql`SELECT p.id::text AS id, ${match.score} AS score, p.created_at AS newest FROM posts p
       JOIN trips t ON t.id = p.trip_id LEFT JOIN locations l ON l.id = p.location_id
-      WHERE ${published} AND p.id IN (
-        SELECT candidate.id FROM posts candidate WHERE ${postMatch.where}
+      WHERE ${published} AND ${match.where} AND p.id IN (
+        SELECT candidate.id FROM posts candidate WHERE ${postWhere}
         UNION
-        SELECT candidate.id FROM posts candidate JOIN locations place ON place.id = candidate.location_id WHERE ${placeMatch.where}
+        SELECT candidate.id FROM posts candidate JOIN locations place ON place.id = candidate.location_id WHERE ${placeWhere}
       ) AND ${dateRange(query, type)} AND ${distance(query)} AND ${rating(query)}`;
   }
   const sort =

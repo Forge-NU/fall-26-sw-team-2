@@ -40,7 +40,7 @@ async function main() {
     await client.query(`SELECT gin_clean_pending_list(c.oid::regclass)
       FROM pg_class c JOIN pg_am a ON a.oid = c.relam
       WHERE a.amname = 'gin' AND c.relnamespace = current_schema()::regnamespace
-      AND c.relname LIKE 'search_%'`);
+`);
     const cases: {
       type: SearchType;
       q: string;

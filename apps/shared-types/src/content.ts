@@ -27,6 +27,13 @@ export type ActiveTripsResponse = {
 
 export type MediaType = "image" | "video";
 
+/** A place's average star rating, from posts there in published trips */
+export type LocationRating = {
+  /** Rounded to one decimal */
+  average: number;
+  count: number;
+};
+
 export type LocationResponse = {
   id: string;
   provider: string;
@@ -38,6 +45,8 @@ export type LocationResponse = {
   city: string | null;
   region: string | null;
   countryCode: string | null;
+  /** null until a post in a published trip rates the place */
+  rating: LocationRating | null;
 };
 
 export type MediaResponse = {
@@ -57,6 +66,8 @@ export type PostResponse = {
   visitedOn: string;
   location: LocationResponse | null;
   customLocationName: string | null;
+  /** 1-5 stars for the place, or null. Always null with a custom location. */
+  rating: number | null;
   media: MediaResponse[];
   createdAt: string;
   updatedAt: string;

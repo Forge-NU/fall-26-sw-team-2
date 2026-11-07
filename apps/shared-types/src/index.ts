@@ -31,7 +31,7 @@ export interface ApiErrorResponse {
   timestamp: string;
 }
 
-export type { TripStatus, TripResponse, ActiveTripsResponse, MediaType, MediaResponse, LocationResponse, PostResponse } from './content';
+export type { TripStatus, TripResponse, ActiveTripsResponse, MediaType, MediaResponse, LocationRating, LocationResponse, PostResponse } from './content';
 
 /**
  * Photo uploads (MEDIA-1)
@@ -57,4 +57,4 @@ export interface CreateUploadResponse {
   expiresAt: string;
 }
 
-export type { SearchType, SearchSort, SearchRequest, SearchPerson, SearchPlace, SearchItems, SearchPreview, SearchPage, SearchResponse } from './search.js';
+export type { PersonSearchResult, PlaceSearchResult, PlaceRating, SearchType, SearchSort, SearchRequest, SearchPerson, SearchPlace, SearchItems, SearchPreview, SearchPage, SearchResponse } from './search.js';

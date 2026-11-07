@@ -10,14 +10,17 @@ import {
   Max,
   MaxLength,
   Min,
+  NotContains,
 } from 'class-validator';
 import type { SearchRequest, SearchSort, SearchType } from 'shared-types';
+import { normalizeQuery } from '../search-text';
 
 export class SearchQueryDto implements SearchRequest {
   @IsString()
   @MaxLength(200)
+  @NotContains('\u0000', { message: 'q must not contain NUL characters' })
   @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.trim() : value,
+    typeof value === 'string' ? normalizeQuery(value) : value,
   )
   q!: string;
 
