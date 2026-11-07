@@ -1,5 +1,5 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { DefaultTheme, ThemeProvider } from "expo-router";
+import { DefaultTheme, Stack, ThemeProvider } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
 import { useEffect } from "react";
@@ -13,10 +13,26 @@ import {
 } from "@expo-google-fonts/plus-jakarta-sans";
 import { BarlowCondensed_600SemiBold } from "@expo-google-fonts/barlow-condensed";
 
+import { ClerkProvider } from "@clerk/expo";
+import { tokenCache } from "@clerk/expo/token-cache";
+import type { ReactNode } from "react";
+
+import { USE_MOCK_API } from "@/api/client";
 import { AnimatedSplashOverlay } from "@/components/animated-icon";
-import AppTabs from "@/components/app-tabs";
 import { AuthGate } from "@/components/auth-gate";
 import { queryClient } from "@/lib/query-client";
+
+const clerkPublishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
+
+// Mock mode signs in as the mock user, so it runs without a Clerk key
+function AuthProvider({ children }: { children: ReactNode }) {
+  if (USE_MOCK_API) return children;
+  return (
+    <ClerkProvider publishableKey={clerkPublishableKey} tokenCache={tokenCache}>
+      {children}
+    </ClerkProvider>
+  );
+}
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -58,15 +74,22 @@ export default function TabLayout() {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider value={navigationTheme}>
-        <ToastProvider>
-          <AnimatedSplashOverlay />
-          <AuthGate>
-            <AppTabs />
-          </AuthGate>
-        </ToastProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <AuthProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider value={navigationTheme}>
+          <ToastProvider>
+            <AnimatedSplashOverlay />
+            <AuthGate>
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="trips/new" options={{ presentation: "modal" }} />
+                <Stack.Screen name="trips/[id]/edit" options={{ presentation: "modal" }} />
+                <Stack.Screen name="posts/new" options={{ presentation: "modal" }} />
+              </Stack>
+            </AuthGate>
+          </ToastProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </AuthProvider>
   );
 }

@@ -3,7 +3,7 @@ import type { ApiErrorResponse } from 'shared-types';
 import { getAuthToken } from '@/lib/auth';
 
 // Off unless EXPO_PUBLIC_USE_MOCK_API=true is in .env, so builds always use
-// the real API. Turn it on locally until sign-in works (#38, #56, #61).
+// the real API. Turn it on locally to work without Clerk or a running API.
 export const USE_MOCK_API = process.env.EXPO_PUBLIC_USE_MOCK_API === 'true';
 
 /**
