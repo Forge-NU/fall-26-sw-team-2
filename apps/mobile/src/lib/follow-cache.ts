@@ -1,8 +1,5 @@
 import type { InfiniteData } from '@tanstack/react-query';
-import type { PaginatedResponse } from 'shared-types';
-
-import type { FollowListUser } from '@/api/profiles';
-import type { FollowCounts } from '@/api/users';
+import type { FollowCounts, FollowListUser, PaginatedResponse } from 'shared-types';
 
 /** Adds `delta` to one count, never going below zero. */
 export function adjustCount<T extends FollowCounts>(profile: T | undefined, field: keyof FollowCounts, delta: number) {

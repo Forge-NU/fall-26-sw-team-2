@@ -3,11 +3,11 @@ import { router } from 'expo-router';
 import { useRef, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import type { UserResponse } from 'shared-types';
 
 import { getErrorMessage } from '@/api/client';
 import { getMyProfile, updateMe } from '@/api/profiles';
 import { queryKeys } from '@/api/query-keys';
-import type { ProfileResponse } from '@/api/users';
 import { Icon } from '@/components/icon';
 import { AppText } from '@/components/ui/app-text';
 import { Avatar } from '@/components/ui/avatar';
@@ -51,7 +51,7 @@ export function EditProfileView() {
   return <EditProfileForm key={me.data.id} profile={me.data} />;
 }
 
-function EditProfileForm({ profile }: { profile: ProfileResponse }) {
+function EditProfileForm({ profile }: { profile: UserResponse }) {
   const queryClient = useQueryClient();
   const setCurrentUser = useSetCurrentUser();
   const avatarUpload = usePhotoUpload('avatar');

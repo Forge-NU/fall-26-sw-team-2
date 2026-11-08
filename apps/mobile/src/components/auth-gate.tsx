@@ -22,7 +22,7 @@ import { queryClient } from '@/lib/query-client';
 export const AuthGate = getMockMode() === 'all' ? MockAuthGate : ClerkAuthGate;
 
 function MockAuthGate({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<UserSummary>(mockUser);
+  const [user, setUser] = useState<CurrentUser>(mockUser);
   return (
     <CurrentUserContext.Provider
       value={{ user, setUser: (updated) => setUser({ ...updated, username: updated.username ?? user.username }) }}>

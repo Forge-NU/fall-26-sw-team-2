@@ -120,7 +120,7 @@ Add types to the file for their area, or a new file, and re-export them from `in
 export type { StoryResponse, CreateStoryRequest } from './stories.js';
 ```
 
-Relative imports inside the package need the `.js` extension. The API resolves `shared-types` with `nodenext`, which can't find `./stories` and silently turns its types into `any` (`skipLibCheck` hides the error).
+Relative imports inside the package need the `.js` extension. The package builds with `nodenext`, the same resolution the API uses, so `npm run build` fails on a missing extension. Otherwise the API couldn't find `./stories` and would silently turn its types into `any`.
 
 ### Building
 

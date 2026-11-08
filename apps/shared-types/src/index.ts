@@ -10,6 +10,14 @@ export interface UserSummary {
   avatarUrl: string | null;
 }
 
+/** Body of PATCH /api/me. avatarKey is an s3Key from an "avatar" upload, or null to remove it. */
+export interface UpdateMeRequest {
+  firstName?: string;
+  lastName?: string;
+  username?: string;
+  avatarKey?: string | null;
+}
+
 export interface UsernameAvailabilityResponse {
   available: boolean;
 }
@@ -44,8 +52,6 @@ export interface ApiErrorResponse {
   timestamp: string;
 }
 
-// Relative imports need the .js extension: the API resolves this package with
-// nodenext, which can't find extensionless paths and turns them into `any`.
 export type { TripStatus, TripResponse, ActiveTripsResponse, CreateTripRequest, UpdateTripRequest, MediaType, MediaResponse, PostResponse, CreatePostRequest, CreatePostMedia } from './content.js';
 export type { LocationResponse, PlaceSuggestion, ResolveLocationRequest, ResolveLocationResponse } from './locations.js';
 export type { StoryResponse, StoryGroup, StoriesFeedResponse, TripStoriesResponse, CreateStoryRequest } from './stories.js';

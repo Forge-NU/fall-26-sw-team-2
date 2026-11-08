@@ -7,12 +7,10 @@ import { ApiError } from '@/api/client';
  * - "auto" (default): only endpoints that aren't live yet
  * - "all": every endpoint that has a mock, e.g. for a demo without the API running
  * - "none": no mocks, to try a new endpoint before marking it live
- * EXPO_PUBLIC_USE_MOCK_API=true means "all": there's no session to call the API with.
  */
 export type MockMode = 'auto' | 'all' | 'none';
 
 export function getMockMode(): MockMode {
-  if (process.env.EXPO_PUBLIC_USE_MOCK_API === 'true') return 'all';
   const mode = process.env.EXPO_PUBLIC_API_MOCKS;
   return mode === 'all' || mode === 'none' ? mode : 'auto';
 }

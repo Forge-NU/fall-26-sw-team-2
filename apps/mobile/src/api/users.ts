@@ -7,17 +7,8 @@ export function listUsers(cursor: string | null, signal?: AbortSignal): Promise<
   return apiGet('/api/users', { cursor, limit: 20 }, { signal });
 }
 
-// Copied from apps/api/src/follows/follow-list.types.ts until they move to shared-types
-export type FollowCounts = {
-  followerCount: number;
-  followingCount: number;
-};
-
-/** GET /api/me and GET /api/users/id/:id add the follow counts to the user */
-export type ProfileResponse = UserResponse & FollowCounts;
-
 /** The signed-in user's profile. 404 until they finish onboarding. */
-export function getMe(signal?: AbortSignal): Promise<ProfileResponse> {
+export function getMe(signal?: AbortSignal): Promise<UserResponse> {
   return apiGet('/api/me', undefined, { signal });
 }
 

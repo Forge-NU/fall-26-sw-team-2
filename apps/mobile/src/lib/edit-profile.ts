@@ -1,4 +1,4 @@
-import type { UpdateMeRequest } from '@/api/profiles';
+import type { UpdateMeRequest } from 'shared-types';
 
 export type ProfileDraft = {
   firstName: string;
