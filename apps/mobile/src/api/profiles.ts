@@ -1,20 +1,20 @@
 // Profile and follow endpoints for PROF-1 (#31): FOL-1's follow routes, ACCT-1's
 // user routes and TRIP-1's profile trips are live; a user's posts aren't yet.
-import type { PaginatedResponse, PostResponse, TripResponse, UserResponse } from 'shared-types';
+import type {
+  FollowListUser,
+  FollowStatus,
+  PaginatedResponse,
+  PostResponse,
+  TripResponse,
+  UpdateMeRequest,
+  UserResponse,
+  UserSummary,
+} from 'shared-types';
 
 import { apiGet, apiRequest } from '@/api/client';
 import { mockDelay, mockError, mockPage, withMock } from '@/api/mock';
-import { me as mockMe } from '@/api/mocks';
-import { getMe, type ProfileResponse } from '@/api/users';
-
-// Copied from apps/api/src/follows/follow-list.types.ts until they move to shared-types
-
-export type FollowListUser = UserResponse & {
-  /** Whether the signed-in user follows this person */
-  isFollowing: boolean;
-};
-
-export type FollowStatus = { isFollowing: boolean };
+import { me as mockMe } from '@/api/mock-backend';
+import { getMe } from '@/api/users';
 
 export type FollowList = 'followers' | 'following';
 
@@ -25,7 +25,7 @@ type ListFetcher<T> = (userId: string, cursor: string | null, signal?: AbortSign
 const userPath = (id: string) => `/api/users/${encodeURIComponent(id)}`;
 
 /** The signed-in user with their follow counts */
-export const getMyProfile = withMock<[signal?: AbortSignal], ProfileResponse>({
+export const getMyProfile = withMock<[signal?: AbortSignal], UserResponse>({
   live: true,
   real: getMe,
   mock: async () => {
@@ -34,14 +34,7 @@ export const getMyProfile = withMock<[signal?: AbortSignal], ProfileResponse>({
   },
 });
 
-/** Body of PATCH /api/me. avatarKey is an s3Key from an "avatar" upload, or null to remove it. */
-export type UpdateMeRequest = {
-  firstName?: string;
-  lastName?: string;
-  avatarKey?: string | null;
-};
-
-export const updateMe = withMock<[body: UpdateMeRequest], ProfileResponse>({
+export const updateMe = withMock<[body: UpdateMeRequest], UserResponse>({
   live: true,
   real: (body) => apiRequest('PATCH', '/api/me', body),
   mock: async ({ avatarKey, ...names }) => {
@@ -54,7 +47,7 @@ export const updateMe = withMock<[body: UpdateMeRequest], ProfileResponse>({
   },
 });
 
-export const getProfile = withMock<[id: string, signal?: AbortSignal], ProfileResponse>({
+export const getProfile = withMock<[id: string, signal?: AbortSignal], UserResponse>({
   live: true,
   real: (id, signal) => apiGet(`/api/users/id/${encodeURIComponent(id)}`, undefined, { signal }),
   mock: async (id) => {
@@ -155,7 +148,7 @@ const MOCK_TIMESTAMP = '2026-06-01T12:00:00.000Z';
 const FIRST_NAMES = ['Nine', 'Duke', 'Maya', 'Priya', 'Noah', 'Jordan', 'Sofia', 'Kenji', 'Amara', 'Leo'];
 const DESTINATIONS = ['Boston, MA', 'Lake Tahoe, CA', 'Paris, France', 'Osaka, Japan', 'Barcelona, Spain', 'New York City, NY'];
 
-const mockUsers: UserResponse[] = [
+const mockUsers: UserSummary[] = [
   mockMe,
   ...Array.from({ length: 30 }, (_, i) => ({
     id: `mock-traveler-${i + 1}`,
@@ -176,11 +169,11 @@ const mockFollows = new Set<string>(
   ]),
 );
 
-function mockUser(id: string): UserResponse {
+function mockUser(id: string): UserSummary {
   return mockUsers.find((user) => user.id === id) ?? mockError(404, 'User not found', userPath(id));
 }
 
-function mockProfile(id: string): ProfileResponse {
+function mockProfile(id: string): UserResponse {
   const user = mockUser(id);
   const keys = [...mockFollows];
   return {
@@ -202,7 +195,7 @@ async function mockFollowList(id: string, list: FollowList, cursor: string | nul
   );
 }
 
-function mockTrips(owner: UserResponse): TripResponse[] {
+function mockTrips(owner: UserSummary): TripResponse[] {
   return DESTINATIONS.map((destination, i) => ({
     id: `${owner.id}-trip-${i + 1}`,
     owner,

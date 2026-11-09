@@ -2,11 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import type { Location as LocationRow } from '../generated/prisma/client';
-import {
-  Location,
+import type {
+  LocationResponse,
   ResolveLocationRequest,
   ResolveLocationResponse,
-} from './location.types';
+} from 'shared-types';
 
 const PROVIDER = 'mapbox';
 
@@ -63,7 +63,7 @@ export class LocationsService {
   }
 }
 
-export function toLocation(row: LocationRow): Location {
+export function toLocation(row: LocationRow): LocationResponse {
   return {
     id: row.id,
     provider: PROVIDER,

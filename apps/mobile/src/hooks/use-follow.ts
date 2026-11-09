@@ -1,9 +1,8 @@
 import { useMutation, useQueryClient, type InfiniteData, type QueryKey } from '@tanstack/react-query';
-import type { PaginatedResponse } from 'shared-types';
+import type { FollowListUser, FollowStatus, PaginatedResponse, UserResponse } from 'shared-types';
 
-import { followUser, unfollowUser, type FollowListUser, type FollowStatus } from '@/api/profiles';
+import { followUser, unfollowUser } from '@/api/profiles';
 import { queryKeys } from '@/api/query-keys';
-import type { ProfileResponse } from '@/api/users';
 import { adjustCount, setFollowingInPages } from '@/lib/follow-cache';
 
 type FollowPages = InfiniteData<PaginatedResponse<FollowListUser>>;
@@ -24,10 +23,10 @@ export function useFollow(userId: string) {
   const apply = (follow: boolean) => {
     const delta = follow ? 1 : -1;
     queryClient.setQueryData<FollowStatus>(queryKeys.followStatus(userId), { isFollowing: follow });
-    queryClient.setQueryData<ProfileResponse>(queryKeys.profile(userId), (profile) =>
+    queryClient.setQueryData<UserResponse>(queryKeys.profile(userId), (profile) =>
       adjustCount(profile, 'followerCount', delta),
     );
-    queryClient.setQueryData<ProfileResponse>(queryKeys.myProfile, (me) => adjustCount(me, 'followingCount', delta));
+    queryClient.setQueryData<UserResponse>(queryKeys.myProfile, (me) => adjustCount(me, 'followingCount', delta));
     queryClient.setQueriesData<FollowPages>({ predicate: (query) => isFollowList(query.queryKey) }, (data) =>
       setFollowingInPages(data, userId, follow),
     );

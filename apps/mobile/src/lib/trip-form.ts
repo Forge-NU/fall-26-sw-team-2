@@ -1,6 +1,7 @@
 // Trip field rules from DOC-1 (#33), checked before saving so the form can
 // highlight fields instead of waiting on a 400
-import type { CreateTripRequest, UpdateTripRequest } from '@/api/types';
+import type { CreateTripRequest, UpdateTripRequest } from 'shared-types';
+
 import { isDateWithin } from '@/utils/local-date';
 
 export type TripFormValues = {

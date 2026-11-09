@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
+import type { UserResponse } from 'shared-types';
 
-import type { ProfileResponse } from '@/api/users';
 import { AppText } from '@/components/ui/app-text';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import { Spacing } from '@/constants/theme';
 import { FollowButton } from './follow-button';
 
 type ProfileHeaderProps = {
-  profile: ProfileResponse;
+  profile: UserResponse;
   /** Null on your own profile, which never shows the follow button */
   isFollowing: boolean | null;
   /** Shows Edit profile instead of the follow button */

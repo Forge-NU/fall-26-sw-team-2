@@ -1,8 +1,8 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { StyleSheet, View } from 'react-native';
+import type { PostResponse } from 'shared-types';
 
-import type { PostResponse } from '@/api/types';
 import { AppText } from '@/components/ui/app-text';
 import { Palette } from '@/constants/palette';
 import { Radii, Spacing, Typography } from '@/constants/theme';

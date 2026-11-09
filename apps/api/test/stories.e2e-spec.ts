@@ -5,11 +5,11 @@ import { App } from 'supertest/types';
 import { User } from '../src/generated/prisma/client';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { StoriesCleanupService } from '../src/stories/stories-cleanup.service';
-import {
+import type {
   StoriesFeedResponse,
   StoryResponse,
   TripStoriesResponse,
-} from '../src/stories/story.types';
+} from 'shared-types';
 import {
   createTestApp,
   createTestUser,

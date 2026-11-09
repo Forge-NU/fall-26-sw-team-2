@@ -86,7 +86,7 @@ Every endpoint needs a signed-in user (`ClerkAuthGuard`). Errors use NestJS's de
 
 ### Response shapes
 
-TypeScript types in `apps/api/src/stories/story.types.ts`. They move into `shared-types` once API-1 (#28) adds it.
+TypeScript types in `apps/shared-types/src/stories.ts`.
 
 ```ts
 type StoryResponse = {
@@ -94,7 +94,7 @@ type StoryResponse = {
   owner: UserSummary;            // { id, username, firstName, lastName, avatarUrl }
   tripId: string | null;
   text: string | null;
-  location: LocationResponse | null; // same type as posts (posts/post.types.ts)
+  location: LocationResponse | null; // same type as posts (shared-types `locations.ts`)
   customLocationName: string | null;
   imageUrl: string;              // presigned S3 GET URL, valid for 1 hour
   keepOnTrip: boolean;

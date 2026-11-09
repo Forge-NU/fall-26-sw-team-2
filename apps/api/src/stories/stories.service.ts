@@ -16,17 +16,17 @@ import {
 } from '../common/pagination';
 import { toUserSummary, userSummarySelect } from '../common/user-summary';
 import { formatDateOnly, parseDateOnly } from '../common/dates';
-import { LocationResponse } from '../posts/post.types';
 import { canViewTrip, isActiveTrip, resolveToday } from '../trips/trip-rules';
 import { lockTripForShare } from '../trips/trip-locks';
 import { CreateStoryDto } from './dto/create-story.dto';
 import { StoriesFeedQueryDto } from './dto/stories-feed-query.dto';
-import {
+import type {
+  LocationResponse,
   StoriesFeedResponse,
   StoryGroup,
   StoryResponse,
   TripStoriesResponse,
-} from './story.types';
+} from 'shared-types';
 
 const storyInclude = {
   owner: { select: userSummarySelect },

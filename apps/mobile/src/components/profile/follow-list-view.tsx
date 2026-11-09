@@ -2,8 +2,9 @@ import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import type { FollowListUser } from 'shared-types';
 
-import { followListFetchers, getMyProfile, getProfile, type FollowList, type FollowListUser } from '@/api/profiles';
+import { followListFetchers, getMyProfile, getProfile, type FollowList } from '@/api/profiles';
 import { queryKeys } from '@/api/query-keys';
 import { UserRow } from '@/components/content/user-row';
 import { AppText } from '@/components/ui/app-text';

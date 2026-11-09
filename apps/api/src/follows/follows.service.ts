@@ -7,11 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { resolveAvatarUrl } from '../common/avatar';
 import type { FollowListQueryDto } from './dto/follow-list-query.dto';
-import type {
-  FollowCounts,
-  FollowListPage,
-  FollowStatus,
-} from './follow-list.types';
+import type { FollowCounts, FollowListPage, FollowStatus } from 'shared-types';
 import { Prisma } from '../generated/prisma/client';
 import { decodeFollowCursor, followPage } from './follow-pagination';
 

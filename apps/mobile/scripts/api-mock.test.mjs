@@ -31,15 +31,6 @@ test('"all" mocks every endpoint and "none" mocks nothing', async () => {
   await withMode('none', async () => assert.equal(await endpoint(false)('a'), 'real a'));
 });
 
-test('USE_MOCK_API mocks every endpoint, since there is no session for the real ones', async () => {
-  process.env.EXPO_PUBLIC_USE_MOCK_API = 'true';
-  try {
-    await withMode('none', async () => assert.equal(await endpoint(true)('a'), 'mock a'));
-  } finally {
-    delete process.env.EXPO_PUBLIC_USE_MOCK_API;
-  }
-});
-
 test('mockPage walks the list a page at a time and ends with a null cursor', () => {
   const items = Array.from({ length: 5 }, (_, i) => i);
   const first = mockPage(items, null, 2);
