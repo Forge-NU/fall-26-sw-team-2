@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import type { CreateTripRequest, TripResponse } from 'shared-types';
+import type { TripResponse } from 'shared-types';
 
 import { createTrip } from '@/api/trips';
 import { useActiveTrips } from '@/hooks/use-active-trips';
@@ -7,6 +7,7 @@ import { choosePhoto, takePhoto, type PickedPhoto } from '@/lib/media/pick-photo
 import { preparePhoto } from '@/lib/media/prepare-photo';
 import { canKeepOnTrip, STORY_TEXT_MAX, type StoryLocation } from '@/lib/story-draft';
 import { postStory } from '@/lib/story-upload-queue';
+import { hasErrors, toCreateTripRequest, type TripFormValues } from '@/lib/trip-form';
 import { validateQuickTrip } from '@/lib/trips';
 import { isDateWithin } from '@/utils/local-date';
 
@@ -27,7 +28,7 @@ export function useStoryComposer() {
   const [photo, setPhoto] = useState<PickedPhoto | null>(null);
   const [photoStatus, setPhotoStatus] = useState<PhotoStatus>('idle');
   const [text, setText] = useState('');
-  // Same shape POST-2's LocationPicker (#65) takes as value/onChange
+  // What #86's LocationPicker takes as value/onChange
   const [location, setLocation] = useState<StoryLocation | null>(null);
   const [tripChoice, setTripChoice] = useState<TripChoice>({ kind: 'suggested' });
   const [keepOnTripChoice, setKeepOnTripChoice] = useState(DEFAULT_KEEP_ON_TRIP);
@@ -98,18 +99,18 @@ export function useStoryComposer() {
     }
   }
 
-  async function createQuickTrip(input: CreateTripRequest): Promise<QuickTripResult> {
-    const error = validateQuickTrip(input, activeTrips.today);
-    if (error) return { error };
+  // The quick-create sheet shows field errors itself, so this only re-checks
+  async function createQuickTrip(values: TripFormValues): Promise<QuickTripResult> {
+    if (hasErrors(validateQuickTrip(values, activeTrips.today))) {
+      return { error: 'Check the trip details and try again.' };
+    }
 
     try {
-      const created = await createTrip({
-        ...input,
-        title: input.title.trim(),
-        destination: input.destination.trim(),
-      });
+      const created = await createTrip(toCreateTripRequest(values));
       activeTrips.addTrip(created);
       setTripChoice({ kind: 'trip', id: created.id });
+      // The trip was made for this story, even if "Post without a trip" was picked before
+      setKeepOnTripChoice(true);
       return { trip: created };
     } catch {
       return { error: "Couldn't create the trip. Try again." };

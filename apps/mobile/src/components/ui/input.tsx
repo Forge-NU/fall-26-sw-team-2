@@ -18,6 +18,9 @@ export type InputProps = TextInputProps & {
   disabled?: boolean;
   hint?: string;
   containerStyle?: StyleProp<ViewStyle>;
+  // 'bare' drops the box (border, background, padding) for text typed over
+  // media, like the story composer's photo. Style the text with `style`.
+  variant?: 'default' | 'bare';
 };
 
 export function Input({
@@ -33,6 +36,7 @@ export function Input({
   accessibilityLabel,
   accessibilityState,
   placeholderTextColor = InputTokens.placeholder,
+  variant = 'default',
   ...props
 }: InputProps) {
   const [focused, setFocused] = useState(false);
@@ -53,6 +57,7 @@ export function Input({
         { borderColor, borderWidth: focused && !isDisabled ? InputTokens.focusedBorderWidth : InputTokens.borderWidth,
           backgroundColor: isDisabled ? InputTokens.disabledBackground : InputTokens.background },
         isDisabled && styles.disabled,
+        variant === 'bare' && styles.bareField,
       ]}>
       <TextInput
         {...props}
@@ -71,6 +76,7 @@ export function Input({
         style={[
           styles.input,
           Platform.OS === 'web' && styles.webInput,
+          variant === 'bare' && styles.bareInput,
           style,
         ]}
       />
@@ -114,6 +120,8 @@ const styles = StyleSheet.create({
     opacity: InputTokens.disabledOpacity,
   },
   webInput: { outlineWidth: 0 },
+  bareField: { borderWidth: 0, paddingHorizontal: 0, backgroundColor: 'transparent' },
+  bareInput: { minHeight: 0, paddingVertical: 0 },
   error: {
     ...InputTokens.typography,
     color: InputTokens.errorBorder,

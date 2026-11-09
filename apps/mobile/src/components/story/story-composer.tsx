@@ -1,59 +1,38 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
-import type { TripResponse } from 'shared-types';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui/app-text';
 import { Button } from '@/components/ui/button';
 import { Icon, IconName } from '@/components/icon';
-import { LocationSheet } from '@/components/story/location-sheet';
+import { LocationPicker } from '@/components/location/location-picker';
+import { QuickTripSheet } from '@/components/story/quick-trip-sheet';
 import { StoryDateSheet } from '@/components/story/story-date-sheet';
-import { TripChooserSheet } from '@/components/trip-chooser-sheet';
+import { TripChooserSheet, tripStatusLabel } from '@/components/trip-chooser-sheet';
+import { Input } from '@/components/ui/input';
 import { Media } from '@/components/ui/media';
 import { Toggle } from '@/components/ui/toggle';
-import { Palette, Radii, Spacing, Typography } from '@/constants/theme';
-import { StoryDraft, type ActiveTrip, type NearbyPlace } from '@/data/mock';
+import { StoryTokens } from '@/constants/story-tokens';
+import { Palette, Radii, Spacing } from '@/constants/theme';
 import { useStoryComposer } from '@/hooks/use-story-composer';
 import { formatDay, formatRange, tripDayNumber } from '@/utils/dates';
 
-type Sheet = 'trip' | 'date' | 'location' | null;
-
-const comingSoon = (feature: string) => Alert.alert(feature, 'Coming in a later wireframe.');
-
-// The trip chooser is shared with "Add places to itinerary" and takes its own trip shape
-function toChooserTrip(trip: TripResponse, suggestedTripId: string | null): ActiveTrip {
-  return {
-    id: trip.id,
-    title: trip.title,
-    startDate: trip.startDate,
-    endDate: trip.endDate,
-    status: trip.status === 'published' ? 'Published' : 'Unpublished',
-    suggested: trip.id === suggestedTripId,
-  };
-}
+type Sheet = 'trip' | 'new-trip' | 'date' | null;
 
 /** Post-story form. Posting hands the story to the background upload queue. */
 export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; onPosted: () => void }) {
   const composer = useStoryComposer();
 
   const [editingText, setEditingText] = useState(false);
-  // TODO: replace with POST-2's LocationPicker (#65), which takes composer.location directly
-  const [placeholderPlace, setPlaceholderPlace] = useState<NearbyPlace | null>(null);
   const [sheet, setSheet] = useState<Sheet>(null);
+  // iOS can't present a modal while another is still dismissing, so going
+  // from the trip chooser to Create trip waits for the chooser to close
+  const [sheetAfterClose, setSheetAfterClose] = useState<Sheet>(null);
 
   const { trip, storyDate } = composer;
-  const chooserTrips = composer.trips.map((t) => toChooserTrip(t, composer.suggestedTripId));
-  const chooserTrip = trip ? toChooserTrip(trip, composer.suggestedTripId) : null;
-
-  const locationLabel =
-    composer.location?.kind === 'mapbox'
-      ? composer.location.location.name
-      : composer.location?.kind === 'custom'
-        ? composer.location.name
-        : null;
 
   const tripDetail = trip
-    ? `${formatRange(trip.startDate, trip.endDate)} · ${chooserTrip?.status}`
+    ? `${formatRange(trip.startDate, trip.endDate)} · ${tripStatusLabel(trip)}`
     : composer.tripsLoading
       ? 'Loading your trips…'
       : composer.tripsError
@@ -85,9 +64,6 @@ export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; 
             Post story
           </AppText>
         </Pressable>
-        <AppText variant="caption" color="placeholderGray">
-          {StoryDraft.audience}
-        </AppText>
       </View>
 
       <ScrollView
@@ -102,8 +78,8 @@ export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; 
             style={StyleSheet.absoluteFill}
           />
           <LinearGradient
-            colors={['rgba(23,26,33,0.13)', 'rgba(23,26,33,0)', 'rgba(23,26,33,0.56)']}
-            locations={[0, 0.5, 1]}
+            colors={StoryTokens.mediaScrim.colors}
+            locations={StoryTokens.mediaScrim.locations}
             style={StyleSheet.absoluteFill}
           />
           <View style={styles.mediaControls}>
@@ -113,14 +89,16 @@ export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; 
           </View>
           <View style={styles.textOverlay}>
             {editingText ? (
-              <TextInput
+              <Input
+                variant="bare"
+                accessibilityLabel="Story text"
                 value={composer.text}
                 onChangeText={composer.setText}
                 maxLength={composer.textMax}
                 autoFocus
                 onBlur={() => setEditingText(false)}
                 placeholder="Add text"
-                placeholderTextColor="rgba(255,252,250,0.7)"
+                placeholderTextColor={StoryTokens.overlayText.placeholder}
                 style={styles.textInput}
                 returnKeyType="done"
               />
@@ -140,36 +118,18 @@ export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; 
           </View>
         </View>
 
-        {/* Music is planned for later; the row matches the wireframe for now */}
-        <View style={styles.music}>
-          <View style={styles.musicSymbol}>
-            <Icon name="music" size={17} color="coral" />
-          </View>
-          <View style={styles.grow}>
-            <AppText variant="caption">
-              {StoryDraft.song.title}
-            </AppText>
-            <AppText variant="caption" color="placeholderGray">
-              {StoryDraft.song.detail}
-            </AppText>
-          </View>
-          <ChangeButton onPress={() => comingSoon('Music')} />
-        </View>
-
-        <Pressable accessibilityRole="button" onPress={() => setSheet('location')} style={styles.location}>
-          <Icon name="map-pin" />
-          <View style={styles.grow}>
-            <AppText variant="caption">
-              {locationLabel ?? 'Add a location'}
-            </AppText>
-            <AppText variant="caption" color="placeholderGray">
-              Location · optional
-            </AppText>
-          </View>
-          <AppText variant="caption">
-            {locationLabel ? 'Change' : 'Add'}
+        <View style={styles.field}>
+          <AppText variant="caption" color="placeholderGray">
+            Location · optional
           </AppText>
-        </Pressable>
+          {/* The caption above is the label, so the picker's own centered one is off */}
+          <LocationPicker
+            label=""
+            placeholder="Add a location"
+            value={composer.location}
+            onChange={composer.setLocation}
+          />
+        </View>
 
         <View style={styles.field}>
           <View style={styles.fieldLabel}>
@@ -244,40 +204,44 @@ export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; 
 
       <TripChooserSheet
         visible={sheet === 'trip'}
-        trips={chooserTrips}
+        trips={composer.trips}
         selectedId={trip?.id ?? null}
         onSelect={(id) => {
           composer.selectTrip(id);
           setSheet(null);
         }}
-        describe={(t) => (t.suggested ? 'Suggested · active today' : 'Active today')}
+        describe={(t) => (t.id === composer.suggestedTripId ? 'Suggested · active today' : 'Active today')}
         onPostWithoutTrip={() => {
           composer.selectTrip(null);
           setSheet(null);
         }}
         onCreateTrip={() => {
-          setSheet(null);
-          // TODO: quick-create trip sheet, built on TRIP-2's DateField + validateTripForm (#64)
-          comingSoon('Create trip');
+          if (Platform.OS === 'ios') {
+            setSheetAfterClose('new-trip');
+            setSheet(null);
+          } else {
+            setSheet('new-trip');
+          }
         }}
+        onClose={() => setSheet(null)}
+        onDismiss={() => {
+          if (sheetAfterClose) setSheet(sheetAfterClose);
+          setSheetAfterClose(null);
+        }}
+      />
+      <QuickTripSheet
+        visible={sheet === 'new-trip'}
+        today={composer.today}
+        onCreate={composer.createQuickTrip}
+        onCreated={() => setSheet(null)}
         onClose={() => setSheet(null)}
       />
       <StoryDateSheet
         visible={sheet === 'date'}
-        trip={chooserTrip}
+        trip={trip}
         value={storyDate}
         onConfirm={(date) => {
           composer.setStoryDate(date);
-          setSheet(null);
-        }}
-        onClose={() => setSheet(null)}
-      />
-      <LocationSheet
-        visible={sheet === 'location'}
-        value={placeholderPlace}
-        onConfirm={(place) => {
-          setPlaceholderPlace(place);
-          composer.setLocation(place ? { kind: 'custom', name: place.name } : null);
           setSheet(null);
         }}
         onClose={() => setSheet(null)}
@@ -297,16 +261,6 @@ function MediaAction({ icon, label, onPress }: { icon: IconName; label: string; 
   );
 }
 
-function ChangeButton({ onPress }: { onPress: () => void }) {
-  return (
-    <Pressable accessibilityRole="button" onPress={onPress} hitSlop={8}>
-      <AppText variant="caption">
-        Change
-      </AppText>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   fullWidth: {
     alignSelf: 'stretch',
@@ -315,23 +269,22 @@ const styles = StyleSheet.create({
     height: 40,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: Spacing.three,
   },
   dismiss: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: Spacing.two,
   },
   editor: {
-    gap: 16,
+    gap: Spacing.three,
     paddingHorizontal: Spacing.three,
-    paddingVertical: 8,
+    paddingVertical: Spacing.two,
   },
   media: {
     height: 188,
     justifyContent: 'space-between',
-    padding: 12,
+    padding: Spacing.two + Spacing.one,
     borderRadius: Radii.small,
     overflow: 'hidden',
   },
@@ -342,56 +295,33 @@ const styles = StyleSheet.create({
   mediaAction: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 8,
-    paddingVertical: 7,
+    gap: Spacing.one,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.two,
     borderRadius: Radii.small,
     backgroundColor: Palette.warmWhite,
   },
   textOverlay: {
-    gap: 4,
+    gap: Spacing.one,
   },
   textInput: {
-    fontFamily: Typography.heading.fontFamily,
-    fontSize: 22,
+    fontFamily: StoryTokens.overlayText.fontFamily,
+    fontSize: StoryTokens.overlayText.fontSize,
+    lineHeight: StoryTokens.overlayText.lineHeight,
     color: Palette.warmWhite,
-    padding: 0,
   },
   editText: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: Spacing.one,
     alignSelf: 'flex-start',
-  },
-  music: {
-    height: 40,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 12,
-  },
-  musicSymbol: {
-    width: 30,
-    height: 30,
-    borderRadius: Radii.small,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Palette.peach,
-  },
-  location: {
-    height: 40,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: Palette.lightPink,
   },
   grow: {
     flex: 1,
-    gap: 2,
+    gap: Spacing.half,
   },
   field: {
-    gap: 5,
+    gap: Spacing.one,
   },
   fieldLabel: {
     flexDirection: 'row',
@@ -401,7 +331,7 @@ const styles = StyleSheet.create({
     height: 36,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: Spacing.two,
   },
   addToTrip: {
     height: 36,
@@ -413,8 +343,8 @@ const styles = StyleSheet.create({
     height: 44,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.two + Spacing.one,
     borderRadius: Radii.small,
     borderWidth: 1,
     borderColor: Palette.lightPink,
