@@ -1,6 +1,6 @@
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { ResolveLocationRequest } from './location.types';
+import type { ResolveLocationRequest } from 'shared-types';
 import { LocationsService } from './locations.service';
 
 describe('LocationsService', () => {

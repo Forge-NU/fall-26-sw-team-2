@@ -9,7 +9,7 @@ One shared definition of a location, used by posts, stories, the map and search.
 
 Product rules are in DOC-1 ([`mvp-decisions.md`](../product/mvp-decisions.md#locations)), including the Mapbox storage terms. If this doc disagrees with DOC-1, DOC-1 wins.
 
-Code: `apps/api/src/locations/`. Request and response types are in `apps/api/src/locations/location.types.ts`, and move to `shared-types` once API-1 (#28) adds it.
+Code: `apps/api/src/locations/`. Request and response types are in `apps/shared-types/src/locations.ts`.
 
 ## How a location gets onto a post
 

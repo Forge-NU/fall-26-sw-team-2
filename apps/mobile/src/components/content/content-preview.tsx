@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Asset } from "expo-asset";
 import { Share, View } from "react-native";
-import type { PostResponse, TripResponse, UserResponse } from "shared-types";
+import type { PostResponse, TripResponse, UserSummary } from "shared-types";
 import { AppText } from "@/components/ui/app-text";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
@@ -13,7 +13,7 @@ import { PostCard } from "./post-card";
 import { MediaCarousel, type Photo } from "./media-carousel";
 import { contentStyles } from "./content-styles";
 
-const maya: UserResponse = {
+const maya: UserSummary = {
   id: "user_seed_maya",
   username: "mayachen",
   firstName: "Maya",

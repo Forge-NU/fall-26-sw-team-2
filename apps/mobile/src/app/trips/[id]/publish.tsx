@@ -3,6 +3,7 @@ import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
+import { getErrorMessage } from '@/api/client';
 import { TripError, TripLoading } from '@/components/trips/trip-states';
 import { AppText } from '@/components/ui/app-text';
 import { Button } from '@/components/ui/button';
@@ -12,7 +13,7 @@ import { useToast } from '@/components/ui/toast-provider';
 import { Palette } from '@/constants/palette';
 import { Radii, Spacing, Typography } from '@/constants/theme';
 import { usePublishTrip, useTrip, useTripPosts } from '@/hooks/use-trips';
-import { describeError } from '@/lib/api-errors';
+import { TRIP_ERROR_FALLBACKS } from '@/lib/trips';
 import { tripDayCount } from '@/utils/trip-dates';
 
 const PREVIEW_COUNT = 8;
@@ -86,7 +87,7 @@ export default function PublishTripScreen() {
           ) : null}
           {publish.error ? (
             <AppText variant="label" accessibilityLiveRegion="polite" style={[styles.error, styles.center]}>
-              {describeError(publish.error, "Couldn't publish the trip. Try again.")}
+              {getErrorMessage(publish.error, { ...TRIP_ERROR_FALLBACKS, other: "Couldn't publish the trip. Try again." })}
             </AppText>
           ) : null}
         </ScrollView>

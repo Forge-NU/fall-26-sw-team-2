@@ -1,5 +1,6 @@
 import { Pressable, ScrollView, StyleSheet } from 'react-native';
 
+import { StoryUploadPills } from '@/components/story/story-upload-pill';
 import { AppText } from '@/components/ui/app-text';
 import { Avatar } from '@/components/ui/avatar';
 import { Palette, Radii, Spacing } from '@/constants/theme';
@@ -11,6 +12,7 @@ export function StoriesRow({ stories }: { stories: StoryBubble[] }) {
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.row}>
+      <StoryUploadPills />
       {stories.map((story) => (
         <Pressable
           key={story.id}

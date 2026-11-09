@@ -1,5 +1,5 @@
 import { Prisma } from '../generated/prisma/client';
-import { LocationRating } from './location.types';
+import type { LocationRating } from 'shared-types';
 
 // A place's rating is the average of the ratings on posts there in published
 // trips (drafts are hidden from everyone but the owner, see trip-rules.ts).

@@ -24,7 +24,7 @@ import { refreshLocationRatings } from '../locations/location-ratings';
 import { CreatePostDto } from './dto/create-post.dto';
 import { MediaItemDto } from './dto/media-item.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
-import { PostResponse } from './post.types';
+import type { PostResponse } from 'shared-types';
 
 const postInclude = {
   trip: {
@@ -398,7 +398,7 @@ export class PostsService {
     return {
       id: post.id,
       tripId: post.tripId,
-      author: toUserSummary(post.trip.owner),
+      author: await toUserSummary(post.trip.owner, this.storage),
       caption: post.caption,
       visitedOn: formatDateOnly(post.visitedOn),
       location: post.location ? toLocation(post.location) : null,

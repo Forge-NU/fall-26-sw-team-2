@@ -281,7 +281,7 @@ List endpoints use cursor pagination: `?cursor=<from the last page>&limit=<1-50,
 
 ### Shared response shapes
 
-These are TypeScript types in `apps/api` for now (`trips/trip.types.ts`, `posts/post.types.ts`). They move into `shared-types` once API-1 (#28) adds it.
+These are in `shared-types`: trips and posts in `content.ts`, `LocationResponse` in `locations.ts`, `UserSummary` in `index.ts`.
 
 `UserSummary` (fields from #15's `User`):
 ```json

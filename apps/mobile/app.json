@@ -35,13 +35,21 @@
         }
       ],
       [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Yuji uses your location to show places near you on the map."
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#208AEF",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
-      ]
+      ],
+      "@clerk/expo",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,

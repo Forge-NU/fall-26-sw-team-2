@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
+import type { TripResponse } from 'shared-types';
 
 import { getActiveTrips } from '@/api/trips';
-import type { TripResponse } from '@/api/types';
 import { isActiveTrip, pickSuggestedTrip } from '@/lib/trips';
 import { todayLocalIso } from '@/utils/local-date';
 
