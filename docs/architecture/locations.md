@@ -80,7 +80,8 @@ A custom request that includes any Mapbox field, or any request with an unknown 
     "longitude": -9.203213,
     "city": "Lisbon" | null,
     "region": "Lisbon" | null,
-    "countryCode": "PT" | null
+    "countryCode": "PT" | null,
+    "rating": { "average": 4.3, "count": 3 } | null
   }
 }
 ```

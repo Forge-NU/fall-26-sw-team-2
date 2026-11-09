@@ -60,18 +60,21 @@ export type PostResponse = {
   visitedOn: string; // YYYY-MM-DD
   location: LocationResponse | null;
   customLocationName: string | null;
+  rating: number | null; // 1-5 stars for the place; always null with a custom location
   media: MediaResponse[]; // carousel order
   createdAt: string;
   updatedAt: string;
 };
 
-// POST /api/posts. Exactly one of locationId and customLocationName.
+// POST /api/posts. Exactly one of locationId and customLocationName, and a
+// rating only with a locationId.
 export type CreatePostRequest = {
   tripId: string;
   visitedOn: string; // YYYY-MM-DD, within the trip's dates
   caption?: string | null; // up to 2,200 characters
   locationId?: string;
   customLocationName?: string; // 1-100 characters
+  rating?: number | null; // 1-5 stars for the place
   media: CreatePostMedia[]; // 1-30, carousel order
 };
 

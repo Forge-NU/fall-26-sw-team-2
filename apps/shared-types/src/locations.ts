@@ -1,5 +1,12 @@
 // Location contracts (docs/architecture/locations.md).
 
+/** A place's average star rating, from posts there in published trips */
+export type LocationRating = {
+  /** Rounded to one decimal */
+  average: number;
+  count: number;
+};
+
 /** A shared locations row, as returned on posts, stories and POST /api/locations/resolve */
 export type LocationResponse = {
   id: string;
@@ -12,6 +19,8 @@ export type LocationResponse = {
   city: string | null;
   region: string | null;
   countryCode: string | null;
+  /** null until a post in a published trip rates the place */
+  rating: LocationRating | null;
 };
 
 /** One row of place search results (Mapbox Search Box /suggest) */

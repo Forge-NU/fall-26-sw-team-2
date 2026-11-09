@@ -7,6 +7,7 @@ import type {
   ResolveLocationRequest,
   ResolveLocationResponse,
 } from 'shared-types';
+import { toLocationRating } from './location-ratings';
 
 const PROVIDER = 'mapbox';
 
@@ -63,6 +64,7 @@ export class LocationsService {
   }
 }
 
+// The one LocationResponse shape, used by resolve, posts and stories.
 export function toLocation(row: LocationRow): LocationResponse {
   return {
     id: row.id,
@@ -75,5 +77,6 @@ export function toLocation(row: LocationRow): LocationResponse {
     city: row.city,
     region: row.region,
     countryCode: row.countryCode,
+    rating: toLocationRating(row),
   };
 }

@@ -27,6 +27,14 @@ describe('ClerkWebhookController', () => {
     story: {
       findMany: jest.fn(),
     },
+    post: { groupBy: jest.fn() },
+    $queryRaw: jest.fn(),
+    $executeRaw: jest.fn(),
+    // Runs the callback against this same mock, like an interactive transaction.
+    $transaction: jest.fn(
+      (callback: (tx: unknown) => Promise<unknown>): Promise<unknown> =>
+        callback(mockPrismaService),
+    ),
   };
 
   const mockStorageService = {
@@ -60,6 +68,7 @@ describe('ClerkWebhookController', () => {
     mockPrismaService.postMedia.findMany.mockResolvedValue([]);
     mockPrismaService.story.findMany.mockResolvedValue([]);
     mockStorageService.listKeys.mockResolvedValue([]);
+    mockPrismaService.post.groupBy.mockResolvedValue([]);
     controller = new ClerkWebhookController(
       mockPrismaService as unknown as PrismaService,
       mockStorageService as unknown as StorageService,
@@ -134,6 +143,31 @@ describe('ClerkWebhookController', () => {
     expect(mockPrismaService.user.deleteMany).toHaveBeenCalledWith({
       where: { id: 'user_123' },
     });
+  });
+
+  it('recomputes the places their posts rated on user.deleted', async () => {
+    mockVerifyWebhook.mockResolvedValue({
+      type: 'user.deleted',
+      data: { id: 'user_123', deleted: true },
+    });
+    mockPrismaService.post.groupBy.mockResolvedValue([
+      { locationId: 'loc_b' },
+      { locationId: 'loc_a' },
+    ]);
+
+    await controller.receive(request);
+
+    expect(mockPrismaService.post.groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          trip: { ownerId: 'user_123' },
+        }) as unknown,
+      }),
+    );
+    expect(mockPrismaService.$executeRaw.mock.calls[0]).toContainEqual([
+      'loc_a',
+      'loc_b',
+    ]);
   });
 
   it('ignores unrelated events', async () => {

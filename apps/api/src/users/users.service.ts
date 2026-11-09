@@ -15,6 +15,7 @@ import {
   buildPaginatedResponse,
 } from '../common/utils/pagination.helper';
 import { Prisma } from '../generated/prisma/client';
+import { deleteUserRows, DELETE_USER_TX_OPTIONS } from './delete-user-rows';
 import { StorageService } from '../storage/storage.service';
 import { isOwnAvatarKey } from '../common/avatar';
 
@@ -194,15 +195,14 @@ export class UsersService {
     // fails. Retrying is safe because S3 object deletion is idempotent.
     await this.storage.deleteObjectsStrict(keys);
 
-    // Then delete Clerk and rely on foreign-key cascades for the user's trips,
-    // posts, media rows, and follows.
-    await clerkClient.users.deleteUser(id);
-
-    // Then delete the local database record. If this fails, Clerk's
-    // user.deleted webhook removes the row as well.
-    await this.prisma.user.deleteMany({
-      where: { id },
-    });
+    // Then delete the local rows (recomputing the places their posts rated)
+    // and Clerk in one transaction. Clerk is deleted last, inside the
+    // transaction: if anything local fails, Clerk is never called, and if
+    // Clerk fails, the local delete rolls back.
+    await this.prisma.$transaction(async (tx) => {
+      await deleteUserRows(tx, id);
+      await clerkClient.users.deleteUser(id);
+    }, DELETE_USER_TX_OPTIONS);
   }
 
   async listUsers(pagination: PaginationDto) {

@@ -13,6 +13,10 @@ import { verifyWebhook, type WebhookEvent } from '@clerk/backend/webhooks';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { findUserMediaKeys } from '../users/user-media';
+import {
+  deleteUserRows,
+  DELETE_USER_TX_OPTIONS,
+} from '../users/delete-user-rows';
 
 @Controller('webhooks/clerk')
 export class ClerkWebhookController {
@@ -81,7 +85,10 @@ export class ClerkWebhookController {
       await this.storage.deleteObjectsStrict(
         await findUserMediaKeys(this.prisma, this.storage, userId),
       );
-      await this.prisma.user.deleteMany({ where: { id: userId } });
+      await this.prisma.$transaction(
+        (tx) => deleteUserRows(tx, userId),
+        DELETE_USER_TX_OPTIONS,
+      );
     }
 
     return { received: true };

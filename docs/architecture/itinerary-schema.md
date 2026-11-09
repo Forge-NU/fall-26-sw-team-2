@@ -60,6 +60,7 @@ erDiagram
         string custom_location_name "nullable"
         string caption "nullable"
         date visited_on
+        smallint rating "nullable, 1-5"
         timestamp created_at
         timestamp updated_at
     }
@@ -85,6 +86,8 @@ erDiagram
         string city "nullable"
         string region "nullable"
         char country_code "nullable"
+        int rating_count
+        int rating_sum
         timestamp created_at
         timestamp updated_at
     }
@@ -147,10 +150,14 @@ status = 'draft' AND start_date <= today AND today <= end_date
 | `custom_location_name` | Varchar(100) | Yes | `NULL` | | Set for a custom location the user typed |
 | `caption` | Varchar(2200) | Yes | `NULL` | | |
 | `visited_on` | Date | No | | | The day it happened. Must fall within the trip's dates (checked by the API). |
+| `rating` | Smallint | Yes | `NULL` | 1 to 5, only with `location_id` | Optional star rating of the place. See [Place ratings](#place-ratings). |
 | `created_at` | Timestamp | No | Current timestamp | | |
 | `updated_at` | Timestamp | No | Current timestamp | | |
 
-Check constraint `posts_location_check`: exactly one of `location_id` and `custom_location_name` is set, `(location_id IS NULL) <> (custom_location_name IS NULL)`.
+Check constraints:
+- `posts_location_check`: exactly one of `location_id` and `custom_location_name` is set, `(location_id IS NULL) <> (custom_location_name IS NULL)`.
+- `posts_rating_check`: `rating BETWEEN 1 AND 5`.
+- `posts_rating_location_check`: `rating IS NULL OR location_id IS NOT NULL`. A custom location has no shared place to average into, so it can't be rated.
 
 The database doesn't check that `visited_on` is within the trip's dates, because the trip's dates can change. The API checks it when a post is created or edited, and rejects a trip date change that would leave a post outside the new dates.
 
@@ -194,14 +201,35 @@ Custom locations (a name the user typed when search had no result) are stored on
 | `city` | String | Yes | `NULL` | | |
 | `region` | String | Yes | `NULL` | | State or province |
 | `country_code` | Char(2) | Yes | `NULL` | | ISO 3166-1 alpha-2 |
+| `rating_count` | Integer | No | `0` | | Rated posts here in published trips. Derived, see [Place ratings](#place-ratings). |
+| `rating_sum` | Integer | No | `0` | | Sum of those ratings. The average is `rating_sum / rating_count`. |
 | `created_at` | Timestamp | No | Current timestamp | | |
 | `updated_at` | Timestamp | No | Current timestamp | | |
 
-Check constraints: `locations_latitude_check` and `locations_longitude_check` for the ranges above.
+Check constraints: `locations_latitude_check` and `locations_longitude_check` for the ranges above, and `locations_rating_totals_check` (`rating_count >= 0 AND rating_sum BETWEEN rating_count AND 5 * rating_count`), which catches a broken recompute.
 
 Indexes: `(provider, provider_place_id)` unique, `(latitude, longitude)` for map bounding-box queries. We can move to PostGIS later if we need radius search.
 
 Mapbox's storage terms are recorded in [DOC-1](../product/mvp-decisions.md#locations): storing POI coordinates isn't allowed as-is, and that decision is still open. If the outcome is that we can't store coordinates, this table changes. Rows are created by `POST /api/locations/resolve` ([`locations.md`](locations.md)).
+
+### Place ratings
+
+RATE-1. A post can rate the Mapbox place it's tagged at, 1 to 5 stars. A place's rating is the average of the ratings on posts there in **published** trips, since drafts are hidden from everyone but the owner. There are no standalone reviews and no trip ratings.
+
+The totals are stored on the location (`rating_count`, `rating_sum`), so search can filter on a minimum rating with `rating_sum >= min * rating_count` (#93 SRCH-3) without averaging posts on every query.
+
+`refreshLocationRatings(tx, locationIds)` in `apps/api/src/locations/location-ratings.ts` is the only thing that writes them. It recomputes each location's totals with `count(rating)` and `sum(rating)` over its posts in published trips, instead of adding and subtracting, so the totals can't drift. It runs in the same transaction as every write that can change them:
+
+| Write | Locations refreshed |
+|---|---|
+| Post created | Its location |
+| Post's `rating`, `locationId` or `customLocationName` changed | The old and the new location |
+| Post deleted | Its location |
+| Trip published | The locations of its rated posts |
+| Trip deleted | The locations of its rated posts |
+| Account deleted | The locations of the rated posts in all of the user's trips |
+
+Concurrency: callers make their change first. The function then locks the location rows `FOR NO KEY UPDATE`, in id order, and recomputes in a separate statement, which under READ COMMITTED sees everything committed before it got the lock. So whichever transaction locks last counts everyone's changes. It uses `NO KEY UPDATE` because the `posts.location_id` foreign key takes `KEY SHARE` on the location when a post is written, and `FOR UPDATE` would deadlock two posts going in at the same place.
 
 ## Visibility
 
@@ -294,9 +322,12 @@ These are in `shared-types`: trips and posts in `content.ts`, `LocationResponse`
   "longitude": -9.203213,
   "city": "Lisbon" | null,
   "region": "Lisbon" | null,
-  "countryCode": "PT" | null
+  "countryCode": "PT" | null,
+  "rating": { "average": 4.3, "count": 3 } | null
 }
 ```
+
+- `rating` is the place's rating from posts in published trips, with `average` rounded to one decimal. It's `null` until the place has a rating.
 
 `Post`:
 ```json
@@ -308,6 +339,7 @@ These are in `shared-types`: trips and posts in `content.ts`, `LocationResponse`
   "visitedOn": "2026-09-12",
   "location": Location | null,
   "customLocationName": "Tia Rosa's kitchen" | null,
+  "rating": 5 | null,
   "media": [
     { "id": "uuid", "mediaType": "image", "url": "https://...", "width": 1080, "height": 1350, "durationMs": null }
   ],
@@ -317,6 +349,7 @@ These are in `shared-types`: trips and posts in `content.ts`, `LocationResponse`
 ```
 
 - Exactly one of `location` and `customLocationName` is set.
+- `rating` is this post's 1 to 5 star rating of its place. It's always `null` with a custom location.
 - `media` is in carousel order.
 - Media URLs are presigned S3 GET URLs that expire after an hour. Locally, with no `S3_BUCKET_NAME` set, they point at `https://media.invalid/<key>`, which never loads.
 - Like, comment, and save counts get added by #49 and #50.
@@ -407,6 +440,7 @@ Request:
   "visitedOn": "2026-09-12",
   "caption": "Six pastéis between the two of us. No regrets.",
   "locationId": "uuid",
+  "rating": 5,
   "media": [
     { "s3Key": "users/user_123/posts/uuid.jpg", "mediaType": "image", "width": 1080, "height": 1350 }
   ]
@@ -417,6 +451,7 @@ Request:
 - `visitedOn`: required, within the trip's dates. The app fills it in with today if today is within the trip's dates, otherwise the trip's start date.
 - `caption`: optional, up to 2,200 characters.
 - Location: exactly one of `locationId` (an existing location row, from `POST /api/locations/resolve`) and `customLocationName` (1 to 100 characters).
+- `rating`: optional, a whole number from 1 to 5, and only with a `locationId`. It counts toward the place's rating once the trip is published.
 - `media`: 1 to 30 items, in carousel order. Each `s3Key` has to be one of the current user's post uploads (it starts with `users/{userId}/posts/`, the key scheme from #38), can't appear twice, and can't already belong to another post. `width` and `height` (1 to 20,000 px) and `durationMs` (up to 60,000) are optional.
 
 The app only calls this after every upload has succeeded.
@@ -424,7 +459,7 @@ The app only calls this after every upload has succeeded.
 Response `201`: `Post`.
 
 Errors:
-- `400` for validation, a `visitedOn` outside the trip's dates, a location that doesn't exist, or an invalid or already-used media key.
+- `400` for validation, a `visitedOn` outside the trip's dates, a location that doesn't exist, a `rating` outside 1 to 5 or with a custom location, or an invalid or already-used media key.
 - `403` if the trip is published but belongs to someone else.
 - `404` if the trip doesn't exist, or it's someone else's draft.
 
@@ -439,6 +474,7 @@ Errors: `404` if the post doesn't exist, or its trip is a draft and the viewer i
 Trip owner only. Any of:
 - `visitedOn`, `caption` (send `null` to clear it)
 - `locationId` or `customLocationName` (sending one replaces the other, and sending both is a 400)
+- `rating` (1 to 5, or `null` to clear it). Moving the post to another Mapbox place keeps its rating. Switching to a `customLocationName` clears it, and sending a `rating` with a `customLocationName`, or rating a post that has one, is a 400.
 - `media`, which replaces the whole list. Items that are left out are deleted, including their S3 objects.
 
 A post can't be moved to another trip.

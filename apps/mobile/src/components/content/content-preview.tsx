@@ -61,6 +61,7 @@ const post: PostResponse = {
   visitedOn: "2026-09-12",
   location: null,
   customLocationName: "Belém Tower, Lisbon",
+  rating: null,
   media: photos.slice(0, 3),
   createdAt: "2026-09-12T18:00:00Z",
   updatedAt: "2026-09-12T18:00:00Z",

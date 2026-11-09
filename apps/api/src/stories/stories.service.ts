@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Location, Prisma } from '../generated/prisma/client';
+import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import {
@@ -16,12 +16,12 @@ import {
 } from '../common/pagination';
 import { toUserSummary, userSummarySelect } from '../common/user-summary';
 import { formatDateOnly, parseDateOnly } from '../common/dates';
+import { toLocation } from '../locations/locations.service';
 import { canViewTrip, isActiveTrip, resolveToday } from '../trips/trip-rules';
 import { lockTripForShare } from '../trips/trip-locks';
 import { CreateStoryDto } from './dto/create-story.dto';
 import { StoriesFeedQueryDto } from './dto/stories-feed-query.dto';
 import type {
-  LocationResponse,
   StoriesFeedResponse,
   StoryGroup,
   StoryResponse,
@@ -280,7 +280,7 @@ export class StoriesService {
       owner: await toUserSummary(story.owner, this.storage),
       tripId: story.tripId,
       text: story.text,
-      location: story.location ? toLocationResponse(story.location) : null,
+      location: story.location ? toLocation(story.location) : null,
       customLocationName: story.customLocationName,
       imageUrl: await this.storage.getReadUrl(story.s3Key),
       keepOnTrip: story.keepOnTrip,
@@ -346,20 +346,4 @@ export function decodeFeedCursor(value: string): FeedCursor {
     // Falls through to the error below
   }
   throw new BadRequestException('Invalid cursor');
-}
-
-// Same mapping as posts.service.ts, which doesn't export its copy
-function toLocationResponse(location: Location): LocationResponse {
-  return {
-    id: location.id,
-    provider: location.provider,
-    providerPlaceId: location.providerPlaceId,
-    name: location.name,
-    address: location.address,
-    latitude: location.latitude.toNumber(),
-    longitude: location.longitude.toNumber(),
-    city: location.city,
-    region: location.region,
-    countryCode: location.countryCode,
-  };
 }

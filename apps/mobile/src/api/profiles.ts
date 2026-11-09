@@ -128,6 +128,7 @@ export const listUserPosts = withMock<Parameters<ListFetcher<PostResponse>>, Pag
       visitedOn: '2026-06-01',
       location: null,
       customLocationName: null,
+      rating: null,
       media: [],
       createdAt: MOCK_TIMESTAMP,
       updatedAt: MOCK_TIMESTAMP,
