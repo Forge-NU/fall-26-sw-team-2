@@ -46,6 +46,7 @@ users/{userId}/avatars/{uuid}.jpg
 
 - The server picks the key. The app can't choose one.
 - The post and story endpoints check that each key starts with the current user's prefix (`users/{userId}/posts/` or `users/{userId}/stories/`), so a user can't attach someone else's upload.
+- Avatars: `PATCH /api/me` takes `{ "avatarKey": "users/{userId}/avatars/{uuid}.jpg" }` (or `null` to remove it) and rejects any key that isn't one of the caller's avatar uploads. The key is stored in `users.avatar_url`, which can also hold the Clerk image URL a new profile starts with. Clerk's image is only copied when the row is created, so `user.updated` webhooks never overwrite an uploaded or removed photo. Replacing an uploaded avatar deletes the old object. Every response that includes a user (`/api/me`, `/api/users/id/:id`, `/api/users/:username`, follow lists, trip owners, post authors, story owners) sends `avatarUrl` as a URL: a key becomes a signed read URL like post photos do (`apps/api/src/common/avatar.ts`), and a Clerk URL is sent as is.
 - Everything a user uploads is under `users/{userId}/`, so account deletion can remove it all with one prefix delete (see [`data-model.md`](data-model.md#s3-objects)).
 
 ## Endpoint
@@ -112,7 +113,7 @@ const s3Key = await uploadPhoto(photo.uri, 'post', {
 - **`uploadPhotos(uris, purpose, { onProgress })`** uploads several photos one at a time and returns a result for each, in order. One failure doesn't stop the rest, so a retry only needs the failed ones.
 - **`usePhotoUpload(purpose)`** is a hook for screens without their own queue or drafts, like the avatar on Edit profile. `upload(photos)` resolves to the photos with their keys, or `null` if any failed. `retry()` redoes only the failed ones. It also returns `items` (status and progress for each photo), `state`, and overall `progress`.
 - **Avatars:** pass `{ square: true }` to `choosePhoto` / `takePhoto` and to `preparePhoto`. The picker only enforces the crop on Android, so `preparePhoto` center-crops too.
-- **Mock mode** (`USE_MOCK_API`) fakes the URL and the upload, with progress. It's off unless `EXPO_PUBLIC_USE_MOCK_API=true` is in `.env`, so never set that in a build. Set `EXPO_PUBLIC_MOCK_UPLOAD_FAILURE_RATE=1` to make every upload fail.
+- **Mocks:** with `EXPO_PUBLIC_API_MOCKS=all` in `.env`, `createUpload` and `putObject` fake the URL and the upload, with progress. Never set that in a build. Set `EXPO_PUBLIC_MOCK_UPLOAD_FAILURE_RATE=1` to make every upload fail.
 - The S3 PUT uses `XMLHttpRequest`, not the API client: `fetch` can't report upload progress, and an `Authorization` header would make S3 reject the request.
 
 ## Bucket setup (INF-1, #34)

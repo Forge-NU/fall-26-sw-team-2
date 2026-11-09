@@ -1,9 +1,9 @@
 import { Pressable, StyleSheet, View } from 'react-native';
+import type { TripResponse } from 'shared-types';
 
 import { AppText } from '@/components/ui/app-text';
 import { BottomSheet } from '@/components/bottom-sheet';
 import { Icon } from '@/components/icon';
-import type { TripResponse } from '@/api/types';
 import { Palette, Radii } from '@/constants/theme';
 import { formatRange } from '@/utils/dates';
 

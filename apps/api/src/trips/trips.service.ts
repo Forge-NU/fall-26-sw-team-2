@@ -20,7 +20,7 @@ import { CreateTripDto } from './dto/create-trip.dto';
 import { UpdateTripDto } from './dto/update-trip.dto';
 import { activeTripWhere, canViewTrip, resolveToday } from './trip-rules';
 import { lockTripForUpdate } from './trip-locks';
-import { ActiveTripsResponse, TripResponse } from './trip.types';
+import type { ActiveTripsResponse, TripResponse } from 'shared-types';
 
 // Trip order for posts: by date, then the order they were added.
 export const POST_ORDER = [
@@ -273,7 +273,7 @@ export class TripsService {
 
     return {
       id: trip.id,
-      owner: toUserSummary(trip.owner),
+      owner: await toUserSummary(trip.owner, this.storage),
       title: trip.title,
       destination: trip.destination,
       description: trip.description,

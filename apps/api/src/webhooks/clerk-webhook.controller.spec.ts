@@ -88,7 +88,6 @@ describe('ClerkWebhookController', () => {
       },
       update: {
         email: 'test@example.com',
-        avatarUrl: 'https://example.com/avatar.png',
       },
     });
   });

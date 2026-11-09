@@ -1,5 +1,5 @@
 import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
-import type { UserResponse } from 'shared-types';
+import type { UserSummary } from 'shared-types';
 
 import { getErrorMessage } from '@/api/client';
 import { AppText } from '@/components/ui/app-text';
@@ -11,7 +11,7 @@ import { Palette, Spacing } from '@/constants/theme';
 import type { useInfiniteList } from '@/hooks/use-infinite-list';
 
 type UserListProps = {
-  list: ReturnType<typeof useInfiniteList<UserResponse>>;
+  list: ReturnType<typeof useInfiniteList<UserSummary>>;
 };
 
 /**
@@ -84,7 +84,7 @@ function ListFooter({ list }: UserListProps) {
   return null;
 }
 
-function UserRow({ user }: { user: UserResponse }) {
+function UserRow({ user }: { user: UserSummary }) {
   const name = `${user.firstName} ${user.lastName}`;
   return (
     <View style={styles.row}>

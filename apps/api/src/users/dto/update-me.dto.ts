@@ -1,19 +1,24 @@
 import {
+  IsNotEmpty,
   IsOptional,
   IsString,
-  IsUrl,
   Matches,
   MaxLength,
   MinLength,
 } from 'class-validator';
 
 export class UpdateMeDto {
+  // Same limits as onboarding (CreateProfileDto). A first name can't be blank;
+  // a last name can be cleared.
   @IsOptional()
   @IsString()
+  @Matches(/\S/, { message: 'firstName must not be blank' })
+  @MaxLength(50)
   firstName?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(50)
   lastName?: string;
 
   @IsOptional()
@@ -27,7 +32,11 @@ export class UpdateMeDto {
   })
   username?: string;
 
+  // The s3Key from POST /api/media/uploads (purpose "avatar"), or null to
+  // remove the avatar. Has to be one of your own avatar uploads.
   @IsOptional()
-  @IsUrl()
-  avatarUrl?: string;
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
+  avatarKey?: string | null;
 }

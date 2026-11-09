@@ -22,7 +22,7 @@ import { lockTripForShare } from '../trips/trip-locks';
 import { CreatePostDto } from './dto/create-post.dto';
 import { MediaItemDto } from './dto/media-item.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
-import { LocationResponse, PostResponse } from './post.types';
+import type { LocationResponse, PostResponse } from 'shared-types';
 
 const postInclude = {
   trip: {
@@ -324,7 +324,7 @@ export class PostsService {
     return {
       id: post.id,
       tripId: post.tripId,
-      author: toUserSummary(post.trip.owner),
+      author: await toUserSummary(post.trip.owner, this.storage),
       caption: post.caption,
       visitedOn: formatDateOnly(post.visitedOn),
       location: post.location ? toLocationResponse(post.location) : null,

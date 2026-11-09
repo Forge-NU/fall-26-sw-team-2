@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
+import type { TripResponse } from 'shared-types';
 
 import { createTrip } from '@/api/trips';
-import type { TripResponse } from '@/api/types';
 import { useActiveTrips } from '@/hooks/use-active-trips';
 import { choosePhoto, takePhoto, type PickedPhoto } from '@/lib/media/pick-photo';
 import { preparePhoto } from '@/lib/media/prepare-photo';

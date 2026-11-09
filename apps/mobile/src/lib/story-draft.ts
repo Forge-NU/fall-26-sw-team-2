@@ -1,4 +1,5 @@
-import type { CreateStoryRequest } from '@/api/types';
+import type { CreateStoryRequest } from 'shared-types';
+
 import { toLocationFields, type PickedLocation } from '@/components/location/location-picker';
 import type { PickedPhoto } from '@/lib/media/pick-photo';
 

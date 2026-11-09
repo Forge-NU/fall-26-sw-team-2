@@ -1,10 +1,10 @@
 import { Body, Controller, HttpCode, Post, UseGuards } from '@nestjs/common';
 import { ClerkAuthGuard } from '../auth/clerk-auth.guard';
 import { ResolveLocationDto } from './dto/resolve-location.dto';
-import {
+import type {
   ResolveLocationRequest,
   ResolveLocationResponse,
-} from './location.types';
+} from 'shared-types';
 import { LocationsService } from './locations.service';
 
 @Controller('locations')

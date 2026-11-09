@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import type { TripResponse } from 'shared-types';
 
 import { AppText } from '@/components/ui/app-text';
 import { Button } from '@/components/ui/button';
 import { BottomSheet } from '@/components/bottom-sheet';
 import { Icon } from '@/components/icon';
-import type { TripResponse } from '@/api/types';
 import { Palette, Radii, Spacing } from '@/constants/theme';
 import {
   formatDay,
