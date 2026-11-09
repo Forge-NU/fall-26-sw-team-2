@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { TripsService } from '../trips/trips.service';
 import { parseDateOnly } from '../common/dates';
+import { encodeCursor } from '../common/pagination';
 import { PostsService } from './posts.service';
 import { CreatePostDto } from './dto/create-post.dto';
 
@@ -633,14 +634,42 @@ describe('PostsService', () => {
     });
 
     it('rejects a cursor from another trip', async () => {
-      prisma.post.findFirst.mockResolvedValue(null);
+      const visitedOn = parseDateOnly('2026-10-12');
+      const cursor = encodeCursor('posts:another-trip', [
+        visitedOn,
+        visitedOn,
+        postId,
+      ]);
       await expect(
-        service.listForTrip(ownerId, tripId, { cursor: postId }),
+        service.listForTrip(ownerId, tripId, { cursor }),
       ).rejects.toThrow('Invalid cursor');
-      expect(prisma.post.findFirst).toHaveBeenCalledWith({
-        where: { id: postId, tripId },
-        select: { id: true },
-      });
+      expect(prisma.post.findMany).not.toHaveBeenCalled();
+    });
+
+    it('starts the next page after the cursor, in trip order', async () => {
+      prisma.post.findMany.mockResolvedValue([]);
+      const visitedOn = parseDateOnly('2026-10-12');
+      const createdAt = new Date('2026-10-12T09:30:00.000Z');
+      const cursor = encodeCursor(`posts:${tripId}`, [
+        visitedOn,
+        createdAt,
+        postId,
+      ]);
+
+      await service.listForTrip(ownerId, tripId, { cursor });
+
+      expect(prisma.post.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            tripId,
+            OR: [
+              { visitedOn: { gt: visitedOn } },
+              { visitedOn, createdAt: { gt: createdAt } },
+              { visitedOn, createdAt, id: { gt: postId } },
+            ],
+          },
+        }),
+      );
     });
 
     it('lists posts in trip order', async () => {

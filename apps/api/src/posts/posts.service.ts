@@ -8,15 +8,9 @@ import { Prisma, Trip } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { formatDateOnly, parseDateOnly } from '../common/dates';
-import {
-  Page,
-  PaginationQueryDto,
-  assertCursorInList,
-  pageArgs,
-  toPage,
-} from '../common/pagination';
+import { PaginationQueryDto, buildPage, pageLimit } from '../common/pagination';
 import { toUserSummary, userSummarySelect } from '../common/user-summary';
-import { POST_ORDER, TripsService } from '../trips/trips.service';
+import { TRIP_POSTS, TripsService } from '../trips/trips.service';
 import { canViewTrip } from '../trips/trip-rules';
 import { lockTripForShare } from '../trips/trip-locks';
 import { toLocation } from '../locations/locations.service';
@@ -24,7 +18,7 @@ import { refreshLocationRatings } from '../locations/location-ratings';
 import { CreatePostDto } from './dto/create-post.dto';
 import { MediaItemDto } from './dto/media-item.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
-import type { PostResponse } from 'shared-types';
+import type { PaginatedResponse, PostResponse } from 'shared-types';
 
 const postInclude = {
   trip: {
@@ -263,7 +257,7 @@ export class PostsService {
     viewerId: string,
     tripId: string,
     query: PaginationQueryDto,
-  ): Promise<Page<PostResponse>> {
+  ): Promise<PaginatedResponse<PostResponse>> {
     const trip = await this.prisma.trip.findUnique({
       where: { id: tripId },
       select: { ownerId: true, status: true },
@@ -272,21 +266,25 @@ export class PostsService {
       throw new NotFoundException('Trip not found');
     }
 
-    await assertCursorInList(query, (cursor) =>
-      this.prisma.post.findFirst({
-        where: { id: cursor, tripId },
-        select: { id: true },
-      }),
-    );
-
+    const list = `posts:${tripId}`;
+    const limit = pageLimit(query);
     const posts = await this.prisma.post.findMany({
-      where: { tripId },
-      orderBy: POST_ORDER,
+      where: {
+        tripId,
+        ...TRIP_POSTS.after(TRIP_POSTS.decode(query.cursor, list)),
+      },
+      orderBy: TRIP_POSTS.orderBy,
       include: postInclude,
-      ...pageArgs(query),
+      take: limit + 1,
     });
 
-    return toPage(posts, query, (post) => this.toResponse(post));
+    const page = buildPage(posts, limit, (post) =>
+      TRIP_POSTS.cursor(list, post),
+    );
+    return {
+      items: await Promise.all(page.items.map((post) => this.toResponse(post))),
+      nextCursor: page.nextCursor,
+    };
   }
 
   // Takes a share lock on the trip (see trip-locks.ts) and re-reads it, since

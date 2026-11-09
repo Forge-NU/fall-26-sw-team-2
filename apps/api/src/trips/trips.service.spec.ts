@@ -7,6 +7,7 @@ import { Test } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { parseDateOnly } from '../common/dates';
+import { decodeCursor, encodeCursor } from '../common/pagination';
 import { TripsService } from './trips.service';
 
 const owner = {
@@ -410,21 +411,42 @@ describe('TripsService', () => {
         expect.objectContaining({ take: 3 }),
       );
       expect(page.items.map((t) => t.id)).toEqual(['a', 'b']);
-      expect(page.nextCursor).toBe('b');
+      expect(
+        decodeCursor(page.nextCursor!, `trips:${owner.id}`, ['date', 'string']),
+      ).toEqual([parseDateOnly('2026-10-12'), 'b']);
     });
 
-    it('rejects a cursor that is not in the list', async () => {
+    it('starts the next page after the cursor, newest first', async () => {
       prisma.user.findUnique.mockResolvedValue({ id: owner.id });
-      prisma.trip.findFirst.mockResolvedValue(null);
-      await expect(
-        service.listForUser('user_other', owner.id, {
-          cursor: makeTrip().id,
+      prisma.trip.findMany.mockResolvedValue([]);
+      const startDate = parseDateOnly('2026-10-12');
+      const cursor = encodeCursor(`trips:${owner.id}`, [startDate, 'b']);
+
+      await service.listForUser(owner.id, owner.id, { cursor });
+
+      expect(prisma.trip.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            ownerId: owner.id,
+            OR: [
+              { startDate: { lt: startDate } },
+              { startDate, id: { lt: 'b' } },
+            ],
+          },
+          orderBy: [{ startDate: 'desc' }, { id: 'desc' }],
         }),
+      );
+    });
+
+    it("rejects a cursor from another user's trips", async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: owner.id });
+      const cursor = encodeCursor('trips:user_other', [
+        parseDateOnly('2026-10-12'),
+        'b',
+      ]);
+      await expect(
+        service.listForUser('user_other', owner.id, { cursor }),
       ).rejects.toThrow('Invalid cursor');
-      expect(prisma.trip.findFirst).toHaveBeenCalledWith({
-        where: { id: makeTrip().id, ownerId: owner.id, status: 'published' },
-        select: { id: true },
-      });
       expect(prisma.trip.findMany).not.toHaveBeenCalled();
     });
 

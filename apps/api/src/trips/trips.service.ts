@@ -4,16 +4,15 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, Trip } from '../generated/prisma/client';
+import { Post, Prisma, Trip } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { formatDateOnly, parseDateOnly } from '../common/dates';
 import {
-  Page,
   PaginationQueryDto,
-  assertCursorInList,
-  pageArgs,
-  toPage,
+  buildPage,
+  keyset,
+  pageLimit,
 } from '../common/pagination';
 import { toUserSummary, userSummarySelect } from '../common/user-summary';
 import { CreateTripDto } from './dto/create-trip.dto';
@@ -24,14 +23,23 @@ import {
   ratedLocationIds,
   refreshLocationRatings,
 } from '../locations/location-ratings';
-import type { ActiveTripsResponse, TripResponse } from 'shared-types';
+import type {
+  ActiveTripsResponse,
+  PaginatedResponse,
+  TripResponse,
+} from 'shared-types';
 
 // Trip order for posts: by date, then the order they were added.
-export const POST_ORDER = [
-  { visitedOn: 'asc' },
-  { createdAt: 'asc' },
-  { id: 'asc' },
-] satisfies Prisma.PostOrderByWithRelationInput[];
+export const TRIP_POSTS = keyset<
+  Post,
+  Prisma.PostWhereInput,
+  Prisma.PostOrderByWithRelationInput
+>([
+  { field: 'visitedOn', direction: 'asc', type: 'date' },
+  { field: 'createdAt', direction: 'asc', type: 'date' },
+  { field: 'id', direction: 'asc', type: 'string' },
+]);
+export const POST_ORDER = TRIP_POSTS.orderBy;
 
 const tripInclude = {
   owner: { select: userSummarySelect },
@@ -52,6 +60,16 @@ const tripInclude = {
 } satisfies Prisma.TripInclude;
 
 type TripWithDetails = Prisma.TripGetPayload<{ include: typeof tripInclude }>;
+
+// A user's trips, newest first
+const USER_TRIPS = keyset<
+  TripWithDetails,
+  Prisma.TripWhereInput,
+  Prisma.TripOrderByWithRelationInput
+>([
+  { field: 'startDate', direction: 'desc', type: 'date' },
+  { field: 'id', direction: 'desc', type: 'string' },
+]);
 
 @Injectable()
 export class TripsService {
@@ -236,7 +254,7 @@ export class TripsService {
     viewerId: string,
     userId: string,
     query: PaginationQueryDto,
-  ): Promise<Page<TripResponse>> {
+  ): Promise<PaginatedResponse<TripResponse>> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { id: true },
@@ -245,25 +263,26 @@ export class TripsService {
       throw new NotFoundException('User not found');
     }
 
-    const where: Prisma.TripWhereInput = {
-      ownerId: userId,
-      ...(viewerId === userId ? {} : { status: 'published' }),
-    };
-    await assertCursorInList(query, (cursor) =>
-      this.prisma.trip.findFirst({
-        where: { id: cursor, ...where },
-        select: { id: true },
-      }),
-    );
-
+    const list = `trips:${userId}`;
+    const limit = pageLimit(query);
     const trips = await this.prisma.trip.findMany({
-      where,
-      orderBy: [{ startDate: 'desc' }, { id: 'desc' }],
+      where: {
+        ownerId: userId,
+        ...(viewerId === userId ? {} : { status: 'published' }),
+        ...USER_TRIPS.after(USER_TRIPS.decode(query.cursor, list)),
+      },
+      orderBy: USER_TRIPS.orderBy,
       include: tripInclude,
-      ...pageArgs(query),
+      take: limit + 1,
     });
 
-    return toPage(trips, query, (trip) => this.toResponse(trip));
+    const page = buildPage(trips, limit, (trip) =>
+      USER_TRIPS.cursor(list, trip),
+    );
+    return {
+      items: await Promise.all(page.items.map((trip) => this.toResponse(trip))),
+      nextCursor: page.nextCursor,
+    };
   }
 
   async listActive(

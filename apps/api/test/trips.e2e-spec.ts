@@ -343,20 +343,63 @@ describe('Trips (e2e)', () => {
         .expect(404);
     });
 
-    it('rejects a cursor from another list', async () => {
-      const otherTrip = await prisma.trip.create({
-        data: {
-          ownerId: other.id,
-          title: 'Not yours',
-          destination: 'Somewhere',
-          startDate: new Date('2026-09-01'),
-          endDate: new Date('2026-09-02'),
-        },
-      });
+    it("rejects a cursor from another user's trips", async () => {
+      for (const day of ['01', '03']) {
+        await prisma.trip.create({
+          data: {
+            ownerId: other.id,
+            title: 'Not yours',
+            destination: 'Somewhere',
+            startDate: new Date(`2026-09-${day}`),
+            endDate: new Date(`2026-09-${day}`),
+          },
+        });
+      }
+      const theirs = await request(app.getHttpServer())
+        .get(`/api/users/${other.id}/trips?limit=1`)
+        .set(as(other))
+        .expect(200);
+      const { nextCursor } = theirs.body as { nextCursor: string };
+      expect(nextCursor).toEqual(expect.any(String));
+
       await request(app.getHttpServer())
-        .get(`/api/users/${owner.id}/trips?cursor=${otherTrip.id}`)
+        .get(`/api/users/${owner.id}/trips`)
+        .query({ cursor: nextCursor })
         .set(as(owner))
         .expect(400);
+    });
+
+    it('keeps paging after the last trip on a page is deleted', async () => {
+      for (const day of ['05', '06', '07']) {
+        await prisma.trip.create({
+          data: {
+            ownerId: other.id,
+            title: `Trip ${day}`,
+            destination: 'Somewhere',
+            startDate: new Date(`2026-08-${day}`),
+            endDate: new Date(`2026-08-${day}`),
+          },
+        });
+      }
+      const list = (query: Record<string, unknown>) =>
+        request(app.getHttpServer())
+          .get(`/api/users/${other.id}/trips`)
+          .query(query)
+          .set(as(other))
+          .expect(200)
+          .then(
+            (res) =>
+              res.body as { items: { id: string }[]; nextCursor: string },
+          );
+
+      const all = (await list({ limit: 50 })).items.map((t) => t.id);
+      const page1 = await list({ limit: 2 });
+      expect(page1.items.map((t) => t.id)).toEqual(all.slice(0, 2));
+      await prisma.trip.delete({ where: { id: all[1] } });
+
+      // The cursor holds the deleted trip's date and id, not a reference to it
+      const page2 = await list({ limit: 2, cursor: page1.nextCursor });
+      expect(page2.items.map((t) => t.id)).toEqual(all.slice(2, 4));
     });
 
     it('rejects a limit over 50', async () => {
