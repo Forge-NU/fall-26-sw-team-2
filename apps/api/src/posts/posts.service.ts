@@ -165,6 +165,8 @@ export class PostsService {
         if (dto.rating != null && nextLocationId == null) {
           throw new BadRequestException(CUSTOM_LOCATION_RATING);
         }
+        // The rating was for the place, so switching to a custom location
+        // (which can't be rated) clears it
         const nextRating =
           dto.customLocationName !== undefined
             ? null
@@ -201,15 +203,11 @@ export class PostsService {
               locationId: dto.locationId,
               customLocationName: null,
             }),
-            // The rating was for the place, so switching to a custom
-            // location (which can't be rated) clears it
             ...(dto.customLocationName !== undefined && {
               locationId: null,
               customLocationName: dto.customLocationName,
-              rating: null,
             }),
-            ...(dto.rating !== undefined &&
-              dto.customLocationName === undefined && { rating: dto.rating }),
+            rating: nextRating,
             ...(media && { media: { create: toMediaRows(media) } }),
             // Prisma doesn't bump @updatedAt for a media-only change
             updatedAt: new Date(),
