@@ -1,3 +1,4 @@
+import { StorageModule } from '../storage/storage.module';
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
 import { TripsModule } from '../trips/trips.module';
@@ -6,7 +7,7 @@ import { SearchController } from './search.controller';
 import { SearchService } from './search.service';
 
 @Module({
-  imports: [PrismaModule, TripsModule, PostsModule],
+  imports: [PrismaModule, TripsModule, PostsModule, StorageModule],
   controllers: [SearchController],
   providers: [SearchService],
 })

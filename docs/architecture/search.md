@@ -26,7 +26,9 @@ With `type`: `{ items, nextCursor }`.
 
 People include `isFollowing`. Places include coordinates, `postCount` and
 `rating: { average, count } | null`; custom pins are excluded from place results.
-Trips and posts use the existing response shapes.
+Trips and posts use the existing response shapes. Place ratings use the shared
+#91 mapper and totals from rated posts in published trips. Unrated places have
+`rating: null` and do not match `minRating`; thresholds use the unrounded average.
 
 Pagination uses the sort key and ID. Cursors are scoped to the viewer and query;
 reusing one with different filters or sort returns 400.
@@ -35,5 +37,3 @@ reusing one with different filters or sort returns 400.
 
 - **#21:** Reconcile people/place search with the existing implementation branch.
 - **#90:** Replace `search-cursor.ts` with the shared pagination helper.
-- **#91:** Connect and verify real rating data. Until the rating columns exist,
-  place ratings are null and rating-filtered place/post requests return 503.

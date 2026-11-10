@@ -1,8 +1,5 @@
-import type {
-  LocationResponse,
-  PostResponse,
-  TripResponse,
-} from "./content.js";
+import type { PostResponse, TripResponse } from "./content.js";
+import type { LocationResponse } from "./locations.js";
 import type { PaginatedResponse, UserResponse } from "./index.js";
 
 export type SearchType = "people" | "places" | "trips" | "posts";
@@ -23,7 +20,6 @@ export interface SearchRequest {
 export type SearchPerson = UserResponse & { isFollowing: boolean };
 export type SearchPlace = LocationResponse & {
   postCount: number;
-  rating: { average: number; count: number } | null;
 };
 export interface SearchItems {
   people: SearchPerson;
