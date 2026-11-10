@@ -1,16 +1,18 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import type { PostResponse, TripResponse } from 'shared-types';
 
+import { StatRow } from '@/components/content/stat-row';
+import { UserRow } from '@/components/content/user-row';
 import { PostDraftsBanner } from '@/components/posts/post-drafts-banner';
 import { DayPosts } from '@/components/trips/day-posts';
 import { TripError, TripLoading } from '@/components/trips/trip-states';
 import { AppText } from '@/components/ui/app-text';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Media } from '@/components/ui/media';
 import { Pill, type PillState } from '@/components/ui/pill';
 import { Screen } from '@/components/ui/screen';
 import { IconButton, ScreenHeader } from '@/components/ui/screen-header';
@@ -98,6 +100,14 @@ function TripBody({ trip, posts, isOwner, refreshing, onRefresh }: TripBodyProps
   const addPost = () =>
     router.push({ pathname: '/posts/new', params: { tripId: trip.id, visitedOn: day } });
 
+  const dayCount = tripDayCount(trip.startDate, trip.endDate);
+  // Likes and saves join these once INT-3 (#51) lands
+  const stats = [
+    { key: 'posts', label: posts.length === 1 ? 'post' : 'posts', count: posts.length },
+    { key: 'places', label: places === 1 ? 'place' : 'places', count: places },
+    { key: 'days', label: dayCount === 1 ? 'day' : 'days', count: dayCount },
+  ];
+
   return (
     <>
       <ScrollView
@@ -110,10 +120,15 @@ function TripBody({ trip, posts, isOwner, refreshing, onRefresh }: TripBodyProps
           </AppText>
           <Pill {...statusPill(trip, active, today)} />
         </View>
+        {/* Not tappable yet: profiles live inside the Profile tab, and this page is
+            outside the tabs, so linking there either stacks a second tab bar or
+            closes this page. Needs profiles pushable from any screen first. */}
+        <UserRow user={trip.owner} />
         <AppText variant="label" style={styles.muted}>
           {trip.destination} · {formatDateRange(trip.startDate, trip.endDate)}
         </AppText>
         {trip.description ? <AppText variant="label" style={styles.description}>{trip.description}</AppText> : null}
+        <StatRow items={stats} />
 
         {isOwner ? <PostDraftsBanner tripId={trip.id} /> : null}
 
@@ -163,11 +178,6 @@ function TripBody({ trip, posts, isOwner, refreshing, onRefresh }: TripBodyProps
                 Nothing on this day yet.
               </AppText>
             )}
-
-            <AppText variant="caption" style={[styles.muted, styles.center]}>
-              {tripDayCount(trip.startDate, trip.endDate)} days · {posts.length}{' '}
-              {posts.length === 1 ? 'post' : 'posts'} · {places} {places === 1 ? 'place' : 'places'}
-            </AppText>
           </>
         )}
       </ScrollView>
@@ -201,13 +211,9 @@ function TripBody({ trip, posts, isOwner, refreshing, onRefresh }: TripBodyProps
 function Cover({ trip }: { trip: TripResponse }) {
   if (trip.coverImageUrl) {
     return (
-      <Image
-        source={{ uri: trip.coverImageUrl }}
-        style={styles.cover}
-        contentFit="cover"
-        transition={150}
-        accessibilityLabel={`${trip.title} cover photo`}
-      />
+      <View accessible accessibilityRole="image" accessibilityLabel={`${trip.title} cover photo`}>
+        <Media seed={trip.id} url={trip.coverImageUrl} style={styles.cover} />
+      </View>
     );
   }
   return (
@@ -251,7 +257,7 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
   },
   empty: { alignSelf: 'center' },
-  days: { gap: 6 },
+  days: { gap: Spacing.two },
   dayHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   actions: { gap: Spacing.two },
   fullWidth: { width: '100%' },

@@ -1,5 +1,4 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
@@ -7,6 +6,7 @@ import { getErrorMessage } from '@/api/client';
 import { TripError, TripLoading } from '@/components/trips/trip-states';
 import { AppText } from '@/components/ui/app-text';
 import { Button } from '@/components/ui/button';
+import { Media } from '@/components/ui/media';
 import { Screen } from '@/components/ui/screen';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useToast } from '@/components/ui/toast-provider';
@@ -64,7 +64,7 @@ export default function PublishTripScreen() {
           <View style={styles.grid}>
             {Array.from({ length: PREVIEW_COUNT }, (_, i) =>
               photos[i] ? (
-                <Image key={photos[i].id} source={{ uri: photos[i].url }} style={styles.tile} contentFit="cover" />
+                <Media key={photos[i].id} seed={photos[i].id} url={photos[i].url} style={styles.tile} />
               ) : (
                 <View key={`empty-${i}`} style={[styles.tile, styles.tileEmpty]} />
               ),
@@ -121,16 +121,17 @@ export default function PublishTripScreen() {
   );
 }
 
-const GRID_GAP = 6;
-
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { gap: Spacing.two, paddingBottom: Spacing.four },
   center: { textAlign: 'center' },
   muted: { color: Palette.placeholderGray },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: GRID_GAP, marginVertical: Spacing.one },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two, marginVertical: Spacing.one },
+  // Four per row: the basis leaves room for the gaps, and grow fills the rest.
+  // PREVIEW_COUNT is a multiple of four, so every row is full.
   tile: {
-    width: `${(100 - 3 * 2) / 4}%`,
+    flexBasis: '22%',
+    flexGrow: 1,
     aspectRatio: 1,
     borderRadius: Radii.small,
   },

@@ -342,7 +342,7 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between' },
   sectionLabel: { color: Palette.placeholderGray },
   error: { color: Palette.coral },
-  days: { gap: 6 },
+  days: { gap: Spacing.two },
   caption: { minHeight: 88, textAlignVertical: 'top' },
   banner: {
     gap: Spacing.two,
