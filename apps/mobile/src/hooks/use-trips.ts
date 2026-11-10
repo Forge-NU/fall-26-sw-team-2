@@ -1,10 +1,10 @@
 // STAND-IN for APP-1 (#30): uses React Query directly until its data layer lands.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { CreateTripRequest, PostResponse, TripResponse, UpdateTripRequest } from 'shared-types';
 
 import { getTripPosts } from '@/api/posts';
 import { queryKeys } from '@/api/query-keys';
 import { createTrip, deleteTrip, getTrip, getUserTrips, publishTrip, updateTrip } from '@/api/trips';
-import type { CreateTripRequest, PostResponse, TripResponse, UpdateTripRequest } from '@/api/types';
 import { useCurrentUser } from '@/lib/current-user';
 
 export function useTrip(id: string) {

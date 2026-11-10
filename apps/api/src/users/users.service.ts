@@ -15,7 +15,9 @@ import {
   buildPaginatedResponse,
 } from '../common/utils/pagination.helper';
 import { Prisma } from '../generated/prisma/client';
+import { deleteUserRows, DELETE_USER_TX_OPTIONS } from './delete-user-rows';
 import { StorageService } from '../storage/storage.service';
+import { isOwnAvatarKey } from '../common/avatar';
 
 // Clerk API errors carry a list of { code, longMessage }. Translates the ones a
 // username update can produce into HTTP errors; rethrows anything else.
@@ -124,14 +126,31 @@ export class UsersService {
     }
   }
 
-  async update(id: string, data: UpdateMeDto) {
+  async update(id: string, { avatarKey, ...data }: UpdateMeDto) {
+    if (avatarKey != null && !isOwnAvatarKey(avatarKey, id)) {
+      throw new BadRequestException(
+        'avatarKey must be one of your avatar uploads',
+      );
+    }
     const username = data.username?.trim().toLowerCase();
+    const previous =
+      avatarKey === undefined
+        ? null
+        : await this.prisma.user.findUnique({
+            where: { id },
+            select: { avatarUrl: true },
+          });
 
     try {
-      return await this.prisma.$transaction(async (tx) => {
+      const user = await this.prisma.$transaction(async (tx) => {
         const user = await tx.user.update({
           where: { id },
-          data: { ...data, ...(username === undefined ? {} : { username }) },
+          data: {
+            ...data,
+            ...(username === undefined ? {} : { username }),
+            // The column keeps its name; it now holds the key (see common/avatar.ts)
+            ...(avatarKey === undefined ? {} : { avatarUrl: avatarKey }),
+          },
         });
         // Keep Clerk's copy (used for sign-in) in step; see createProfile.
         if (username !== undefined) {
@@ -141,6 +160,13 @@ export class UsersService {
         }
         return user;
       });
+      // The replaced photo isn't shown anywhere any more. If this fails, account
+      // deletion's users/{id}/ prefix delete still removes it.
+      const old = previous?.avatarUrl;
+      if (old && old !== user.avatarUrl && isOwnAvatarKey(old, id)) {
+        await this.storage.deleteObjects([old]);
+      }
+      return user;
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError) {
         if (e.code === 'P2002') {
@@ -169,15 +195,14 @@ export class UsersService {
     // fails. Retrying is safe because S3 object deletion is idempotent.
     await this.storage.deleteObjectsStrict(keys);
 
-    // Then delete Clerk and rely on foreign-key cascades for the user's trips,
-    // posts, media rows, and follows.
-    await clerkClient.users.deleteUser(id);
-
-    // Then delete the local database record. If this fails, Clerk's
-    // user.deleted webhook removes the row as well.
-    await this.prisma.user.deleteMany({
-      where: { id },
-    });
+    // Then delete the local rows (recomputing the places their posts rated)
+    // and Clerk in one transaction. Clerk is deleted last, inside the
+    // transaction: if anything local fails, Clerk is never called, and if
+    // Clerk fails, the local delete rolls back.
+    await this.prisma.$transaction(async (tx) => {
+      await deleteUserRows(tx, id);
+      await clerkClient.users.deleteUser(id);
+    }, DELETE_USER_TX_OPTIONS);
   }
 
   async listUsers(pagination: PaginationDto) {

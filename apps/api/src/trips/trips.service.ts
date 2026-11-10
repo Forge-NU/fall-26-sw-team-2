@@ -20,7 +20,11 @@ import { CreateTripDto } from './dto/create-trip.dto';
 import { UpdateTripDto } from './dto/update-trip.dto';
 import { activeTripWhere, canViewTrip, resolveToday } from './trip-rules';
 import { lockTripForUpdate } from './trip-locks';
-import { ActiveTripsResponse, TripResponse } from './trip.types';
+import {
+  ratedLocationIds,
+  refreshLocationRatings,
+} from '../locations/location-ratings';
+import type { ActiveTripsResponse, TripResponse } from 'shared-types';
 
 // Trip order for posts: by date, then the order they were added.
 export const POST_ORDER = [
@@ -168,14 +172,17 @@ export class TripsService {
       // Locked so no post or story is added between reading the keys and
       // deleting
       await lockTripForUpdate(tx, id);
-      const [media, stories] = await Promise.all([
+      const [media, stories, locationIds] = await Promise.all([
         tx.postMedia.findMany({
           where: { post: { tripId: id } },
           select: { s3Key: true },
         }),
         tx.story.findMany({ where: { tripId: id }, select: { s3Key: true } }),
+        ratedLocationIds(tx, { tripId: id }),
       ]);
       await tx.trip.deleteMany({ where: { id } });
+      // The trip's ratings no longer count toward its places
+      await refreshLocationRatings(tx, locationIds);
       return [...media, ...stories].map((m) => m.s3Key);
     });
 
@@ -207,11 +214,17 @@ export class TripsService {
         );
       }
 
-      return tx.trip.update({
+      const updated = await tx.trip.update({
         where: { id },
         data: { status: 'published', publishedAt: new Date() },
         include: tripInclude,
       });
+      // The trip's ratings start counting toward its places
+      await refreshLocationRatings(
+        tx,
+        await ratedLocationIds(tx, { tripId: id }),
+      );
+      return updated;
     });
 
     return this.toResponse(published);
@@ -273,7 +286,7 @@ export class TripsService {
 
     return {
       id: trip.id,
-      owner: toUserSummary(trip.owner),
+      owner: await toUserSummary(trip.owner, this.storage),
       title: trip.title,
       destination: trip.destination,
       description: trip.description,

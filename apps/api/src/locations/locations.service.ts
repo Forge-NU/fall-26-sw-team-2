@@ -2,11 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import type { Location as LocationRow } from '../generated/prisma/client';
-import {
-  Location,
+import type {
+  LocationResponse,
   ResolveLocationRequest,
   ResolveLocationResponse,
-} from './location.types';
+} from 'shared-types';
+import { toLocationRating } from './location-ratings';
 
 const PROVIDER = 'mapbox';
 
@@ -63,7 +64,8 @@ export class LocationsService {
   }
 }
 
-export function toLocation(row: LocationRow): Location {
+// The one LocationResponse shape, used by resolve, posts and stories.
+export function toLocation(row: LocationRow): LocationResponse {
   return {
     id: row.id,
     provider: PROVIDER,
@@ -75,5 +77,6 @@ export function toLocation(row: LocationRow): Location {
     city: row.city,
     region: row.region,
     countryCode: row.countryCode,
+    rating: toLocationRating(row),
   };
 }

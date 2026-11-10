@@ -17,20 +17,23 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { UpdateMeDto } from './dto/update-me.dto';
 import { CreateProfileDto } from './dto/create-profile.dto';
 import { FollowsService } from '../follows/follows.service';
-import {
-  UserResponse,
+import type {
   PaginatedResponse,
+  UserResponse,
+  UserSummary,
   UsernameAvailabilityResponse,
 } from 'shared-types';
 import { PaginationDto } from '../common/decorators/pagination.dto';
 import { mapUserToResponse } from './utils/user.mapper';
 import { UsernameAvailabilityDto } from './dto/username-availability.dto';
+import { StorageService } from '../storage/storage.service';
 
 @Controller()
 export class UsersController {
   constructor(
     private readonly usersService: UsersService,
     private readonly followsService: FollowsService,
+    private readonly storage: StorageService,
   ) {}
 
   @Get('me')
@@ -44,7 +47,7 @@ export class UsersController {
 
     return {
       ...(await this.followsService.getCounts(user.id)),
-      ...mapUserToResponse(user),
+      ...(await mapUserToResponse(this.storage, user)),
     };
   }
 
@@ -58,7 +61,7 @@ export class UsersController {
 
     return {
       ...(await this.followsService.getCounts(user.id)),
-      ...mapUserToResponse(user),
+      ...(await mapUserToResponse(this.storage, user)),
     };
   }
 
@@ -72,7 +75,7 @@ export class UsersController {
 
     return {
       ...(await this.followsService.getCounts(user.id)),
-      ...mapUserToResponse(user),
+      ...(await mapUserToResponse(this.storage, user)),
     };
   }
 
@@ -104,7 +107,7 @@ export class UsersController {
 
     return {
       ...(await this.followsService.getCounts(user.id)),
-      ...mapUserToResponse(user),
+      ...(await mapUserToResponse(this.storage, user)),
     };
   }
 
@@ -119,7 +122,7 @@ export class UsersController {
     }
     return {
       ...(await this.followsService.getCounts(user.id)),
-      ...mapUserToResponse(user),
+      ...(await mapUserToResponse(this.storage, user)),
     };
   }
 
@@ -127,11 +130,13 @@ export class UsersController {
   @UseGuards(ClerkAuthGuard)
   async listUsers(
     @Query() pagination: PaginationDto,
-  ): Promise<PaginatedResponse<UserResponse>> {
+  ): Promise<PaginatedResponse<UserSummary>> {
     const result = await this.usersService.listUsers(pagination);
 
     return {
-      items: result.items.map(mapUserToResponse),
+      items: await Promise.all(
+        result.items.map((user) => mapUserToResponse(this.storage, user)),
+      ),
       nextCursor: result.nextCursor,
     };
   }

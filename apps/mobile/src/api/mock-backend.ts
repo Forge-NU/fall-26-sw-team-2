@@ -1,26 +1,27 @@
-// STAND-IN for APP-1 (#30): fake responses while USE_MOCK_API is on.
-import { ApiError } from '@/api/client';
+// The fake API behind the withMock wrappers in src/api/*.ts: in-memory trips,
+// posts, places and stories, seeded on first use. Every endpoint here is live,
+// so these only run with EXPO_PUBLIC_API_MOCKS=all.
 import type {
   ActiveTripsResponse,
+  CreatePostRequest,
   CreateStoryRequest,
   CreateTripRequest,
-  CreatePostRequest,
   LocationResponse,
-  Page,
-  PostResponse,
+  PaginatedResponse,
   PlaceSuggestion,
+  PostResponse,
   ResolveLocationRequest,
   ResolveLocationResponse,
   StoryResponse,
   TripResponse,
   UpdateTripRequest,
-  UserSummary,
-} from '@/api/types';
+} from 'shared-types';
+
+import { mockDelay, mockError } from '@/api/mock';
+import type { CurrentUser } from '@/lib/current-user';
 import { addDays, isDateWithin, todayLocalIso } from '@/utils/local-date';
 
-const MOCK_LATENCY_MS = 400;
-
-export const me: UserSummary = {
+export const me: CurrentUser = {
   id: 'user_mock',
   username: 'mock.traveler',
   firstName: 'Mock',
@@ -35,10 +36,6 @@ let nextId = 1;
 
 function mockId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${nextId++}`;
-}
-
-function delay(ms = MOCK_LATENCY_MS): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function mockTrip(title: string, destination: string, startDate: string, endDate: string): TripResponse {
@@ -72,6 +69,7 @@ function mockLocation(name: string, city: string, latitude: number, longitude: n
     city,
     region: null,
     countryCode: 'PT',
+    rating: null,
   };
 }
 
@@ -91,6 +89,7 @@ function mockPost(
     visitedOn,
     location: typeof location === 'string' ? null : location,
     customLocationName: typeof location === 'string' ? location : null,
+    rating: null,
     media: photoIds.map((photoId) => ({
       id: mockId('media'),
       mediaType: 'image',
@@ -153,12 +152,12 @@ function seed() {
 function findOwnTrip(id: string): TripResponse {
   seed();
   const trip = trips.find((t) => t.id === id);
-  if (!trip) throw new ApiError(404, 'Trip not found');
+  if (!trip) mockError(404, 'Trip not found');
   return trip;
 }
 
 export async function mockGetActiveTrips(date: string): Promise<ActiveTripsResponse> {
-  await delay();
+  await mockDelay();
   seed();
   return {
     items: trips.filter(
@@ -168,10 +167,10 @@ export async function mockGetActiveTrips(date: string): Promise<ActiveTripsRespo
 }
 
 export async function mockCreateTrip(body: CreateTripRequest): Promise<TripResponse> {
-  await delay();
+  await mockDelay();
   seed();
   if (body.endDate < body.startDate) {
-    throw new ApiError(400, 'endDate must not be before startDate');
+    mockError(400, 'endDate must not be before startDate');
   }
   const trip = mockTrip(body.title, body.destination, body.startDate, body.endDate);
   trip.description = body.description ?? null;
@@ -180,13 +179,13 @@ export async function mockCreateTrip(body: CreateTripRequest): Promise<TripRespo
 }
 
 export async function mockGetTrip(id: string): Promise<TripResponse> {
-  await delay();
+  await mockDelay();
   return { ...findOwnTrip(id) };
 }
 
 // Newest start date first, like the API
-export async function mockGetUserTrips(userId: string): Promise<Page<TripResponse>> {
-  await delay();
+export async function mockGetUserTrips(userId: string): Promise<PaginatedResponse<TripResponse>> {
+  await mockDelay();
   seed();
   const items = trips
     .filter((trip) => trip.owner.id === userId)
@@ -196,22 +195,22 @@ export async function mockGetUserTrips(userId: string): Promise<Page<TripRespons
 }
 
 export async function mockUpdateTrip(id: string, body: UpdateTripRequest): Promise<TripResponse> {
-  await delay();
+  await mockDelay();
   const trip = findOwnTrip(id);
   const startDate = body.startDate ?? trip.startDate;
   const endDate = body.endDate ?? trip.endDate;
   if (endDate < startDate) {
-    throw new ApiError(400, 'endDate must not be before startDate');
+    mockError(400, 'endDate must not be before startDate');
   }
   if (postsForTrip(id).some((post) => !isDateWithin(post.visitedOn, startDate, endDate))) {
-    throw new ApiError(400, 'Some posts would fall outside the new dates');
+    mockError(400, 'Some posts would fall outside the new dates');
   }
   Object.assign(trip, body, { updatedAt: new Date().toISOString() });
   return { ...trip };
 }
 
 export async function mockDeleteTrip(id: string): Promise<void> {
-  await delay();
+  await mockDelay();
   findOwnTrip(id);
   trips.splice(trips.findIndex((t) => t.id === id), 1);
   for (let i = posts.length - 1; i >= 0; i--) {
@@ -220,19 +219,19 @@ export async function mockDeleteTrip(id: string): Promise<void> {
 }
 
 export async function mockPublishTrip(id: string): Promise<TripResponse> {
-  await delay();
+  await mockDelay();
   const trip = findOwnTrip(id);
   if (trip.status === 'published') return { ...trip };
   if (postsForTrip(id).length === 0) {
-    throw new ApiError(400, 'A trip needs at least one post before it can be published');
+    mockError(400, 'A trip needs at least one post before it can be published');
   }
   trip.status = 'published';
   trip.publishedAt = new Date().toISOString();
   return { ...trip };
 }
 
-export async function mockGetTripPosts(tripId: string): Promise<Page<PostResponse>> {
-  await delay();
+export async function mockGetTripPosts(tripId: string): Promise<PaginatedResponse<PostResponse>> {
+  await mockDelay();
   findOwnTrip(tripId);
   return { items: postsForTrip(tripId), nextCursor: null };
 }
@@ -245,22 +244,28 @@ function textLength(text: string): number {
 }
 
 export async function mockCreatePost(body: CreatePostRequest): Promise<PostResponse> {
-  await delay();
+  await mockDelay();
   const trip = findOwnTrip(body.tripId);
   if (body.media.length < 1 || body.media.length > 30) {
-    throw new ApiError(400, 'media must contain 1 to 30 items');
+    mockError(400, 'media must contain 1 to 30 items');
   }
   if (!isDateWithin(body.visitedOn, trip.startDate, trip.endDate)) {
-    throw new ApiError(400, "visitedOn must be within the trip's dates");
+    mockError(400, "visitedOn must be within the trip's dates");
   }
   if (Boolean(body.locationId) === Boolean(body.customLocationName)) {
-    throw new ApiError(400, 'Exactly one of locationId and customLocationName is required');
+    mockError(400, 'Exactly one of locationId and customLocationName is required');
+  }
+  if (body.rating != null && body.customLocationName) {
+    mockError(400, 'Only posts at a Mapbox place can be rated, not a custom location');
+  }
+  if (body.rating != null && (!Number.isInteger(body.rating) || body.rating < 1 || body.rating > 5)) {
+    mockError(400, 'rating must be a whole number from 1 to 5');
   }
   if (body.caption && textLength(body.caption) > 2200) {
-    throw new ApiError(400, 'caption must be at most 2200 characters');
+    mockError(400, 'caption must be at most 2200 characters');
   }
   const location = body.locationId ? resolvedLocations.get(body.locationId) : undefined;
-  if (body.locationId && !location) throw new ApiError(400, 'Location not found');
+  if (body.locationId && !location) mockError(400, 'Location not found');
 
   const now = new Date().toISOString();
   const post: PostResponse = {
@@ -271,6 +276,7 @@ export async function mockCreatePost(body: CreatePostRequest): Promise<PostRespo
     visitedOn: body.visitedOn,
     location: location ?? null,
     customLocationName: body.customLocationName?.trim() ?? null,
+    rating: body.rating ?? null,
     // Uploads never really happen in mock mode, so show stock photos
     media: body.media.map((item, i) => ({
       id: mockId('media'),
@@ -302,7 +308,7 @@ const mockPlaces: (PlaceSuggestion & Extract<ResolveLocationRequest, { kind: 'ma
 ];
 
 export async function mockSearchPlaces(query: string): Promise<PlaceSuggestion[]> {
-  await delay(250);
+  await mockDelay(250);
   const needle = query.trim().toLowerCase();
   return mockPlaces
     .filter((place) => `${place.name} ${place.description}`.toLowerCase().includes(needle))
@@ -310,9 +316,9 @@ export async function mockSearchPlaces(query: string): Promise<PlaceSuggestion[]
 }
 
 export async function mockRetrievePlace(mapboxId: string): Promise<ResolveLocationRequest> {
-  await delay(150);
+  await mockDelay(150);
   const place = mockPlaces.find((p) => p.mapboxId === mapboxId);
-  if (!place) throw new ApiError(404, 'Place not found');
+  if (!place) mockError(404, 'Place not found');
   const { description: _description, ...request } = place;
   return request;
 }
@@ -321,10 +327,10 @@ export async function mockRetrievePlace(mapboxId: string): Promise<ResolveLocati
 const resolvedLocations = new Map<string, LocationResponse>();
 
 export async function mockResolveLocation(body: ResolveLocationRequest): Promise<ResolveLocationResponse> {
-  await delay();
+  await mockDelay();
   const name = body.name.trim();
   if (body.kind === 'custom') {
-    if (!name || textLength(name) > 100) throw new ApiError(400, 'name must be 1 to 100 characters');
+    if (!name || textLength(name) > 100) mockError(400, 'name must be 1 to 100 characters');
     return { kind: 'custom', name };
   }
   const existing = [...resolvedLocations.values()].find((l) => l.providerPlaceId === body.mapboxId);
@@ -340,24 +346,25 @@ export async function mockResolveLocation(body: ResolveLocationRequest): Promise
     city: body.city ?? null,
     region: body.region ?? null,
     countryCode: body.countryCode?.toUpperCase() ?? null,
+    rating: null,
   };
   resolvedLocations.set(location.id, location);
   return { kind: 'mapbox', location };
 }
 
 export async function mockCreateStory(body: CreateStoryRequest): Promise<StoryResponse> {
-  await delay();
+  await mockDelay();
   if (body.keepOnTrip && !body.tripId) {
-    throw new ApiError(400, 'keepOnTrip requires tripId');
+    mockError(400, 'keepOnTrip requires tripId');
   }
   const today = body.date ?? todayLocalIso();
   const storyDate = body.storyDate ?? today;
   const trip = trips.find((t) => t.id === body.tripId);
   if (!body.tripId && storyDate !== today) {
-    throw new ApiError(400, 'Without a trip, storyDate has to be today');
+    mockError(400, 'Without a trip, storyDate has to be today');
   }
   if (trip && !isDateWithin(storyDate, trip.startDate, trip.endDate)) {
-    throw new ApiError(400, "storyDate must be within the trip's dates");
+    mockError(400, "storyDate must be within the trip's dates");
   }
   const createdAt = new Date();
   return {

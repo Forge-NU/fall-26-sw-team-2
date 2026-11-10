@@ -1,9 +1,10 @@
 // Uploads a post draft's photos, then creates the post. The draft is saved
 // after every step, so a failure (or the app closing) never loses work and a
 // retry skips photos that already uploaded.
+import type { PostResponse } from 'shared-types';
+
 import { ApiError } from '@/api/client';
 import { createPost } from '@/api/posts';
-import type { PostResponse } from '@/api/types';
 import { toLocationFields } from '@/components/location/location-picker';
 import { uploadPhoto } from '@/lib/media/upload-photo';
 import { deleteDraft, saveDraft, type PostDraft } from '@/lib/post-drafts';

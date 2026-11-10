@@ -3,25 +3,32 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import type { UserResponse } from 'shared-types';
 
-import { ApiError, USE_MOCK_API } from '@/api/client';
-import { me as mockUser } from '@/api/mocks';
-import type { UserSummary } from '@/api/types';
+import { ApiError } from '@/api/client';
+import { getMockMode } from '@/api/mock';
+import { me as mockUser } from '@/api/mock-backend';
 import { getMe } from '@/api/users';
 import AuthScreen from '@/components/auth-screen';
 import OnboardingScreen from '@/components/onboarding-screen';
 import { Palette } from '@/constants/theme';
 import { setAuthTokenGetter } from '@/lib/auth';
-import { CurrentUserContext } from '@/lib/current-user';
+import { CurrentUserContext, type CurrentUser } from '@/lib/current-user';
 import { queryClient } from '@/lib/query-client';
 
 /**
  * Shows its children only once the user is signed in and has a username.
- * Mock mode (EXPO_PUBLIC_USE_MOCK_API=true) skips Clerk and signs in as the mock user.
+ * With EXPO_PUBLIC_API_MOCKS=all it skips Clerk and signs in as the mock user,
+ * so the app runs without an account or the API.
  */
-export const AuthGate = USE_MOCK_API ? MockAuthGate : ClerkAuthGate;
+export const AuthGate = getMockMode() === 'all' ? MockAuthGate : ClerkAuthGate;
 
 function MockAuthGate({ children }: { children: ReactNode }) {
-  return <CurrentUserContext.Provider value={{ user: mockUser }}>{children}</CurrentUserContext.Provider>;
+  const [user, setUser] = useState<CurrentUser>(mockUser);
+  return (
+    <CurrentUserContext.Provider
+      value={{ user, setUser: (updated) => setUser({ ...updated, username: updated.username ?? user.username }) }}>
+      {children}
+    </CurrentUserContext.Provider>
+  );
 }
 
 function ClerkAuthGate({ children }: { children: ReactNode }) {
@@ -73,7 +80,7 @@ function ClerkAuthGate({ children }: { children: ReactNode }) {
     return <OnboardingScreen onComplete={(created) => setProfileState({ userId, profile: created, error: null })} />;
   }
 
-  const user: UserSummary = { ...profile, username: profile.username };
+  const user: CurrentUser = { ...profile, username: profile.username };
   const handleSignOut = async () => {
     await signOut();
     // Don't let the next account see this one's cached trips and posts
@@ -81,7 +88,12 @@ function ClerkAuthGate({ children }: { children: ReactNode }) {
     setProfileState(null);
   };
   return (
-    <CurrentUserContext.Provider value={{ user, signOut: handleSignOut }}>
+    <CurrentUserContext.Provider
+      value={{
+        user,
+        signOut: handleSignOut,
+        setUser: (updated) => setProfileState({ userId, profile: updated, error: null }),
+      }}>
       {children}
     </CurrentUserContext.Provider>
   );

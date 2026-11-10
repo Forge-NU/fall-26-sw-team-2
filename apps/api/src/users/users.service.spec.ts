@@ -47,6 +47,9 @@ describe('UsersService', () => {
     story: {
       findMany: jest.fn(),
     },
+    post: { groupBy: jest.fn() },
+    $queryRaw: jest.fn(),
+    $executeRaw: jest.fn(),
     // Runs the callback against this same mock, like an interactive transaction.
     $transaction: jest.fn(
       (callback: (tx: unknown) => Promise<unknown>): Promise<unknown> =>
@@ -55,6 +58,7 @@ describe('UsersService', () => {
   };
 
   const mockStorageService = {
+    deleteObjects: jest.fn(),
     deleteObjectsStrict: jest.fn(),
     listKeys: jest.fn(),
   };
@@ -74,6 +78,7 @@ describe('UsersService', () => {
     jest.clearAllMocks();
     mockDeleteClerkUser.mockResolvedValue(undefined);
     mockUpdateClerkUser.mockResolvedValue({});
+    mockPrismaService.post.groupBy.mockResolvedValue([]);
     mockPrismaService.postMedia.findMany.mockResolvedValue([]);
     mockPrismaService.story.findMany.mockResolvedValue([]);
     mockStorageService.listKeys.mockResolvedValue([]);
@@ -335,6 +340,71 @@ describe('UsersService', () => {
       expect(mockUpdateClerkUser).not.toHaveBeenCalled();
     });
 
+    it('saves an avatar key from your own uploads', async () => {
+      const avatarKey =
+        'users/user_123/avatars/0f8b6c3e-1d2a-4b5c-9e7f-123456789abc.jpg';
+      mockPrismaService.user.update.mockResolvedValue(mockUser);
+
+      await service.update('user_123', { firstName: 'Ada', avatarKey });
+
+      expect(mockPrismaService.user.update).toHaveBeenCalledWith({
+        where: { id: 'user_123' },
+        data: { firstName: 'Ada', avatarUrl: avatarKey },
+      });
+    });
+
+    it('clears the avatar when avatarKey is null', async () => {
+      mockPrismaService.user.update.mockResolvedValue(mockUser);
+
+      await service.update('user_123', { avatarKey: null });
+
+      expect(mockPrismaService.user.update).toHaveBeenCalledWith({
+        where: { id: 'user_123' },
+        data: { avatarUrl: null },
+      });
+    });
+
+    it('deletes the uploaded avatar it replaces', async () => {
+      const oldKey =
+        'users/user_123/avatars/11111111-1d2a-4b5c-9e7f-123456789abc.jpg';
+      const newKey =
+        'users/user_123/avatars/22222222-1d2a-4b5c-9e7f-123456789abc.jpg';
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        avatarUrl: oldKey,
+      });
+      mockPrismaService.user.update.mockResolvedValue({
+        ...mockUser,
+        avatarUrl: newKey,
+      });
+
+      await service.update('user_123', { avatarKey: newKey });
+
+      expect(mockStorageService.deleteObjects).toHaveBeenCalledWith([oldKey]);
+    });
+
+    it('leaves a Clerk image URL alone when the avatar changes', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        avatarUrl: 'https://img.clerk.com/abc',
+      });
+      mockPrismaService.user.update.mockResolvedValue(mockUser);
+
+      await service.update('user_123', { avatarKey: null });
+
+      expect(mockStorageService.deleteObjects).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      'users/someone_else/avatars/0f8b6c3e-1d2a-4b5c-9e7f-123456789abc.jpg',
+      'users/user_123/posts/0f8b6c3e-1d2a-4b5c-9e7f-123456789abc.jpg',
+      'https://example.com/me.jpg',
+      '',
+    ])('rejects %s as an avatarKey', async (avatarKey) => {
+      await expect(service.update('user_123', { avatarKey })).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockPrismaService.user.update).not.toHaveBeenCalled();
+    });
+
     it('throws ConflictException when the username is already in use', async () => {
       const prismaError = new Prisma.PrismaClientKnownRequestError(
         'Unique constraint failed',
@@ -395,6 +465,76 @@ describe('UsersService', () => {
       });
     });
 
+    it('recomputes the places their posts rated, then deletes from Clerk, in one transaction', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+      mockPrismaService.post.groupBy.mockResolvedValue([
+        { locationId: 'loc_b' },
+        { locationId: 'loc_a' },
+      ]);
+      const order: string[] = [];
+      mockPrismaService.$queryRaw.mockImplementation(
+        (strings: TemplateStringsArray) => {
+          order.push(
+            strings.join('?').includes('trips') ? 'lock trips' : 'lock places',
+          );
+          return Promise.resolve([]);
+        },
+      );
+      mockPrismaService.user.deleteMany.mockImplementation(() => {
+        order.push('delete');
+        return Promise.resolve({ count: 1 });
+      });
+      mockPrismaService.$executeRaw.mockImplementation(() => {
+        order.push('refresh');
+        return Promise.resolve(2);
+      });
+      mockDeleteClerkUser.mockImplementation(() => {
+        order.push('clerk');
+        return Promise.resolve();
+      });
+
+      await service.deleteAccount('user_123');
+
+      expect(mockPrismaService.post.groupBy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            trip: { ownerId: 'user_123' },
+          }) as unknown,
+        }),
+      );
+      expect(order).toEqual([
+        'lock trips',
+        'delete',
+        'lock places',
+        'refresh',
+        'clerk',
+      ]);
+      expect(mockPrismaService.$executeRaw.mock.calls[0]).toContainEqual([
+        'loc_a',
+        'loc_b',
+      ]);
+      // A longer timeout than Prisma's 5s default
+      expect(mockPrismaService.$transaction).toHaveBeenCalledWith(
+        expect.any(Function),
+        { timeout: 30_000 },
+      );
+    });
+
+    it('locks their trips in id order', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+
+      await service.deleteAccount('user_123');
+
+      const [strings, ownerId] = mockPrismaService.$queryRaw.mock.calls[0] as [
+        TemplateStringsArray,
+        string,
+      ];
+      expect(strings.join('?')).toMatch(
+        /FROM trips WHERE owner_id = \? ORDER BY id FOR UPDATE/,
+      );
+      expect(ownerId).toBe('user_123');
+    });
+
     it('throws NotFoundException when the user does not exist', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue(null);
 
@@ -406,15 +546,30 @@ describe('UsersService', () => {
       expect(mockPrismaService.user.deleteMany).not.toHaveBeenCalled();
     });
 
-    it('does not delete the local record if Clerk deletion fails', async () => {
+    it('fails the transaction, rolling back the local delete, if Clerk deletion fails', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
-      mockDeleteClerkUser.mockRejectedValue(new Error('Clerk deletion failed'));
+      mockDeleteClerkUser.mockRejectedValueOnce(
+        new Error('Clerk deletion failed'),
+      );
 
+      // The error escaping the transaction callback is what makes Prisma roll
+      // back; test/ratings.e2e-spec.ts checks the rollback against Postgres
       await expect(service.deleteAccount('user_123')).rejects.toThrow(
         'Clerk deletion failed',
       );
+      expect(mockDeleteClerkUser).toHaveBeenCalledWith('user_123');
+    });
 
-      expect(mockPrismaService.user.deleteMany).not.toHaveBeenCalled();
+    it('never deletes from Clerk if the local delete fails', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+      mockPrismaService.user.deleteMany.mockRejectedValueOnce(
+        new Error('Transaction timed out'),
+      );
+
+      await expect(service.deleteAccount('user_123')).rejects.toThrow(
+        'Transaction timed out',
+      );
+      expect(mockDeleteClerkUser).not.toHaveBeenCalled();
     });
 
     it("deletes the user's S3 media before Clerk and the database", async () => {

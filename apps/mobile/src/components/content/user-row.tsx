@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, View } from "react-native";
-import type { UserResponse } from "shared-types";
+import type { UserSummary } from "shared-types";
 import { AppText } from "@/components/ui/app-text";
 import { Avatar } from "@/components/ui/avatar";
 import { Button, type ButtonProps } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Icon, type IconName } from "@/components/icon";
 import { ButtonTokens } from "@/constants/button-tokens";
 
 export type UserRowProps = {
-  user: UserResponse;
+  user: UserSummary;
   subtitle?: string;
   subtitleIcon?: IconName;
   verified?: boolean;

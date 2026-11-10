@@ -109,26 +109,18 @@ The `shared-types` package contains TypeScript types that are shared between the
 
 ### Location
 
-`apps/shared-types/src/index.ts`
+`apps/shared-types/src/`: users, pagination, errors and uploads in `index.ts`; trips and posts in `content.ts`; `locations.ts`, `stories.ts` and `follows.ts`. Everything is exported from `index.ts`. This is the only copy of the contract: don't redeclare response types in `apps/api` or `apps/mobile`.
 
 ### Adding New Types
 
-Add types to `apps/shared-types/src/index.ts`:
+Add types to the file for their area, or a new file, and re-export them from `index.ts`:
 
 ```typescript
-export interface UserResponse {
-  id: string;
-  firstName: string;
-  lastName: string;
-  username: string;
-  avatarUrl: string | null;
-}
-
-export interface PaginatedResponse<T> {
-  items: T[];
-  nextCursor: string | null;
-}
+// apps/shared-types/src/index.ts
+export type { StoryResponse, CreateStoryRequest } from './stories.js';
 ```
+
+Relative imports inside the package need the `.js` extension. The package builds with `nodenext`, the same resolution the API uses, so `npm run build` fails on a missing extension. Otherwise the API couldn't find `./stories` and would silently turn its types into `any`.
 
 ### Building
 
@@ -141,8 +133,10 @@ npm run build
 
 ### Using in API
 
+Use `import type`, so the API never loads the package at runtime:
+
 ```typescript
-import { UserResponse, PaginatedResponse } from 'shared-types';
+import type { UserResponse } from 'shared-types';
 
 @Get('me')
 async getMe(): Promise<UserResponse> {
@@ -153,9 +147,7 @@ async getMe(): Promise<UserResponse> {
 ### Using in Mobile App
 
 ```typescript
-import { UserResponse } from 'shared-types';
-
-export type { UserResponse };
+import type { UserResponse } from 'shared-types';
 ```
 
 The mobile app's `tsconfig.json` is configured to resolve `shared-types` to the source directory for development. Type changes in `shared-types` will cause type errors in both apps where they are misused.
@@ -243,7 +235,7 @@ export interface PostResponse {
   content: string;
   imageUrl: string | null;
   createdAt: string;
-  author: UserResponse;
+  author: UserSummary;
 }
 ```
 
@@ -317,7 +309,7 @@ export function mapPostToResponse(post: {
 ### 5. Add Controller Endpoint
 
 ```typescript
-import { UserResponse, PostResponse } from 'shared-types';
+import type { PostResponse } from 'shared-types';
 import { mapPostToResponse } from './utils/post.mapper';
 
 @Post('posts')
@@ -352,7 +344,7 @@ This endpoint demonstrates all the conventions together:
 
 - Uses `@CurrentUser()` for auth
 - Uses `PaginationDto` for pagination
-- Returns `PaginatedResponse<UserResponse>` using shared types
+- Returns `PaginatedResponse<UserSummary>` using shared types
 - Uses response mapper to avoid duplication
 - Relies on global exception filter for error handling
 - Uses global `/api` prefix
@@ -363,7 +355,7 @@ This endpoint demonstrates all the conventions together:
 async listUsers(
   @CurrentUser() userId: string,
   @Query() pagination: PaginationDto,
-): Promise<PaginatedResponse<UserResponse>> {
+): Promise<PaginatedResponse<UserSummary>> {
   const result = await this.usersService.listUsers(pagination);
 
   return {
