@@ -35,5 +35,4 @@ reusing one with different filters or sort returns 400.
 
 ## Pending integrations
 
-- **#21:** Reconcile people/place search with the existing implementation branch.
 - **#90:** Replace `search-cursor.ts` with the shared pagination helper.
