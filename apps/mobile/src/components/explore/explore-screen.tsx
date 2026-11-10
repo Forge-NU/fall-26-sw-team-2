@@ -5,6 +5,8 @@ import { Animated, Keyboard, Platform, Pressable, StyleSheet, Text, View } from 
 import MapView, { type Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import type { SearchPerson, SearchPlace } from '@/api/search-types';
+
 import { savedPlaces, useSavedPlaces } from '@/components/saved/saved-places';
 import { AudienceToggle } from '@/components/explore/audience-toggle';
 import { FiltersMenu } from '@/components/explore/filters-menu';
@@ -16,11 +18,13 @@ import { SearchBar } from '@/components/explore/search-bar';
 import { SearchResults } from '@/components/explore/search-results';
 import { Sheet } from '@/components/explore/sheet';
 import { mapStyle } from '@/components/explore/map-style';
-import { LISBON_REGION } from '@/components/explore/mock-data';
+import { LISBON_REGION, PLACES } from '@/components/explore/mock-data';
 import { colors, formatCount, radius, shadow } from '@/components/explore/explore-theme';
-import type { LatLng, PinItem, Place, SearchResult } from '@/components/explore/types';
+import type { Area, LatLng, PinItem, Place } from '@/components/explore/types';
 import { useToast } from '@/components/ui/toast-provider';
 import { useExplore } from '@/hooks/use-explore';
+import { useSearch } from '@/hooks/use-search';
+import { useCurrentUser } from '@/lib/current-user';
 import { regionFor, zoomRegion } from '@/lib/map-zoom';
 
 const SEARCH_BAR_HEIGHT = 56;
@@ -41,6 +45,8 @@ export default function ExploreScreen() {
   const [locationOn, setLocationOn] = useState(false);
 
   const ex = useExplore(LISBON_REGION);
+  const currentUser = useCurrentUser();
+  const search = useSearch(ex.query);
   const saved = useSavedPlaces();
   const { setSelectedId, setQuery, onRegionChange } = ex;
 
@@ -109,14 +115,30 @@ export default function ExploreScreen() {
     [flyTo, selectPlace],
   );
 
-  const openResult = (r: SearchResult) => {
-    if (r.target.type === 'place') {
-      selectPlace(r.target.place);
+  const openPerson = (person: SearchPerson) => {
+    Keyboard.dismiss();
+    if (person.id === currentUser.id) router.navigate('/profile');
+    else router.push({ pathname: '/profile/users/[id]', params: { id: person.id } });
+  };
+
+  // Mock places share ids with the map's places, so they open the place sheet.
+  // Until MAP-3 (#47) brings real map data, a real place only moves the map there.
+  const openPlace = (place: SearchPlace) => {
+    const onMap = PLACES.find((pl) => pl.id === place.id);
+    if (onMap) {
+      selectPlace(onMap);
       return;
     }
     Keyboard.dismiss();
     setQuery('');
-    flyTo(r.target.area.coordinate, 0.06);
+    flyTo({ latitude: place.latitude, longitude: place.longitude }, 0.014);
+  };
+
+  // Empty-state suggestions zoom to the destination
+  const openDestination = (area: Area) => {
+    Keyboard.dismiss();
+    setQuery('');
+    flyTo(area.coordinate, 0.06);
   };
 
   const zoomBy = (factor: number) => animateTo(zoomRegion(targetRegionRef.current, factor), 250);
@@ -244,10 +266,15 @@ export default function ExploreScreen() {
           ) : (
             <SearchResults
               query={ex.query}
-              results={ex.results}
-              filter={ex.kindFilter}
-              onFilterChange={ex.setKindFilter}
-              onSelect={openResult}
+              people={search.people}
+              places={search.places}
+              searching={search.searching}
+              tooShort={search.tooShort}
+              currentUserId={currentUser.id}
+              onRetry={search.retry}
+              onSelectPerson={openPerson}
+              onSelectPlace={openPlace}
+              onSelectDestination={openDestination}
             />
           )}
         </Sheet>
