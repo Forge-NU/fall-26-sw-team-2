@@ -6,6 +6,7 @@ import type { SearchPerson, SearchPlace } from 'shared-types';
 import { UserRow } from '@/components/content/user-row';
 import { aggregate } from '@/components/explore/explore-stats';
 import { colors, formatCount, radius } from '@/components/explore/explore-theme';
+import { Spacing } from '@/constants/theme';
 import { AREAS, COUNTRY_BY_ID, PLACES } from '@/components/explore/mock-data';
 import type { Area } from '@/components/explore/types';
 import { useFollow } from '@/hooks/use-follow';
@@ -240,14 +241,14 @@ function Separator() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  header: { paddingHorizontal: 20, paddingBottom: 4 },
+  header: { paddingHorizontal: 20, paddingBottom: Spacing.one },
   titleRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 },
   title: { flex: 1, fontSize: 24, fontWeight: '700', color: colors.text, letterSpacing: -0.3 },
   count: { fontSize: 14, color: colors.textMuted },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: colors.forest, paddingTop: 16, paddingBottom: 4 },
-  list: { paddingHorizontal: 20, paddingBottom: 24 },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: colors.forest, paddingTop: Spacing.three, paddingBottom: Spacing.one },
+  list: { paddingHorizontal: 20, paddingBottom: Spacing.four },
   personRow: { paddingVertical: 10 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 14 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingVertical: 14 },
   rowPressed: { opacity: 0.6 },
   icon: {
     width: 52,
@@ -257,32 +258,32 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.sageIcon,
   },
-  rowText: { flex: 1, gap: 2 },
+  rowText: { flex: 1, gap: Spacing.half },
   name: { fontSize: 17, fontWeight: '600', color: colors.text },
   subtitle: { fontSize: 14, color: colors.textMuted },
-  rating: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  rating: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one },
   stats: { fontSize: 14, color: colors.text },
   noRating: { fontSize: 14, color: colors.textFaint },
   sep: { height: 1, backgroundColor: colors.line },
   state: { paddingVertical: 20, gap: 14 },
   stateText: { fontSize: 14, color: colors.textMuted, lineHeight: 20 },
-  spinner: { paddingVertical: 24 },
-  moreSpinner: { paddingVertical: 12 },
-  more: { alignSelf: 'flex-start', paddingVertical: 12 },
+  spinner: { paddingVertical: Spacing.four },
+  moreSpinner: { paddingVertical: Spacing.two },
+  more: { alignSelf: 'flex-start', paddingVertical: Spacing.two },
   moreText: { fontSize: 15, fontWeight: '700', color: colors.coral },
   retry: {
     alignSelf: 'flex-start',
     height: 40,
-    paddingHorizontal: 16,
+    paddingHorizontal: Spacing.three,
     justifyContent: 'center',
     borderRadius: radius.md,
     backgroundColor: colors.forest,
   },
   retryText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   chip: {
     height: 36,
-    paddingHorizontal: 16,
+    paddingHorizontal: Spacing.three,
     justifyContent: 'center',
     borderRadius: radius.pill,
     borderWidth: 1,
