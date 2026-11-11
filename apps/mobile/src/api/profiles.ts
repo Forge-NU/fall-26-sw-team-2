@@ -1,5 +1,5 @@
 // Profile and follow endpoints for PROF-1 (#31): FOL-1's follow routes, ACCT-1's
-// user routes and TRIP-1's profile trips are live; a user's posts aren't yet.
+// user routes, TRIP-1's profile trips and PROF-3's profile posts.
 import type {
   FollowListUser,
   FollowStatus,
@@ -113,31 +113,18 @@ export const listUserTrips = withMock<Parameters<ListFetcher<TripResponse>>, Pag
   },
 });
 
-/** Not built yet: there's no GET /api/users/:id/posts on the API. */
+/** Newest first. Posts in drafts are only included on your own profile. */
 export const listUserPosts = withMock<Parameters<ListFetcher<PostResponse>>, PaginatedResponse<PostResponse>>({
-  live: false,
+  live: true,
   real: (id, cursor, signal) => apiGet(`${userPath(id)}/posts`, { cursor, limit: 30 }, { signal }),
   mock: async (id, cursor) => {
     await mockDelay();
     const author = mockUser(id);
-    const posts = Array.from({ length: 40 }, (_, i): PostResponse => ({
-      id: `${id}-post-${i + 1}`,
-      tripId: `${id}-trip-1`,
-      author,
-      caption: null,
-      visitedOn: '2026-06-01',
-      location: null,
-      customLocationName: null,
-      rating: null,
-      media: [],
-      likeCount: 0,
-      saveCount: 0,
-      commentCount: 0,
-      likedByMe: false,
-      savedByMe: false,
-      createdAt: MOCK_TIMESTAMP,
-      updatedAt: MOCK_TIMESTAMP,
-    }));
+    const trips = mockTrips(author).filter((trip) => id === MOCK_ME_ID || trip.status === 'published');
+    // Already newest first: trips are newest first, and each trip's posts are built from its last day back
+    const posts = trips.flatMap((trip, t) =>
+      Array.from({ length: MOCK_POSTS_PER_TRIP }, (_, i) => mockPost(author, trip, i, t * MOCK_POSTS_PER_TRIP + i)),
+    );
     return mockPage(posts, cursor, 30);
   },
 });
@@ -201,6 +188,43 @@ async function mockFollowList(id: string, list: FollowList, cursor: string | nul
   );
 }
 
+const MOCK_POSTS_PER_TRIP = 6;
+// picsum.photos image IDs, like the posts in mock-backend.ts
+const MOCK_PHOTO_IDS = [431, 429, 1047, 1040, 1039, 416, 1018, 1050, 164, 211, 1043, 1036];
+
+// Post `i` of `trip`, counting back from its last day (mock trips are the 1st to
+// the 5th of a month). `n` only picks the photo.
+function mockPost(author: UserSummary, trip: TripResponse, i: number, n: number): PostResponse {
+  const day = 5 - Math.floor((i * 5) / MOCK_POSTS_PER_TRIP);
+  return {
+    id: `${trip.id}-post-${i + 1}`,
+    tripId: trip.id,
+    author,
+    caption: null,
+    visitedOn: `${trip.startDate.slice(0, 8)}0${day}`,
+    location: null,
+    customLocationName: trip.destination,
+    rating: null,
+    media: [
+      {
+        id: `${trip.id}-media-${i + 1}`,
+        mediaType: 'image',
+        url: `https://picsum.photos/id/${MOCK_PHOTO_IDS[n % MOCK_PHOTO_IDS.length]}/900/1200`,
+        width: 900,
+        height: 1200,
+        durationMs: null,
+      },
+    ],
+    likeCount: 0,
+    saveCount: 0,
+    commentCount: 0,
+    likedByMe: false,
+    savedByMe: false,
+    createdAt: MOCK_TIMESTAMP,
+    updatedAt: MOCK_TIMESTAMP,
+  };
+}
+
 function mockTrips(owner: UserSummary): TripResponse[] {
   return DESTINATIONS.map((destination, i) => ({
     id: `${owner.id}-trip-${i + 1}`,
@@ -213,7 +237,8 @@ function mockTrips(owner: UserSummary): TripResponse[] {
     // Your newest two trips are still drafts
     status: i < 2 ? 'draft' : 'published',
     publishedAt: i < 2 ? null : MOCK_TIMESTAMP,
-    postCount: [14, 9, 52, 77, 82, 49][i],
+    // Matches the Posts tab, which builds this many per trip
+    postCount: MOCK_POSTS_PER_TRIP,
     coverImageUrl: null,
     saveCount: 0,
     savedByMe: false,

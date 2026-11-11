@@ -501,6 +501,19 @@ Paginated `Post` list for the trip page, in trip order (`visitedOn`, then `creat
 
 Errors: `404` as in `GET /api/trips/:id`.
 
+#### `GET /api/users/:userId/posts`
+
+Paginated `Post` list for the Posts tab on a profile, newest first (`visitedOn`, then `createdAt`). Same visibility as `GET /api/users/:userId/trips`: other people only get posts in published trips, and the user also gets the posts in their own drafts.
+
+Response `200`: `PaginatedResponse<PostResponse>` from shared-types:
+```json
+{ "items": [ Post ], "nextCursor": "..." | null }
+```
+
+Query: `?cursor=` (the `nextCursor` from the previous page) and `?limit=` (1 to 50, default 20).
+
+Errors: `404` if the user doesn't exist, and `400` for a `limit` over 50 or an invalid cursor (malformed, or from another list such as another user's posts).
+
 ## Not in the MVP
 
 Cut in DOC-1 (#33), and kept here so they don't get re-added by accident: trip and post visibility settings (`followers` / `private`), trip ratings, interest tags, tagging users in posts, several locations per post, posts without a trip, the `trip_items` join table, soft deletes, and unpublishing.

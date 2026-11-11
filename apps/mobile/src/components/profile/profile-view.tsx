@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState, type ReactNode } from 'react';
-import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { PostResponse, TripResponse } from 'shared-types';
 
@@ -34,6 +34,9 @@ export function ProfileView({ userId: routeUserId }: { userId?: string }) {
   const [tab, setTab] = useState<ProfileTab>('itineraries');
   const currentUser = useCurrentUser();
   const signOut = useSignOut();
+  // Two tiles and the gap between them span the screen. A fixed size, not
+  // flex: 1, so a lone tile in the last row stays half width.
+  const tileSize = (useWindowDimensions().width - Spacing.half) / 2;
   // Opening your own profile from a list still counts as your own
   const isOwn = !routeUserId || routeUserId === currentUser.id;
   const userId = isOwn ? currentUser.id : routeUserId;
@@ -136,13 +139,7 @@ export function ProfileView({ userId: routeUserId }: { userId?: string }) {
           keyExtractor={(post) => post.id}
           numColumns={2}
           columnWrapperStyle={styles.gridRow}
-          renderItem={({ item }) => (
-            <Media
-              seed={item.id}
-              url={item.media.find((media) => media.mediaType === 'image')?.url}
-              style={styles.gridCell}
-            />
-          )}
+          renderItem={({ item }) => <PostTile post={item} size={tileSize} />}
           ListHeaderComponent={header}
           ListEmptyComponent={
             <ListEmpty
@@ -210,6 +207,36 @@ function Separator() {
   return <View style={styles.separator} />;
 }
 
+// One square in the Posts grid: the post's first photo
+function PostTile({ post, size }: { post: PostResponse; size: number }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={postTileLabel(post)}
+      // TODO(POST-3 #43): open the post itself at /posts/[id] once it exists
+      onPress={() => router.push({ pathname: '/trips/[id]', params: { id: post.tripId } })}
+      style={[styles.gridCell, { width: size, height: size }]}>
+      <Media
+        seed={post.id}
+        url={post.media.find((media) => media.mediaType === 'image')?.url}
+        style={styles.gridMedia}
+      />
+    </Pressable>
+  );
+}
+
+const TILE_LABEL_MAX = 80;
+
+// Short enough for a screen reader to read out on every tile: the place, else
+// the start of the caption (which can be up to 2200 characters)
+function postTileLabel(post: PostResponse): string {
+  const place = post.location?.name ?? post.customLocationName;
+  if (place) return `Post at ${place}`;
+  if (!post.caption) return 'Post';
+  const chars = [...post.caption];
+  return chars.length > TILE_LABEL_MAX ? `${chars.slice(0, TILE_LABEL_MAX).join('').trimEnd()}…` : post.caption;
+}
+
 export function BackBar({ title, onBack, right }: { title?: string; onBack?: () => void; right?: ReactNode }) {
   return (
     <View style={styles.backBar}>
@@ -246,7 +273,8 @@ const styles = StyleSheet.create({
   tabIndicator: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 3, backgroundColor: Palette.teal },
   separator: { height: Spacing.two },
   gridRow: { gap: Spacing.half },
-  gridCell: { flex: 1, aspectRatio: 1, marginBottom: Spacing.half },
+  gridCell: { marginBottom: Spacing.half },
+  gridMedia: { flex: 1 },
   topBar: { paddingHorizontal: Spacing.three },
   backBar: {
     height: 44,

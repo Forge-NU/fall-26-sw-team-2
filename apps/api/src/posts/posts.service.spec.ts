@@ -86,6 +86,7 @@ describe('PostsService', () => {
   let service: PostsService;
 
   const prisma = {
+    user: { findUnique: jest.fn() },
     trip: { findUnique: jest.fn() },
     post: {
       create: jest.fn(),
@@ -710,6 +711,94 @@ describe('PostsService', () => {
         }),
       );
       expect(page.nextCursor).toBeNull();
+    });
+  });
+
+  describe('listForUser', () => {
+    const visibleTo = (viewerId: string) => ({
+      trip: {
+        ownerId,
+        OR: [{ status: 'published' }, { ownerId: viewerId }],
+      },
+    });
+
+    beforeEach(() => {
+      prisma.user.findUnique.mockResolvedValue({ id: ownerId });
+    });
+
+    it('returns 404 for a user that does not exist', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      await expect(
+        service.listForUser(ownerId, 'user_missing', {}),
+      ).rejects.toThrow(NotFoundException);
+      expect(prisma.post.findMany).not.toHaveBeenCalled();
+    });
+
+    it('lists posts in visible trips, newest first', async () => {
+      prisma.post.findMany.mockResolvedValue([makePost()]);
+      const page = await service.listForUser('user_other', ownerId, {});
+      expect(prisma.post.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: visibleTo('user_other'),
+          orderBy: [
+            { visitedOn: 'desc' },
+            { createdAt: 'desc' },
+            { id: 'desc' },
+          ],
+        }),
+      );
+      expect(page.items[0]).toMatchObject({ id: postId });
+      expect(page.nextCursor).toBeNull();
+    });
+
+    it('starts after the cursor and returns the next one, newest first', async () => {
+      const visitedOn = parseDateOnly('2026-10-13');
+      const createdAt = new Date('2026-10-13T12:00:00Z');
+      const cursor = encodeCursor(`user-posts:${ownerId}`, [
+        visitedOn,
+        createdAt,
+        postId,
+      ]);
+      prisma.post.findMany.mockResolvedValue([
+        makePost({ id: 'a' }),
+        makePost({ id: 'b' }),
+      ]);
+
+      const page = await service.listForUser(ownerId, ownerId, {
+        cursor,
+        limit: 1,
+      });
+
+      const [args] = prisma.post.findMany.mock.calls[0] as [
+        { where: { OR: unknown }; take: number },
+      ];
+      expect(args.where.OR).toEqual([
+        { visitedOn: { lt: visitedOn } },
+        { visitedOn, createdAt: { lt: createdAt } },
+        { visitedOn, createdAt, id: { lt: postId } },
+      ]);
+      expect(args.take).toBe(2);
+      expect(page.items.map((p) => p.id)).toEqual(['a']);
+      expect(
+        decodeCursor(page.nextCursor!, `user-posts:${ownerId}`, [
+          'date',
+          'date',
+          'string',
+        ]),
+      ).toEqual([visitedOn, createdAt, 'a']);
+    });
+
+    it("rejects a cursor from another user's posts", async () => {
+      const visitedOn = parseDateOnly('2026-10-13');
+      const cursor = encodeCursor('user-posts:someone_else', [
+        visitedOn,
+        visitedOn,
+        postId,
+      ]);
+      await expect(
+        service.listForUser('user_other', ownerId, { cursor }),
+      ).rejects.toThrow('Invalid cursor');
+      expect(prisma.post.findMany).not.toHaveBeenCalled();
     });
   });
 
