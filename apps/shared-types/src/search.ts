@@ -1,10 +1,9 @@
-import type { PostResponse, TripResponse } from './content.js';
-import type { LocationResponse } from './locations.js';
-import type { PaginatedResponse, UserResponse } from './index.js';
+import type { PostResponse, TripResponse } from "./content.js";
+import type { LocationResponse } from "./locations.js";
+import type { PaginatedResponse, UserResponse } from "./index.js";
 
-// SRCH-3 contract, shared by the real endpoint and SRCH-4 mocks.
-export type SearchType = 'people' | 'places' | 'trips' | 'posts';
-export type SearchSort = 'relevance' | 'newest';
+export type SearchType = "people" | "places" | "trips" | "posts";
+export type SearchSort = "relevance" | "newest";
 export interface SearchRequest {
   q: string;
   type?: SearchType;
@@ -19,7 +18,9 @@ export interface SearchRequest {
   limit?: number;
 }
 export type SearchPerson = UserResponse & { isFollowing: boolean };
-export type SearchPlace = LocationResponse & { postCount: number };
+export type SearchPlace = LocationResponse & {
+  postCount: number;
+};
 export interface SearchItems {
   people: SearchPerson;
   places: SearchPlace;
@@ -27,5 +28,7 @@ export interface SearchItems {
   posts: PostResponse;
 }
 export type SearchPreview = { [K in SearchType]: SearchItems[K][] };
-export type SearchPage<K extends SearchType = SearchType> = PaginatedResponse<SearchItems[K]>;
+export type SearchPage<K extends SearchType = SearchType> = PaginatedResponse<
+  SearchItems[K]
+>;
 export type SearchResponse = SearchPreview | SearchPage;

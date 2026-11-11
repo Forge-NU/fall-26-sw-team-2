@@ -1,9 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
-import { router } from 'expo-router';
 import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import type { SearchItems, SearchPerson, SearchPlace, SearchType } from 'shared-types';
 
-import { queryKeys } from '@/api/query-keys';
 import { UserRow } from '@/components/content/user-row';
 import { TripCard } from '@/components/content/trip-card';
 import { PostCard } from '@/components/content/post-card';
@@ -20,21 +17,22 @@ type Props = {
   search: ReturnType<typeof useSearch>;
   onFilters: () => void;
   onPlace: (place: SearchPlace) => void;
+  onProfile: (userId: string) => void;
   onTrip: (trip: SearchItems['trips']) => void;
   onPost: (post: SearchItems['posts']) => void;
 };
 const titles = { all: 'All', people: 'People', places: 'Places', trips: 'Trips', posts: 'Posts' };
 const types = ['people', 'places', 'trips', 'posts'] as const;
-export function SearchResultsPanel({ search, onFilters, onPlace, onTrip, onPost }: Props) {
+export function SearchResultsPanel({ search, onFilters, onPlace, onProfile, onTrip, onPost }: Props) {
   const render = (type: SearchType, item: SearchItems[SearchType]) => {
-    if (type === 'people') return <Person person={item as SearchPerson} />;
+    if (type === 'people') return <Person person={item as SearchPerson} onPress={() => onProfile(item.id)} />;
     if (type === 'places') return <Place place={item as SearchPlace} onPress={() => onPlace(item as SearchPlace)} />;
     if (type === 'trips') {
       const trip = item as SearchItems['trips'];
-      return <TripCard trip={trip} onPress={() => onTrip(trip)} onUserPress={() => openProfile(trip.owner.id)} />;
+      return <TripCard trip={trip} onPress={() => onTrip(trip)} onUserPress={() => onProfile(trip.owner.id)} />;
     }
     const post = item as SearchItems['posts'];
-    return <PostCard post={post} onPress={() => onPost(post)} onUserPress={() => openProfile(post.author.id)} />;
+    return <PostCard post={post} onPress={() => onPost(post)} onUserPress={() => onProfile(post.author.id)} />;
   };
   const header = <View style={styles.header}>
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
@@ -71,15 +69,12 @@ export function SearchResultsPanel({ search, onFilters, onPlace, onTrip, onPost 
     onEndReached={() => { void search.loadMore(); }} onEndReachedThreshold={0.4}
     ListFooterComponent={search.pageError ? <View style={styles.state}><AppText>Couldn’t load more results.</AppText><Button title="Retry" onPress={search.retry} /></View> : search.loadingMore ? <ActivityIndicator color={Palette.coral} /> : undefined} />;
 }
-function openProfile(id: string) { router.push({ pathname: '/users/[id]', params: { id } }); }
-function Person({ person }: { person: SearchPerson }) {
+/** Same follow as on profiles (#31): useFollow updates the profile, counts, lists and these results. */
+function Person({ person, onPress }: { person: SearchPerson; onPress: () => void }) {
   const me = useCurrentUser();
   const follow = useFollow(person.id);
-  // The profile follow mutation owns this cache, including optimistic rollback.
-  const status = useQuery({ queryKey: queryKeys.followStatus(person.id), queryFn: () => Promise.resolve({ isFollowing: person.isFollowing }),
-    enabled: false });
-  const isFollowing = status.data?.isFollowing ?? person.isFollowing;
-  return <UserRow user={person} onPress={() => openProfile(person.id)} action={me.id === person.id ? undefined : {
+  const { isFollowing } = person;
+  return <UserRow user={person} onPress={onPress} action={me.id === person.id ? undefined : {
     title: isFollowing ? 'Following' : 'Follow', variant: isFollowing ? 'teal' : 'coral',
     loading: follow.isPending, onPress: () => follow.toggle(isFollowing),
   }} />;

@@ -22,7 +22,8 @@ export function createSearchFixtures(): SearchPreview {
       id: `search-trip-${i}`, owner, title: `${['A weekend in Lisbon', 'Lisbon food walk', 'Lisbon viewpoints'][i % 3]} ${i + 1}`,
       destination: 'Lisbon, Portugal', description: 'Tram rides, tiled streets and sunset by the river.',
       startDate: `2026-${month}-10`, endDate: `2026-${month}-14`, status: 'published' as const,
-      publishedAt: createdAt, postCount: 1, coverImageUrl: null, createdAt, updatedAt: createdAt,
+      publishedAt: createdAt, postCount: 1, coverImageUrl: null, saveCount: 0, savedByMe: false,
+      createdAt, updatedAt: createdAt,
     };
   });
   const posts = trips.map((trip, i) => ({
@@ -34,7 +35,9 @@ export function createSearchFixtures(): SearchPreview {
       rating: places[i].rating,
       city: 'Lisbon', region: 'Lisbon', countryCode: 'PT',
     },
-    rating: null, customLocationName: null, media: [], createdAt: trip.createdAt, updatedAt: trip.updatedAt,
+    rating: null, customLocationName: null, media: [],
+    likeCount: 0, saveCount: 0, commentCount: 0, likedByMe: false, savedByMe: false,
+    createdAt: trip.createdAt, updatedAt: trip.updatedAt,
   }));
   return { people, places, trips, posts };
 }

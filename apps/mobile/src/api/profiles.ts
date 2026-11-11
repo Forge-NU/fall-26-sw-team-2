@@ -15,6 +15,7 @@ import { apiGet, apiRequest } from '@/api/client';
 import { mockDelay, mockError, mockPage, withMock } from '@/api/mock';
 import { me as mockMe } from '@/api/mock-backend';
 import { getMe } from '@/api/users';
+import { normalizeSearchText } from '@/utils/search-text';
 
 export type FollowList = 'followers' | 'following';
 
@@ -130,6 +131,11 @@ export const listUserPosts = withMock<Parameters<ListFetcher<PostResponse>>, Pag
       customLocationName: null,
       rating: null,
       media: [],
+      likeCount: 0,
+      saveCount: 0,
+      commentCount: 0,
+      likedByMe: false,
+      savedByMe: false,
       createdAt: MOCK_TIMESTAMP,
       updatedAt: MOCK_TIMESTAMP,
     }));
@@ -184,6 +190,21 @@ function mockProfile(id: string): UserResponse {
   };
 }
 
+/**
+ * People search (SRCH-2) on the same mock travelers and follows as above, so a
+ * follow from search shows up on their profile and in your Following list.
+ */
+export function mockSearchPeople(q: string): (UserResponse & { isFollowing: boolean })[] {
+  const query = normalizeSearchText(q);
+  return mockUsers
+    .filter((user) =>
+      [`${user.firstName} ${user.lastName}`, user.username ?? ''].some((field) =>
+        normalizeSearchText(field).includes(query),
+      ),
+    )
+    .map((user) => ({ ...mockProfile(user.id), isFollowing: mockFollows.has(followKey(MOCK_ME_ID, user.id)) }));
+}
+
 async function mockFollowList(id: string, list: FollowList, cursor: string | null) {
   await mockDelay();
   mockUser(id);
@@ -210,14 +231,9 @@ function mockTrips(owner: UserSummary): TripResponse[] {
     publishedAt: i < 2 ? null : MOCK_TIMESTAMP,
     postCount: [14, 9, 52, 77, 82, 49][i],
     coverImageUrl: null,
+    saveCount: 0,
+    savedByMe: false,
     createdAt: MOCK_TIMESTAMP,
     updatedAt: MOCK_TIMESTAMP,
   }));
-}
-
-/** Shared mock identities and follows for search and profiles. */
-export function mockSearchPeople(q: string): (UserResponse & { isFollowing: boolean })[] {
-  const query = q.trim().toLowerCase();
-  return mockUsers.filter(user => `${user.firstName} ${user.lastName} ${user.username ?? ''}`.toLowerCase().includes(query))
-    .map(user => ({ ...mockProfile(user.id), isFollowing: mockFollows.has(followKey(MOCK_ME_ID, user.id)) }));
 }

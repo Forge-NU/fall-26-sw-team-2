@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, type Ref } from 'react';
 import {
   Platform,
   StyleSheet,
   Text,
   TextInput,
   View,
+  type TextInputInstance,
   type TextInputProps,
   type StyleProp,
   type ViewStyle,
@@ -21,6 +22,8 @@ export type InputProps = TextInputProps & {
   // 'bare' drops the box (border, background, padding) for text typed over
   // media, like the story composer's photo. Style the text with `style`.
   variant?: 'default' | 'bare';
+  /** For focusing the field, e.g. when tapping Reply */
+  ref?: Ref<TextInputInstance>;
 };
 
 export function Input({

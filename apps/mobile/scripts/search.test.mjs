@@ -1,16 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { search } from '../src/api/search.ts';
+import { isSearchable, search } from '../src/api/search.ts';
+import { setAuthTokenGetter } from '../src/lib/auth.ts';
+import { isRefinement, normalizeSearchText } from '../src/utils/search-text.ts';
 import { createSearchFixtures } from '../src/api/search-fixtures.ts';
 import { createSearchMock } from '../src/api/search-mock.ts';
 import { activeFilterCount, buildSearchRequest, defaultSearchFilters, filterError } from '../src/lib/search/filters.ts';
-import { createSearchSession } from '../src/lib/search/session.ts';
 
 const centers = { permission: 'granted', nearMe: { latitude: 38.707, longitude: -9.136 }, mapCenter: { latitude: 38.77, longitude: -9.1 } };
-const wait = (ms = 10) => new Promise(resolve => setTimeout(resolve, ms));
-const person = id => ({ id, username: id, firstName: id, lastName: '', avatarUrl: null, isFollowing: false });
-const page = (ids, nextCursor = null) => ({ items: ids.map(person), nextCursor });
 
 test('filter selections survive type changes, but only applicable filters are counted and sent', () => {
   const filters = { ...defaultSearchFilters(), from: '2026-06-01', to: '2026-06-30', minRating: 4, radiusKm: 10, sort: 'newest' };
@@ -117,99 +115,6 @@ test('mock and real requests both support AbortSignal', async () => {
   }
 });
 
-test('debounce skips short input and cancels work as soon as text or filters change', async () => {
-  const calls = [];
-  const session = createSearchSession(async (request, signal) => {
-    calls.push({ request, signal });
-    return page([request.q]);
-  }, 15);
-  session.setRequest({ q: 'x', type: 'people' });
-  await wait(20);
-  assert.equal(calls.length, 0);
-  session.setRequest({ q: 'Ma', type: 'people' });
-  session.setRequest({ q: 'Maya', type: 'people' });
-  await wait(20);
-  assert.equal(calls.length, 1);
-  session.setRequest({ q: 'Maya', type: 'people', sort: 'newest' });
-  assert.equal(calls[0].signal.aborted, true);
-  assert.equal(session.getSnapshot().page, null);
-  await wait(20);
-  assert.equal(calls[1].request.sort, 'newest');
-  session.reset();
-});
-
-test('late responses from an abort-ignoring transport cannot overwrite newer results or reset', async () => {
-  const pending = [];
-  const session = createSearchSession((request, signal) => new Promise(resolve => pending.push({ request, signal, resolve })), 0);
-  session.setRequest({ q: 'Maya', type: 'people' });
-  await wait();
-  session.setRequest({ q: 'Alex', type: 'people' });
-  assert.equal(pending[0].signal.aborted, true);
-  await wait();
-  pending[1].resolve(page(['alex']));
-  await wait();
-  pending[0].resolve(page(['maya']));
-  await wait();
-  assert.equal(session.getSnapshot().page.items[0].id, 'alex');
-  session.setRequest({ q: 'Priya', type: 'people' });
-  await wait();
-  session.reset();
-  pending[2].resolve(page(['priya']));
-  await wait();
-  assert.equal(session.getSnapshot().status, 'idle');
-  assert.equal(session.getSnapshot().page, null);
-});
-
-test('pagination deduplicates, guards repeated scroll events, and retries failed pages explicitly', async () => {
-  let calls = 0;
-  let fail = true;
-  const session = createSearchSession(async (request) => {
-    calls++;
-    if (!request.cursor) return page(['a', 'b'], 'next');
-    await wait();
-    if (fail) throw new Error('Offline');
-    return page(['b', 'c']);
-  }, 0);
-  session.setRequest({ q: 'Lisbon', type: 'people' });
-  await wait();
-  await Promise.all([session.loadMore(), session.loadMore()]);
-  assert.equal(calls, 2);
-  assert.match(session.getSnapshot().pageError.message, /Offline/);
-  await session.loadMore();
-  assert.equal(calls, 2);
-  fail = false;
-  session.retry();
-  await wait(20);
-  assert.deepEqual(session.getSnapshot().page.items.map(item => item.id), ['a', 'b', 'c']);
-  assert.equal(session.getSnapshot().page.nextCursor, null);
-  assert.equal(session.getSnapshot().pageError, null);
-  session.reset();
-});
-
-test('changing type aborts a pending next page; initial errors can be retried', async () => {
-  let resolvePage;
-  let signal;
-  let fail = true;
-  const session = createSearchSession(async (request, abortSignal) => {
-    if (fail) throw new Error('Offline');
-    if (!request.cursor) return page(['a'], 'next');
-    signal = abortSignal;
-    return new Promise(resolve => { resolvePage = resolve; });
-  }, 0);
-  session.setRequest({ q: 'Maya', type: 'people' });
-  await wait();
-  assert.equal(session.getSnapshot().status, 'error');
-  fail = false;
-  session.retry();
-  await wait();
-  const more = session.loadMore();
-  session.setRequest(null);
-  assert.equal(signal.aborted, true);
-  resolvePage(page(['b']));
-  await more;
-  assert.equal(session.getSnapshot().page, null);
-});
-
 test('mock matches the live flat-coordinate and discriminator-free page contract', async () => {
   const mock = createSearchMock(undefined, 0);
   const result = await mock({ q: 'Lisbon', type: 'places', limit: 1 });
@@ -217,12 +122,6 @@ test('mock matches the live flat-coordinate and discriminator-free page contract
   assert.equal(typeof result.items[0].latitude, 'number');
   assert.equal(typeof result.items[0].longitude, 'number');
   assert.equal('coordinate' in result.items[0], false);
-  const session = createSearchSession(mock, 0);
-  session.setRequest({ q: 'Lisbon', type: 'places' });
-  await wait(20);
-  assert.equal(session.getSnapshot().status, 'ready');
-  assert.ok(session.getSnapshot().page.items.length > 0);
-  session.reset();
 });
 
 test('search follows share mock state with profiles', async () => {
@@ -244,6 +143,64 @@ test('search follows share mock state with profiles', async () => {
       else await unfollowUser(person.id);
     }
   } finally {
+    if (previousMode === undefined) delete process.env.EXPO_PUBLIC_API_MOCKS;
+    else process.env.EXPO_PUBLIC_API_MOCKS = previousMode;
+  }
+});
+
+test('normalizeSearchText ignores accents, case and outer spaces', () => {
+  assert.equal(normalizeSearchText('  Castelo de São Jorge '), 'castelo de sao jorge');
+  assert.equal(normalizeSearchText('Sensō-ji'), 'senso-ji');
+  // Already-decomposed text: "e" followed by a combining acute accent
+  assert.equal(normalizeSearchText(`Caf${'e'}${String.fromCharCode(0x301)}`), 'cafe');
+});
+
+test('isRefinement is true only while typing or deleting within the same query', () => {
+  assert.equal(isRefinement('lis', 'lisbon'), true);
+  assert.equal(isRefinement('Lisbon', 'lisbo'), true);
+  assert.equal(isRefinement('joao', 'João'), true);
+  assert.equal(isRefinement('maya', 'lisbon'), false);
+  assert.equal(isRefinement('maya', 'may a'), false);
+  assert.equal(isRefinement(undefined, 'lisbon'), false);
+});
+
+test('isSearchable needs 2 characters after trimming, counting characters not UTF-16 units', () => {
+  assert.equal(isSearchable(''), false);
+  assert.equal(isSearchable(' m  '), false);
+  assert.equal(isSearchable('é'), false);
+  // One emoji is two UTF-16 units but one character
+  assert.equal(isSearchable(String.fromCodePoint(0x1f30d)), false);
+  assert.equal(isSearchable('ma'), true);
+});
+
+test('the real endpoint sends the request as query params to GET /api/search', async () => {
+  const previousMode = process.env.EXPO_PUBLIC_API_MOCKS;
+  const previousFetch = globalThis.fetch;
+  process.env.EXPO_PUBLIC_API_MOCKS = 'none';
+  setAuthTokenGetter(async () => null);
+  const calls = [];
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url: new URL(url), init });
+    return new Response(JSON.stringify({ items: [], nextCursor: null }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+  try {
+    assert.deepEqual(await search({ q: 'maya', type: 'people', sort: 'relevance', cursor: 'abc' }), {
+      items: [],
+      nextCursor: null,
+    });
+    const { url, init } = calls[0];
+    assert.equal(init.method, 'GET');
+    assert.equal(url.pathname, '/api/search');
+    assert.deepEqual(Object.fromEntries(url.searchParams), { q: 'maya', type: 'people', sort: 'relevance', cursor: 'abc' });
+
+    // The first page and the "All" preview leave out what isn't set
+    await search({ q: 'lisbon', sort: 'newest', cursor: undefined });
+    assert.deepEqual(Object.fromEntries(calls[1].url.searchParams), { q: 'lisbon', sort: 'newest' });
+  } finally {
+    globalThis.fetch = previousFetch;
     if (previousMode === undefined) delete process.env.EXPO_PUBLIC_API_MOCKS;
     else process.env.EXPO_PUBLIC_API_MOCKS = previousMode;
   }
