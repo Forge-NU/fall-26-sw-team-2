@@ -7,10 +7,12 @@ interface Props {
   value: string;
   onChangeText: (text: string) => void;
   filtersHighlighted: boolean;
+  filterCount?: number;
+  onFocus?: () => void;
   onPressFilters: () => void;
 }
 
-export function SearchBar({ value, onChangeText, filtersHighlighted, onPressFilters }: Props) {
+export function SearchBar({ value, onChangeText, filtersHighlighted, onPressFilters, filterCount = 0, onFocus }: Props) {
   return (
     <View style={styles.bar}>
       <MaterialCommunityIcons name="magnify" size={26} color={colors.coral} />
@@ -18,7 +20,8 @@ export function SearchBar({ value, onChangeText, filtersHighlighted, onPressFilt
         style={styles.input}
         value={value}
         onChangeText={onChangeText}
-        placeholder="Search places, trips, things to do"
+        onFocus={onFocus}
+        placeholder="Search people, places, trips, posts"
         placeholderTextColor={colors.textMuted}
         returnKeyType="search"
         autoCorrect={false}
@@ -35,7 +38,7 @@ export function SearchBar({ value, onChangeText, filtersHighlighted, onPressFilt
         accessibilityRole="button"
         accessibilityState={{ expanded: filtersHighlighted }}
       >
-        <Text style={[styles.filtersText, filtersHighlighted && styles.filtersTextOn]}>Filters</Text>
+        <Text style={[styles.filtersText, filtersHighlighted && styles.filtersTextOn]}>{filterCount ? `Filters · ${filterCount}` : 'Filters'}</Text>
       </Pressable>
     </View>
   );

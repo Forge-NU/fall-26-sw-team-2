@@ -22,6 +22,11 @@ export interface UsernameAvailabilityResponse {
   available: boolean;
 }
 
+export type {
+  SearchType, SearchSort, SearchRequest, SearchPerson, SearchPlace, SearchItems, SearchPreview,
+  SearchPage, SearchResponse,
+} from './search.js';
+
 /**
  * User profile response shape
  * Used by GET /api/me, GET /api/users/:id, POST /api/me/profile and PATCH /api/me

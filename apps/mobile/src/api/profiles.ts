@@ -214,3 +214,10 @@ function mockTrips(owner: UserSummary): TripResponse[] {
     updatedAt: MOCK_TIMESTAMP,
   }));
 }
+
+/** Shared mock identities and follows for search and profiles. */
+export function mockSearchPeople(q: string): (UserResponse & { isFollowing: boolean })[] {
+  const query = q.trim().toLowerCase();
+  return mockUsers.filter(user => `${user.firstName} ${user.lastName} ${user.username ?? ''}`.toLowerCase().includes(query))
+    .map(user => ({ ...mockProfile(user.id), isFollowing: mockFollows.has(followKey(MOCK_ME_ID, user.id)) }));
+}
