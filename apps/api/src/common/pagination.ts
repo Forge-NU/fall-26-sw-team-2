@@ -1,18 +1,32 @@
 import { BadRequestException } from '@nestjs/common';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
+import {
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
+import type { PaginatedResponse } from 'shared-types';
 
-// Cursor pagination for list endpoints. Stand-in until API-1 (#28) adds the
-// shared helper; the request and response shapes match what it'll use.
+// Cursor pagination for every list endpoint (API-2, #90). See "Cursor-Based
+// Pagination" in docs/architecture/api-conventions.md.
+//
+// A cursor is opaque to clients: base64url JSON holding the list it belongs to
+// and the sort key of the last row on the page, ending with the row's id. The
+// next page starts after that key (a keyset), so it works for any
+// `ORDER BY sortKey…, id` and keeps working if the last row is deleted.
 
 export const DEFAULT_PAGE_SIZE = 20;
 export const MAX_PAGE_SIZE = 50;
 
-// The cursor and limit the helpers below read. Lists whose cursor isn't a
-// UUID (e.g. a user ID) extend PageLimitDto with their own cursor rule.
-export type PageQuery = { cursor?: string; limit?: number };
+export class PaginationQueryDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(512)
+  cursor?: string;
 
-export class PageLimitDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
@@ -21,76 +35,127 @@ export class PageLimitDto {
   limit?: number;
 }
 
-export class PaginationQueryDto extends PageLimitDto {
-  // Any UUID Postgres accepts, not just RFC 4122 ones
-  @IsOptional()
-  @IsUUID('all')
-  cursor?: string;
+export function pageLimit(query: PaginationQueryDto): number {
+  return query.limit ?? DEFAULT_PAGE_SIZE;
 }
 
-// The cursor has to be a row in the list being paged (matching its filter).
-// Prisma doesn't check this: an unknown or deleted cursor silently returns an
-// empty page, and one from another list starts from the wrong position.
-export async function assertCursorInList(
-  query: PageQuery,
-  findInList: (cursor: string) => Promise<unknown>,
-) {
-  if (query.cursor && !(await findInList(query.cursor))) {
-    throw new BadRequestException('Invalid cursor');
+export type CursorValue = string | number | Date;
+export type CursorValueType = 'string' | 'number' | 'date';
+
+type CursorPayload = { list: string; key: unknown[] };
+
+// `list` names the list the cursor pages through, including whatever it's
+// filtered by (e.g. `trips:${userId}`), so a cursor from one list is rejected
+// on another instead of starting from a meaningless position.
+export function encodeCursor(list: string, key: CursorValue[]): string {
+  const payload: CursorPayload = {
+    list,
+    key: key.map((value) =>
+      value instanceof Date ? value.toISOString() : value,
+    ),
+  };
+  return Buffer.from(JSON.stringify(payload)).toString('base64url');
+}
+
+// The sort key in `cursor`, or undefined for the first page. Throws a 400 if
+// the cursor is malformed, from another list, or doesn't match `types`.
+export function decodeCursor(
+  cursor: string | undefined,
+  list: string,
+  types: readonly CursorValueType[],
+): CursorValue[] | undefined {
+  if (cursor === undefined) return undefined;
+  let payload: unknown;
+  try {
+    payload = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
+  } catch {
+    throw invalidCursor();
   }
+  if (
+    !payload ||
+    typeof payload !== 'object' ||
+    (payload as CursorPayload).list !== list ||
+    !Array.isArray((payload as CursorPayload).key) ||
+    (payload as CursorPayload).key.length !== types.length
+  ) {
+    throw invalidCursor();
+  }
+  return (payload as CursorPayload).key.map((value, i) =>
+    parseValue(value, types[i]),
+  );
 }
 
-export type Page<T> = {
-  items: T[];
-  nextCursor: string | null;
-};
-
-// Prisma args for one page. Fetches one extra row to know if there's another
-// page. The query's orderBy has to end with `id` so the order is stable.
-export function pageArgs(query: PageQuery) {
-  return keyedPageArgs(query, (id) => ({ id }));
+function parseValue(value: unknown, type: CursorValueType): CursorValue {
+  if (type === 'string' && typeof value === 'string' && value) return value;
+  if (type === 'number' && typeof value === 'number' && isFinite(value)) {
+    return value;
+  }
+  if (type === 'date' && typeof value === 'string') {
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) return date;
+  }
+  throw invalidCursor();
 }
 
-// pageArgs for a table without an `id`, like a join table keyed by
-// (user_id, post_id). `toKey` turns the cursor into the row's unique key, and
-// the orderBy has to end with that key's columns.
-export function keyedPageArgs<Key>(
-  query: PageQuery,
-  toKey: (cursor: string) => Key,
-) {
-  const limit = query.limit ?? DEFAULT_PAGE_SIZE;
+function invalidCursor() {
+  return new BadRequestException('Invalid cursor');
+}
+
+// `rows` is a query fetched with `take: limit + 1`: the extra row only says
+// there's another page. The cursor comes from the last row that's returned.
+export function buildPage<Row>(
+  rows: Row[],
+  limit: number,
+  toCursor: (row: Row) => string,
+): PaginatedResponse<Row> {
+  const hasMore = rows.length > limit;
+  const items = hasMore ? rows.slice(0, limit) : rows;
   return {
-    take: limit + 1,
-    ...(query.cursor ? { cursor: toKey(query.cursor), skip: 1 } : {}),
+    items,
+    nextCursor: hasMore ? toCursor(items[items.length - 1]) : null,
   };
 }
 
-// `cursorOf` is the value the next request sends back as `cursor`. It
-// defaults to the row's `id`; keyedPageArgs lists pass the part of the key
-// that isn't fixed by the list (e.g. the post ID in one user's saves).
-export function toPage<Row extends { id: string }, Item>(
-  rows: Row[],
-  query: PageQuery,
-  map: (row: Row) => Item | Promise<Item>,
-): Promise<Page<Item>>;
-export function toPage<Row, Item>(
-  rows: Row[],
-  query: PageQuery,
-  map: (row: Row) => Item | Promise<Item>,
-  cursorOf: (row: Row) => string,
-): Promise<Page<Item>>;
-export async function toPage<Row, Item>(
-  rows: Row[],
-  query: PageQuery,
-  map: (row: Row) => Item | Promise<Item>,
-  cursorOf: (row: Row) => string = (row) => (row as { id: string }).id,
-): Promise<Page<Item>> {
-  const limit = query.limit ?? DEFAULT_PAGE_SIZE;
-  const hasMore = rows.length > limit;
-  const pageRows = hasMore ? rows.slice(0, limit) : rows;
+export type KeysetField<Row> = {
+  field: keyof Row & string;
+  direction: 'asc' | 'desc';
+  type: CursorValueType;
+};
 
+// The order, keyset filter and cursors for a Prisma list, from one list of
+// sort fields. The last field has to be unique (normally `id`) so the order is
+// total, and none of them can be nullable. `Where` and `OrderBy` are the
+// model's Prisma input types, e.g. Prisma.TripWhereInput.
+export function keyset<Row, Where, OrderBy>(
+  fields: readonly KeysetField<Row>[],
+) {
+  const types = fields.map((f) => f.type);
   return {
-    items: await Promise.all(pageRows.map(map)),
-    nextCursor: hasMore ? cursorOf(pageRows[pageRows.length - 1]) : null,
+    orderBy: fields.map((f) => ({ [f.field]: f.direction })) as OrderBy[],
+
+    // Rows after `key` in this order: (a > A) OR (a = A AND b > B) OR …,
+    // with < for descending fields. Matches all rows for the first page.
+    after(key: CursorValue[] | undefined): Where {
+      if (!key) return {} as Where;
+      return {
+        OR: fields.map((f, i) => ({
+          ...Object.fromEntries(
+            fields.slice(0, i).map((prev, j) => [prev.field, key[j]]),
+          ),
+          [f.field]: { [f.direction === 'asc' ? 'gt' : 'lt']: key[i] },
+        })),
+      } as Where;
+    },
+
+    decode(cursor: string | undefined, list: string) {
+      return decodeCursor(cursor, list, types);
+    },
+
+    cursor(list: string, row: Row): string {
+      return encodeCursor(
+        list,
+        fields.map((f) => row[f.field] as CursorValue),
+      );
+    },
   };
 }

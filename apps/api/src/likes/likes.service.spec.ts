@@ -4,6 +4,7 @@ import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { LikesService } from './likes.service';
+import { decodeCursor, encodeCursor } from '../common/pagination';
 
 const postId = '22222222-2222-4222-8222-222222222222';
 const ownerId = 'user_owner';
@@ -161,33 +162,41 @@ describe('LikesService', () => {
       });
     });
 
-    it("pages by the liker's user ID", async () => {
-      prisma.postLike.findUnique.mockResolvedValue(liker('user_a'));
+    it('starts after the cursor and returns the next one', async () => {
+      const likedAt = new Date('2026-10-20T12:00:00Z');
+      const cursor = encodeCursor(`likers:${postId}`, [likedAt, 'a']);
       prisma.postLike.findMany.mockResolvedValue([
         liker('user_b'),
         liker('user_c'),
       ]);
 
       const page = await service.listLikers(viewerId, postId, {
-        cursor: 'user_a',
+        cursor,
         limit: 1,
       });
 
-      expect(prisma.postLike.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          cursor: { userId_postId: { userId: 'user_a', postId } },
-          skip: 1,
-          take: 2,
-        }),
-      );
+      const [args] = prisma.postLike.findMany.mock.calls[0] as [
+        { where: { OR: unknown }; orderBy: unknown; take: number },
+      ];
+      expect(args.where.OR).toEqual([
+        { createdAt: { lt: likedAt } },
+        { createdAt: likedAt, userId: { lt: 'a' } },
+      ]);
+      expect(args.orderBy).toEqual([{ createdAt: 'desc' }, { userId: 'desc' }]);
+      expect(args.take).toBe(2);
       expect(page.items).toHaveLength(1);
-      expect(page.nextCursor).toBe('user_b');
+      expect(
+        decodeCursor(page.nextCursor!, `likers:${postId}`, ['date', 'string']),
+      ).toEqual([likedAt, 'user_b']);
     });
 
-    it("rejects a cursor that isn't a like on this post", async () => {
-      prisma.postLike.findUnique.mockResolvedValue(null);
+    it("rejects a cursor from another post's likers", async () => {
+      const cursor = encodeCursor('likers:another-post', [
+        new Date('2026-10-20T12:00:00Z'),
+        'a',
+      ]);
       await expect(
-        service.listLikers(viewerId, postId, { cursor: 'user_x' }),
+        service.listLikers(viewerId, postId, { cursor }),
       ).rejects.toThrow('Invalid cursor');
       expect(prisma.postLike.findMany).not.toHaveBeenCalled();
     });

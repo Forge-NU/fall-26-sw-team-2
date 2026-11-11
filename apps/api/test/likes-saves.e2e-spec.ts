@@ -121,7 +121,7 @@ describe('Likes and saves (e2e)', () => {
       expect(firstPage.items).toEqual([
         expect.objectContaining({ id: other.id, isFollowing: true }),
       ]);
-      expect(firstPage.nextCursor).toBe(other.id);
+      expect(firstPage.nextCursor).toEqual(expect.any(String));
 
       const second = await http()
         .get(`/api/posts/${post.id}/likes`)
@@ -214,11 +214,11 @@ describe('Likes and saves (e2e)', () => {
         .expect(200);
       expect(posts.body).toMatchObject({
         items: [{ id: second.id, savedByMe: true }],
-        nextCursor: second.id,
+        nextCursor: expect.any(String) as string,
       });
       const rest = await http()
         .get('/api/me/saved/posts')
-        .query({ limit: 1, cursor: second.id })
+        .query({ limit: 1, cursor: (posts.body as Page<unknown>).nextCursor })
         .set(as(liker))
         .expect(200);
       expect(rest.body).toMatchObject({

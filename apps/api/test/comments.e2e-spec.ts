@@ -5,6 +5,8 @@ import { Post, Trip, User } from '../src/generated/prisma/client';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createTestApp, createTestUser } from './utils/test-app';
 
+type Page = { nextCursor: string | null };
+
 type CommentBody = {
   id: string;
   parentCommentId: string | null;
@@ -115,12 +117,12 @@ describe('Comments (e2e)', () => {
       .expect(200);
     expect(page1.body).toEqual({
       items: [expect.objectContaining({ id: first.id, replyCount: 2 })],
-      nextCursor: first.id,
+      nextCursor: expect.any(String) as string,
     });
 
     const page2 = await http()
       .get(`/api/posts/${post.id}/comments`)
-      .query({ limit: 1, cursor: first.id })
+      .query({ limit: 1, cursor: (page1.body as Page).nextCursor })
       .set(as(owner))
       .expect(200);
     expect(page2.body).toEqual({

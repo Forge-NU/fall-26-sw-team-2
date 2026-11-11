@@ -23,7 +23,7 @@ import type {
   UserSummary,
   UsernameAvailabilityResponse,
 } from 'shared-types';
-import { PaginationDto } from '../common/decorators/pagination.dto';
+import { PaginationQueryDto } from '../common/pagination';
 import { mapUserToResponse } from './utils/user.mapper';
 import { UsernameAvailabilityDto } from './dto/username-availability.dto';
 import { StorageService } from '../storage/storage.service';
@@ -129,9 +129,9 @@ export class UsersController {
   @Get('users')
   @UseGuards(ClerkAuthGuard)
   async listUsers(
-    @Query() pagination: PaginationDto,
+    @Query() query: PaginationQueryDto,
   ): Promise<PaginatedResponse<UserSummary>> {
-    const result = await this.usersService.listUsers(pagination);
+    const result = await this.usersService.listUsers(query);
 
     return {
       items: await Promise.all(

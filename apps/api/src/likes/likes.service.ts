@@ -1,17 +1,30 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '../generated/prisma/client';
+import { PostLike, Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
-  Page,
-  PageQuery,
-  assertCursorInList,
-  keyedPageArgs,
-  toPage,
+  PaginationQueryDto,
+  buildPage,
+  keyset,
+  pageLimit,
 } from '../common/pagination';
 import { toUserSummary, userSummarySelect } from '../common/user-summary';
 import { StorageService } from '../storage/storage.service';
 import { canViewTrip } from '../trips/trip-rules';
-import type { LikeStatusResponse, PostLikerResponse } from 'shared-types';
+import type {
+  LikeStatusResponse,
+  PaginatedResponse,
+  PostLikerResponse,
+} from 'shared-types';
+
+// Who liked a post, newest first
+const LIKERS = keyset<
+  PostLike,
+  Prisma.PostLikeWhereInput,
+  Prisma.PostLikeOrderByWithRelationInput
+>([
+  { field: 'createdAt', direction: 'desc', type: 'date' },
+  { field: 'userId', direction: 'desc', type: 'string' },
+]);
 
 @Injectable()
 export class LikesService {
@@ -56,18 +69,18 @@ export class LikesService {
   async listLikers(
     viewerId: string,
     postId: string,
-    query: PageQuery,
-  ): Promise<Page<PostLikerResponse>> {
+    query: PaginationQueryDto,
+  ): Promise<PaginatedResponse<PostLikerResponse>> {
     await this.assertCanViewPost(viewerId, postId);
 
-    const key = (userId: string) => ({ userId_postId: { userId, postId } });
-    await assertCursorInList(query, (cursor) =>
-      this.prisma.postLike.findUnique({ where: key(cursor) }),
-    );
-
+    const list = `likers:${postId}`;
+    const limit = pageLimit(query);
     const likes = await this.prisma.postLike.findMany({
-      where: { postId },
-      orderBy: [{ createdAt: 'desc' }, { userId: 'desc' }],
+      where: {
+        postId,
+        ...LIKERS.after(LIKERS.decode(query.cursor, list)),
+      },
+      orderBy: LIKERS.orderBy,
       include: {
         user: {
           select: {
@@ -79,19 +92,20 @@ export class LikesService {
           },
         },
       },
-      ...keyedPageArgs(query, key),
+      take: limit + 1,
     });
 
-    return toPage(
-      likes,
-      query,
-      async ({ user, createdAt }) => ({
-        ...(await toUserSummary(user, this.storage)),
-        isFollowing: user.followers.length > 0,
-        likedAt: createdAt.toISOString(),
-      }),
-      (like) => like.userId,
-    );
+    const page = buildPage(likes, limit, (like) => LIKERS.cursor(list, like));
+    return {
+      items: await Promise.all(
+        page.items.map(async ({ user, createdAt }) => ({
+          ...(await toUserSummary(user, this.storage)),
+          isFollowing: user.followers.length > 0,
+          likedAt: createdAt.toISOString(),
+        })),
+      ),
+      nextCursor: page.nextCursor,
+    };
   }
 
   private async status(

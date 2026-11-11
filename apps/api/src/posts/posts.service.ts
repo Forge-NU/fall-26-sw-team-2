@@ -4,20 +4,18 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, Trip } from '../generated/prisma/client';
+import { PostSave, Prisma, Trip } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { formatDateOnly, parseDateOnly } from '../common/dates';
 import {
-  Page,
   PaginationQueryDto,
-  assertCursorInList,
-  keyedPageArgs,
-  pageArgs,
-  toPage,
+  buildPage,
+  keyset,
+  pageLimit,
 } from '../common/pagination';
 import { toUserSummary, userSummarySelect } from '../common/user-summary';
-import { POST_ORDER, TripsService } from '../trips/trips.service';
+import { TRIP_POSTS, TripsService } from '../trips/trips.service';
 import { canViewTrip, visibleTripWhere } from '../trips/trip-rules';
 import { lockTripForShare } from '../trips/trip-locks';
 import { toLocation } from '../locations/locations.service';
@@ -25,7 +23,7 @@ import { refreshLocationRatings } from '../locations/location-ratings';
 import { CreatePostDto } from './dto/create-post.dto';
 import { MediaItemDto } from './dto/media-item.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
-import type { PostResponse } from 'shared-types';
+import type { PaginatedResponse, PostResponse } from 'shared-types';
 
 // `viewerId` is who's reading, for likedByMe and savedByMe. Each of those
 // relations has at most one row for them (it's the primary key).
@@ -51,6 +49,16 @@ function postInclude(viewerId: string) {
 type PostWithDetails = Prisma.PostGetPayload<{
   include: ReturnType<typeof postInclude>;
 }>;
+
+// One user's saved posts, most recently saved first
+const SAVED_POSTS = keyset<
+  PostSave,
+  Prisma.PostSaveWhereInput,
+  Prisma.PostSaveOrderByWithRelationInput
+>([
+  { field: 'createdAt', direction: 'desc', type: 'date' },
+  { field: 'postId', direction: 'desc', type: 'string' },
+]);
 
 const CUSTOM_LOCATION_RATING =
   'Only posts at a Mapbox place can be rated, not a custom location';
@@ -289,7 +297,7 @@ export class PostsService {
     viewerId: string,
     tripId: string,
     query: PaginationQueryDto,
-  ): Promise<Page<PostResponse>> {
+  ): Promise<PaginatedResponse<PostResponse>> {
     const trip = await this.prisma.trip.findUnique({
       where: { id: tripId },
       select: { ownerId: true, status: true },
@@ -298,56 +306,58 @@ export class PostsService {
       throw new NotFoundException('Trip not found');
     }
 
-    await assertCursorInList(query, (cursor) =>
-      this.prisma.post.findFirst({
-        where: { id: cursor, tripId },
-        select: { id: true },
-      }),
-    );
-
+    const list = `posts:${tripId}`;
+    const limit = pageLimit(query);
     const posts = await this.prisma.post.findMany({
-      where: { tripId },
-      orderBy: POST_ORDER,
+      where: {
+        tripId,
+        ...TRIP_POSTS.after(TRIP_POSTS.decode(query.cursor, list)),
+      },
+      orderBy: TRIP_POSTS.orderBy,
       include: postInclude(viewerId),
-      ...pageArgs(query),
+      take: limit + 1,
     });
 
-    return toPage(posts, query, (post) => this.toResponse(post));
+    const page = buildPage(posts, limit, (post) =>
+      TRIP_POSTS.cursor(list, post),
+    );
+    return {
+      items: await Promise.all(page.items.map((post) => this.toResponse(post))),
+      nextCursor: page.nextCursor,
+    };
   }
 
   // The posts in the Saved tab, most recently saved first. Only ever the
-  // current user's own saves. The cursor is a post ID.
+  // current user's own saves.
   async listSaved(
     userId: string,
     query: PaginationQueryDto,
-  ): Promise<Page<PostResponse>> {
-    // Saves stay visible only while their trip is. Every saved post was
-    // visible when saved, and publishing can't be undone, so this is a guard.
-    const where: Prisma.PostSaveWhereInput = {
-      userId,
-      post: { trip: visibleTripWhere(userId) },
-    };
-    const key = (postId: string) => ({ userId_postId: { userId, postId } });
-    await assertCursorInList(query, (cursor) =>
-      this.prisma.postSave.findFirst({
-        where: { ...where, postId: cursor },
-        select: { postId: true },
-      }),
-    );
-
+  ): Promise<PaginatedResponse<PostResponse>> {
+    const list = `saved-posts:${userId}`;
+    const limit = pageLimit(query);
     const saves = await this.prisma.postSave.findMany({
-      where,
-      orderBy: [{ createdAt: 'desc' }, { postId: 'desc' }],
+      where: {
+        userId,
+        // Saves stay visible only while their trip is. Every saved post was
+        // visible when saved, and publishing can't be undone, so this is a
+        // guard.
+        post: { trip: visibleTripWhere(userId) },
+        ...SAVED_POSTS.after(SAVED_POSTS.decode(query.cursor, list)),
+      },
+      orderBy: SAVED_POSTS.orderBy,
       include: { post: { include: postInclude(userId) } },
-      ...keyedPageArgs(query, key),
+      take: limit + 1,
     });
 
-    return toPage(
-      saves,
-      query,
-      (save) => this.toResponse(save.post),
-      (save) => save.postId,
+    const page = buildPage(saves, limit, (save) =>
+      SAVED_POSTS.cursor(list, save),
     );
+    return {
+      items: await Promise.all(
+        page.items.map((save) => this.toResponse(save.post)),
+      ),
+      nextCursor: page.nextCursor,
+    };
   }
 
   // Takes a share lock on the trip (see trip-locks.ts) and re-reads it, since

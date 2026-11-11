@@ -377,10 +377,18 @@ describe('Posts (e2e)', () => {
         .set(as(other))
         .expect(404);
 
-      // A post from another trip isn't a valid cursor here
-      const elsewhere = await createPost();
+      // A cursor from another trip's posts isn't valid here
+      await createPost();
+      await createPost();
+      const elsewhere = await request(app.getHttpServer())
+        .get(`/api/trips/${trip.id}/posts?limit=1`)
+        .set(as(owner))
+        .expect(200);
+      const { nextCursor } = elsewhere.body as { nextCursor: string };
+      expect(nextCursor).toEqual(expect.any(String));
       await request(app.getHttpServer())
-        .get(`/api/trips/${listTrip.id}/posts?cursor=${elsewhere.id}`)
+        .get(`/api/trips/${listTrip.id}/posts`)
+        .query({ cursor: nextCursor })
         .set(as(owner))
         .expect(400);
     });

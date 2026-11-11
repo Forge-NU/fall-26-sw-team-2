@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { TripsService } from '../trips/trips.service';
 import { parseDateOnly } from '../common/dates';
+import { decodeCursor, encodeCursor } from '../common/pagination';
 import { PostsService } from './posts.service';
 import { CreatePostDto } from './dto/create-post.dto';
 
@@ -661,14 +662,42 @@ describe('PostsService', () => {
     });
 
     it('rejects a cursor from another trip', async () => {
-      prisma.post.findFirst.mockResolvedValue(null);
+      const visitedOn = parseDateOnly('2026-10-12');
+      const cursor = encodeCursor('posts:another-trip', [
+        visitedOn,
+        visitedOn,
+        postId,
+      ]);
       await expect(
-        service.listForTrip(ownerId, tripId, { cursor: postId }),
+        service.listForTrip(ownerId, tripId, { cursor }),
       ).rejects.toThrow('Invalid cursor');
-      expect(prisma.post.findFirst).toHaveBeenCalledWith({
-        where: { id: postId, tripId },
-        select: { id: true },
-      });
+      expect(prisma.post.findMany).not.toHaveBeenCalled();
+    });
+
+    it('starts the next page after the cursor, in trip order', async () => {
+      prisma.post.findMany.mockResolvedValue([]);
+      const visitedOn = parseDateOnly('2026-10-12');
+      const createdAt = new Date('2026-10-12T09:30:00.000Z');
+      const cursor = encodeCursor(`posts:${tripId}`, [
+        visitedOn,
+        createdAt,
+        postId,
+      ]);
+
+      await service.listForTrip(ownerId, tripId, { cursor });
+
+      expect(prisma.post.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            tripId,
+            OR: [
+              { visitedOn: { gt: visitedOn } },
+              { visitedOn, createdAt: { gt: createdAt } },
+              { visitedOn, createdAt, id: { gt: postId } },
+            ],
+          },
+        }),
+      );
     });
 
     it('lists posts in trip order', async () => {
@@ -739,33 +768,43 @@ describe('PostsService', () => {
       expect(page.nextCursor).toBeNull();
     });
 
-    it('pages by post ID within your own saves', async () => {
-      prisma.postSave.findFirst.mockResolvedValue({ postId });
+    it('starts after the cursor and returns the next one', async () => {
+      const savedAt = new Date('2026-10-20T12:00:00Z');
+      const cursor = encodeCursor('saved-posts:user_saver', [savedAt, 'a']);
       prisma.postSave.findMany.mockResolvedValue([
-        { postId, post: makePost() },
-        { postId: 'next', post: makePost({ id: 'next' }) },
+        { postId: 'b', createdAt: savedAt, post: makePost({ id: 'b' }) },
+        { postId: 'c', createdAt: savedAt, post: makePost({ id: 'c' }) },
       ]);
 
-      const page = await service.listSaved('user_saver', {
-        cursor: postId,
-        limit: 1,
-      });
+      const page = await service.listSaved('user_saver', { cursor, limit: 1 });
 
-      expect(prisma.postSave.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          cursor: { userId_postId: { userId: 'user_saver', postId } },
-          skip: 1,
-          take: 2,
-        }),
-      );
-      expect(page.nextCursor).toBe(postId);
+      const [args] = prisma.postSave.findMany.mock.calls[0] as [
+        { where: { OR: unknown }; orderBy: unknown; take: number },
+      ];
+      expect(args.where.OR).toEqual([
+        { createdAt: { lt: savedAt } },
+        { createdAt: savedAt, postId: { lt: 'a' } },
+      ]);
+      expect(args.orderBy).toEqual([{ createdAt: 'desc' }, { postId: 'desc' }]);
+      expect(args.take).toBe(2);
+      expect(page.items).toHaveLength(1);
+      expect(
+        decodeCursor(page.nextCursor!, 'saved-posts:user_saver', [
+          'date',
+          'string',
+        ]),
+      ).toEqual([savedAt, 'b']);
     });
 
-    it("rejects a cursor that isn't one of your saves", async () => {
-      prisma.postSave.findFirst.mockResolvedValue(null);
-      await expect(
-        service.listSaved('user_saver', { cursor: postId }),
-      ).rejects.toThrow('Invalid cursor');
+    it("rejects a cursor from someone else's list", async () => {
+      const cursor = encodeCursor('saved-posts:someone_else', [
+        new Date('2026-10-20T12:00:00Z'),
+        'a',
+      ]);
+      await expect(service.listSaved('user_saver', { cursor })).rejects.toThrow(
+        'Invalid cursor',
+      );
+      expect(prisma.postSave.findMany).not.toHaveBeenCalled();
     });
   });
 });

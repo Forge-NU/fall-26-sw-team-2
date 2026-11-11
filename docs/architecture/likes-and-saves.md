@@ -45,14 +45,14 @@ Likes and saves follow the trip's visibility ([`trip-rules.ts`](../../apps/api/s
 
 - Liking, saving, or listing the likes of something you can't see returns 404, the same as reading it. A draft doesn't leak.
 - An owner can like and save their own posts and trips, including drafts.
-- The saved lists only ever return the caller's own saves. They're under `/api/me`, and there's no route that takes another user's ID. A cursor that isn't one of your saves returns 400, so you can't page into someone else's list.
+- The saved lists only ever return the caller's own saves. They're under `/api/me`, and there's no route that takes another user's ID. A cursor from someone else's saved list returns 400, so you can't page into it.
 - The saved lists also filter on visibility. Every saved item was visible when it was saved, and publishing can't be undone, so this is only a guard.
 
 ## API Contracts
 
 All endpoints are under `/api` and need a Clerk session. Errors use the shared shape in [`api-conventions.md`](api-conventions.md#error-response-shape).
 
-List endpoints use the cursor pagination in [`itinerary-schema.md`](itinerary-schema.md#api-contracts): `?cursor=<from the last page>&limit=<1-50, default 20>` returns `{ "items": [...], "nextCursor": "..." | null }`. A cursor that doesn't belong to the list returns 400. The helper (`apps/api/src/common/pagination.ts`) is the stand-in until API-2 (#90).
+List endpoints use the cursor pagination in [`api-conventions.md`](api-conventions.md#cursor-based-pagination): `?cursor=<from the last page>&limit=<1-50, default 20>` returns `{ "items": [...], "nextCursor": "..." | null }`. The cursor is opaque, and a malformed one or one from another list returns 400 `Invalid cursor`.
 
 Response types are in `shared-types` (`LikeStatusResponse`, `PostLikerResponse`, `SaveStatusResponse`).
 
@@ -124,14 +124,12 @@ Response `200`:
       "likedAt": "2026-10-20T12:00:00.000Z"
     }
   ],
-  "nextCursor": "user_123" | null
+  "nextCursor": "eyJsaXN0Ijoi…" | null
 }
 ```
 
 - `isFollowing` is whether the viewer follows that user, for a follow button on the list.
-- The cursor is the liker's user ID (a Clerk ID, not a UUID).
-
-Errors: `404` as in `POST`, and `400` for a cursor that isn't a like on this post.
+Errors: `404` as in `POST`, and `400` for a cursor from another post's likers.
 
 ### Saves
 
@@ -159,19 +157,19 @@ Errors: `404` as in `POST`.
 
 #### `GET /api/me/saved/trips`
 
-Your saved trips, most recently saved first. Paginated, and the cursor is a trip ID.
+Your saved trips, most recently saved first. Paginated.
 
-Response `200`: `{ "items": Trip[], "nextCursor": "uuid" | null }`
+Response `200`: `{ "items": Trip[], "nextCursor": string | null }`
 
-Errors: `400` for a cursor that isn't one of your saved trips.
+Errors: `400` for a cursor from another list.
 
 #### `GET /api/me/saved/posts`
 
-Your saved posts, most recently saved first. Paginated, and the cursor is a post ID.
+Your saved posts, most recently saved first. Paginated.
 
-Response `200`: `{ "items": Post[], "nextCursor": "uuid" | null }`
+Response `200`: `{ "items": Post[], "nextCursor": string | null }`
 
-Errors: `400` for a cursor that isn't one of your saved posts.
+Errors: `400` for a cursor from another list.
 
 ## Mobile (INT-3)
 

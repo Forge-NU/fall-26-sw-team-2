@@ -12,7 +12,7 @@ import {
 import { ClerkAuthGuard } from '../auth/clerk-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { LikesService } from './likes.service';
-import { LikesQueryDto } from './dto/likes-query.dto';
+import { PaginationQueryDto } from '../common/pagination';
 
 @Controller('posts/:id')
 @UseGuards(ClerkAuthGuard)
@@ -37,7 +37,7 @@ export class LikesController {
   listLikers(
     @CurrentUser() userId: string,
     @Param('id', ParseUUIDPipe) id: string,
-    @Query() query: LikesQueryDto,
+    @Query() query: PaginationQueryDto,
   ) {
     return this.likesService.listLikers(userId, id, query);
   }

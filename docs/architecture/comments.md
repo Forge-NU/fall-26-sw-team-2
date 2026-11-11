@@ -72,7 +72,7 @@ Comments follow the post's trip ([`trip-rules.ts`](../../apps/api/src/trips/trip
 
 All endpoints are under `/api` and need a Clerk session. Errors use the shared shape in [`api-conventions.md`](api-conventions.md#error-response-shape).
 
-Lists use the cursor pagination in [`itinerary-schema.md`](itinerary-schema.md#api-contracts) (`?cursor=&limit=1-50`, default 20, `{ items, nextCursor }`). The cursor is a comment ID, and one from another list returns 400. The helper is the stand-in until API-2 (#90).
+Lists use the cursor pagination in [`api-conventions.md`](api-conventions.md#cursor-based-pagination) (`?cursor=&limit=1-50`, default 20, `{ items, nextCursor }`). The cursor is opaque, and a malformed one or one from another list returns 400 `Invalid cursor`.
 
 Types are in `shared-types` (`CommentResponse`, `CreateCommentRequest`).
 
@@ -117,17 +117,17 @@ Errors:
 
 The post's top-level comments, oldest first, each with `replyCount`. Replies aren't included; load them with the endpoint below.
 
-Response `200`: `{ "items": Comment[], "nextCursor": "uuid" | null }`
+Response `200`: `{ "items": Comment[], "nextCursor": string | null }`
 
-Errors: `404 Post not found`, and `400` for a cursor that isn't a top-level comment on this post.
+Errors: `404 Post not found`, and `400` for a cursor from another list.
 
 ### `GET /api/comments/:id/replies`
 
 A top-level comment's replies, oldest first.
 
-Response `200`: `{ "items": Comment[], "nextCursor": "uuid" | null }`
+Response `200`: `{ "items": Comment[], "nextCursor": string | null }`
 
-Errors: `404 Comment not found`, `400` if the comment is itself a reply (replies don't have replies), and `400` for a cursor that isn't one of its replies.
+Errors: `404 Comment not found`, `400` if the comment is itself a reply (replies don't have replies), and `400` for a cursor from another list.
 
 ### `DELETE /api/comments/:id`
 

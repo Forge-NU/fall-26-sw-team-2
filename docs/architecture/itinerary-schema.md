@@ -277,7 +277,7 @@ Errors use NestJS's default shape until API-1 (#28) adds the shared error filter
 
 Validation errors (400) return `message` as a list of strings. Unknown fields in a request body are rejected. Text limits are counted the way Postgres counts characters, so an emoji like ❤️ (heart plus a variation selector) counts as 2.
 
-List endpoints use cursor pagination: `?cursor=<from the last page>&limit=<1-50, default 20>` returns `{ "items": [...], "nextCursor": "..." | null }`. `nextCursor` is `null` on the last page. A cursor that doesn't belong to that list (unknown, deleted, or from another list) returns 400, and the app should reload from the first page. The helper is a stand-in until API-1 (#28) adds the shared one.
+List endpoints use cursor pagination: `?cursor=<from the last page>&limit=<1-50, default 20>` returns `{ "items": [...], "nextCursor": "..." | null }`. `nextCursor` is `null` on the last page. A malformed cursor, or one from another list, returns 400, and the app should reload from the first page. See "Cursor-Based Pagination" in [api-conventions.md](api-conventions.md).
 
 ### Shared response shapes
 

@@ -4,19 +4,18 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '../generated/prisma/client';
+import { Comment, Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
-  Page,
   PaginationQueryDto,
-  assertCursorInList,
-  pageArgs,
-  toPage,
+  buildPage,
+  keyset,
+  pageLimit,
 } from '../common/pagination';
 import { toUserSummary, userSummarySelect } from '../common/user-summary';
 import { StorageService } from '../storage/storage.service';
 import { canViewTrip } from '../trips/trip-rules';
-import type { CommentResponse } from 'shared-types';
+import type { CommentResponse, PaginatedResponse } from 'shared-types';
 import { CreateCommentDto } from './dto/create-comment.dto';
 
 const commentInclude = {
@@ -30,10 +29,15 @@ type CommentWithDetails = Prisma.CommentGetPayload<{
 }>;
 
 // Comments and replies read in conversation order, oldest first
-const COMMENT_ORDER = [
-  { createdAt: 'asc' },
-  { id: 'asc' },
-] satisfies Prisma.CommentOrderByWithRelationInput[];
+// Comments and replies, oldest first
+const COMMENTS = keyset<
+  Comment,
+  Prisma.CommentWhereInput,
+  Prisma.CommentOrderByWithRelationInput
+>([
+  { field: 'createdAt', direction: 'asc', type: 'date' },
+  { field: 'id', direction: 'asc', type: 'string' },
+]);
 
 const tripVisibilitySelect = {
   trip: { select: { ownerId: true, status: true } },
@@ -118,25 +122,14 @@ export class CommentsService {
     viewerId: string,
     postId: string,
     query: PaginationQueryDto,
-  ): Promise<Page<CommentResponse>> {
+  ): Promise<PaginatedResponse<CommentResponse>> {
     await this.assertCanViewPost(viewerId, postId);
 
-    const where = { postId, parentCommentId: null };
-    await assertCursorInList(query, (cursor) =>
-      this.prisma.comment.findFirst({
-        where: { ...where, id: cursor },
-        select: { id: true },
-      }),
+    return this.page(
+      { postId, parentCommentId: null },
+      `comments:${postId}`,
+      query,
     );
-
-    const comments = await this.prisma.comment.findMany({
-      where,
-      orderBy: COMMENT_ORDER,
-      include: commentInclude,
-      ...pageArgs(query),
-    });
-
-    return toPage(comments, query, (c) => this.toResponse(c));
   }
 
   // A top-level comment's replies, oldest first
@@ -144,7 +137,7 @@ export class CommentsService {
     viewerId: string,
     commentId: string,
     query: PaginationQueryDto,
-  ): Promise<Page<CommentResponse>> {
+  ): Promise<PaginatedResponse<CommentResponse>> {
     const comment = await this.getVisibleComment(viewerId, commentId);
     if (comment.parentCommentId) {
       throw new BadRequestException(
@@ -152,22 +145,34 @@ export class CommentsService {
       );
     }
 
-    const where = { parentCommentId: commentId };
-    await assertCursorInList(query, (cursor) =>
-      this.prisma.comment.findFirst({
-        where: { ...where, id: cursor },
-        select: { id: true },
-      }),
+    return this.page(
+      { parentCommentId: commentId },
+      `replies:${commentId}`,
+      query,
     );
+  }
 
-    const replies = await this.prisma.comment.findMany({
-      where,
-      orderBy: COMMENT_ORDER,
+  private async page(
+    where: Prisma.CommentWhereInput,
+    list: string,
+    query: PaginationQueryDto,
+  ): Promise<PaginatedResponse<CommentResponse>> {
+    const limit = pageLimit(query);
+    const comments = await this.prisma.comment.findMany({
+      where: {
+        ...where,
+        ...COMMENTS.after(COMMENTS.decode(query.cursor, list)),
+      },
+      orderBy: COMMENTS.orderBy,
       include: commentInclude,
-      ...pageArgs(query),
+      take: limit + 1,
     });
 
-    return toPage(replies, query, (c) => this.toResponse(c));
+    const page = buildPage(comments, limit, (c) => COMMENTS.cursor(list, c));
+    return {
+      items: await Promise.all(page.items.map((c) => this.toResponse(c))),
+      nextCursor: page.nextCursor,
+    };
   }
 
   // Only the author can delete a comment. Deleting a top-level comment

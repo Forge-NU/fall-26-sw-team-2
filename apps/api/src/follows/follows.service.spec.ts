@@ -1,7 +1,5 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { plainToInstance } from 'class-transformer';
-import { validate } from 'class-validator';
-import { FollowListQueryDto } from './dto/follow-list-query.dto';
+import { encodeCursor } from '../common/pagination';
 import { Prisma } from '../generated/prisma/client';
 import { FollowsService } from './follows.service';
 import type { PrismaService } from '../prisma/prisma.service';
@@ -206,12 +204,12 @@ describe('FollowsService', () => {
         expect(prisma.user.findMany).toHaveBeenLastCalledWith(
           expect.objectContaining({
             where: {
-              id: { gt: 'b' },
+              OR: [{ id: { gt: 'b' } }],
               ...(direction === 'followers'
                 ? { following: { some: { followingId: 'target' } } }
                 : { followers: { some: { followerId: 'target' } } }),
             },
-            orderBy: { id: 'asc' },
+            orderBy: [{ id: 'asc' }],
           }),
         );
       },
@@ -237,12 +235,8 @@ describe('FollowsService', () => {
     it.each([
       'invalid',
       '',
-      Buffer.from(
-        JSON.stringify({ id: 'a', userId: 'other', direction: 'followers' }),
-      ).toString('base64url'),
-      Buffer.from(
-        JSON.stringify({ id: 'a', userId: 'target', direction: 'following' }),
-      ).toString('base64url'),
+      encodeCursor('followers:other', ['a']),
+      encodeCursor('following:target', ['a']),
     ])('rejects malformed or mismatched cursors', async (cursor) => {
       const { prisma, service } = setup();
       await expect(
@@ -255,23 +249,6 @@ describe('FollowsService', () => {
     });
   });
 
-  describe('list query validation', () => {
-    it('defaults to 20 and converts numeric query strings', async () => {
-      expect(plainToInstance(FollowListQueryDto, {}).limit).toBe(20);
-      const query = plainToInstance(FollowListQueryDto, { limit: '100' });
-      expect(query.limit).toBe(100);
-      expect(await validate(query)).toEqual([]);
-    });
-    it.each(['0', '-1', '101', '1.5', 'abc', ''])(
-      'rejects invalid limit %s',
-      async (limit) => {
-        expect(
-          (await validate(plainToInstance(FollowListQueryDto, { limit })))
-            .length,
-        ).toBeGreaterThan(0);
-      },
-    );
-  });
   it('rejects self-follow without writing to the database', async () => {
     const prisma = {
       user: {

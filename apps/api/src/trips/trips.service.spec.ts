@@ -7,6 +7,7 @@ import { Test } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { parseDateOnly } from '../common/dates';
+import { decodeCursor, encodeCursor } from '../common/pagination';
 import { TripsService } from './trips.service';
 
 const owner = {
@@ -464,21 +465,42 @@ describe('TripsService', () => {
         expect.objectContaining({ take: 3 }),
       );
       expect(page.items.map((t) => t.id)).toEqual(['a', 'b']);
-      expect(page.nextCursor).toBe('b');
+      expect(
+        decodeCursor(page.nextCursor!, `trips:${owner.id}`, ['date', 'string']),
+      ).toEqual([parseDateOnly('2026-10-12'), 'b']);
     });
 
-    it('rejects a cursor that is not in the list', async () => {
+    it('starts the next page after the cursor, newest first', async () => {
       prisma.user.findUnique.mockResolvedValue({ id: owner.id });
-      prisma.trip.findFirst.mockResolvedValue(null);
-      await expect(
-        service.listForUser('user_other', owner.id, {
-          cursor: makeTrip().id,
+      prisma.trip.findMany.mockResolvedValue([]);
+      const startDate = parseDateOnly('2026-10-12');
+      const cursor = encodeCursor(`trips:${owner.id}`, [startDate, 'b']);
+
+      await service.listForUser(owner.id, owner.id, { cursor });
+
+      expect(prisma.trip.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            ownerId: owner.id,
+            OR: [
+              { startDate: { lt: startDate } },
+              { startDate, id: { lt: 'b' } },
+            ],
+          },
+          orderBy: [{ startDate: 'desc' }, { id: 'desc' }],
         }),
+      );
+    });
+
+    it("rejects a cursor from another user's trips", async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: owner.id });
+      const cursor = encodeCursor('trips:user_other', [
+        parseDateOnly('2026-10-12'),
+        'b',
+      ]);
+      await expect(
+        service.listForUser('user_other', owner.id, { cursor }),
       ).rejects.toThrow('Invalid cursor');
-      expect(prisma.trip.findFirst).toHaveBeenCalledWith({
-        where: { id: makeTrip().id, ownerId: owner.id, status: 'published' },
-        select: { id: true },
-      });
       expect(prisma.trip.findMany).not.toHaveBeenCalled();
     });
 
@@ -537,34 +559,42 @@ describe('TripsService', () => {
       expect(page.nextCursor).toBeNull();
     });
 
-    it('pages by trip ID within your own saves', async () => {
-      prisma.tripSave.findFirst.mockResolvedValue({ tripId });
+    it('starts after the cursor and returns the next one', async () => {
+      const savedAt = new Date('2026-10-20T12:00:00Z');
+      const cursor = encodeCursor('saved-trips:user_saver', [savedAt, 'a']);
       prisma.tripSave.findMany.mockResolvedValue([
-        { tripId, trip: makeTrip() },
-        { tripId: 'next', trip: makeTrip({ id: 'next' }) },
+        { tripId: 'b', createdAt: savedAt, trip: makeTrip({ id: 'b' }) },
+        { tripId: 'c', createdAt: savedAt, trip: makeTrip({ id: 'c' }) },
       ]);
 
-      const page = await service.listSaved('user_saver', {
-        cursor: tripId,
-        limit: 1,
-      });
+      const page = await service.listSaved('user_saver', { cursor, limit: 1 });
 
-      expect(prisma.tripSave.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          cursor: { userId_tripId: { userId: 'user_saver', tripId } },
-          skip: 1,
-          take: 2,
-        }),
-      );
+      const [args] = prisma.tripSave.findMany.mock.calls[0] as [
+        { where: { OR: unknown }; orderBy: unknown; take: number },
+      ];
+      expect(args.where.OR).toEqual([
+        { createdAt: { lt: savedAt } },
+        { createdAt: savedAt, tripId: { lt: 'a' } },
+      ]);
+      expect(args.orderBy).toEqual([{ createdAt: 'desc' }, { tripId: 'desc' }]);
+      expect(args.take).toBe(2);
       expect(page.items).toHaveLength(1);
-      expect(page.nextCursor).toBe(tripId);
+      expect(
+        decodeCursor(page.nextCursor!, 'saved-trips:user_saver', [
+          'date',
+          'string',
+        ]),
+      ).toEqual([savedAt, 'b']);
     });
 
-    it("rejects a cursor that isn't one of your saves", async () => {
-      prisma.tripSave.findFirst.mockResolvedValue(null);
-      await expect(
-        service.listSaved('user_saver', { cursor: tripId }),
-      ).rejects.toThrow('Invalid cursor');
+    it("rejects a cursor from someone else's list", async () => {
+      const cursor = encodeCursor('saved-trips:someone_else', [
+        new Date('2026-10-20T12:00:00Z'),
+        'a',
+      ]);
+      await expect(service.listSaved('user_saver', { cursor })).rejects.toThrow(
+        'Invalid cursor',
+      );
       expect(prisma.tripSave.findMany).not.toHaveBeenCalled();
     });
   });
