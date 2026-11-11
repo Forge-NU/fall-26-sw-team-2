@@ -2,12 +2,13 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import type { PostResponse, TripResponse } from 'shared-types';
+import type { PostResponse, StoryResponse, TripResponse } from 'shared-types';
 
 import { StatRow } from '@/components/content/stat-row';
 import { UserRow } from '@/components/content/user-row';
 import { PostDraftsBanner } from '@/components/posts/post-drafts-banner';
 import { DayPosts } from '@/components/trips/day-posts';
+import { DayStories } from '@/components/trips/day-stories';
 import { tripErrorState } from '@/components/trips/trip-error-state';
 import { AppText } from '@/components/ui/app-text';
 import { Button } from '@/components/ui/button';
@@ -19,8 +20,10 @@ import { Screen } from '@/components/ui/screen';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Palette } from '@/constants/palette';
 import { Radii, Spacing, Typography } from '@/constants/theme';
+import { useTripStories } from '@/hooks/use-stories';
 import { useTrip, useTripPosts } from '@/hooks/use-trips';
 import { useCurrentUser } from '@/lib/current-user';
+import { storiesOnDay } from '@/lib/stories';
 import { isActiveTrip } from '@/lib/trips';
 import {
   formatDate,
@@ -36,6 +39,8 @@ export default function TripScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const trip = useTrip(id);
   const posts = useTripPosts(id);
+  // Not part of loading or errors: the page works without its stories
+  const stories = useTripStories(id);
   const user = useCurrentUser();
 
   const isOwner = trip.data?.owner.id === user.id;
@@ -43,6 +48,7 @@ export default function TripScreen() {
   const refetch = () => {
     void trip.refetch();
     void posts.refetch();
+    void stories.refetch();
   };
 
   return (
@@ -69,6 +75,7 @@ export default function TripScreen() {
         <TripBody
           trip={trip.data}
           posts={posts.data}
+          stories={stories.data ?? []}
           isOwner={isOwner}
           refreshing={trip.isRefetching || posts.isRefetching}
           onRefresh={refetch}
@@ -81,19 +88,24 @@ export default function TripScreen() {
 type TripBodyProps = {
   trip: TripResponse;
   posts: PostResponse[];
+  /** Kept stories ("Add to trip"), including ones that left the stories bar */
+  stories: StoryResponse[];
   isOwner: boolean;
   refreshing: boolean;
   onRefresh: () => void;
 };
 
-function TripBody({ trip, posts, isOwner, refreshing, onRefresh }: TripBodyProps) {
+function TripBody({ trip, posts, stories, isOwner, refreshing, onRefresh }: TripBodyProps) {
   const today = todayLocalIso();
   const days = tripDays(trip.startDate, trip.endDate);
   const active = isActiveTrip(trip, today);
-  const [selectedDay, setSelectedDay] = useState(() => defaultDay(trip, posts, today));
+  // Null until the user picks a day, so the default can use stories that load after the page
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const fallbackDay = defaultDay(trip, posts, stories, today);
   // The trip's dates can change under the selection after an edit
-  const day = days.includes(selectedDay) ? selectedDay : days[0];
+  const day = [selectedDay, fallbackDay].find((d): d is string => d !== null && days.includes(d)) ?? days[0];
   const dayPosts = posts.filter((post) => post.visitedOn === day);
+  const dayStories = storiesOnDay(stories, day);
   const places = new Set(posts.map((post) => post.location?.id ?? post.customLocationName)).size;
 
   const addPost = () =>
@@ -133,7 +145,7 @@ function TripBody({ trip, posts, isOwner, refreshing, onRefresh }: TripBodyProps
 
         <Cover trip={trip} />
 
-        {posts.length === 0 ? (
+        {posts.length === 0 && stories.length === 0 ? (
           <EmptyState
             icon="images-outline"
             title="No posts yet"
@@ -170,9 +182,11 @@ function TripBody({ trip, posts, isOwner, refreshing, onRefresh }: TripBodyProps
               </AppText>
             </View>
 
+            {dayStories.length > 0 ? <DayStories tripId={trip.id} day={day} stories={dayStories} /> : null}
+
             {dayPosts.length > 0 ? (
               <DayPosts posts={dayPosts} />
-            ) : (
+            ) : dayStories.length > 0 ? null : (
               <AppText variant="label" style={[styles.muted, styles.center]}>
                 Nothing on this day yet.
               </AppText>
@@ -234,10 +248,11 @@ function statusPill(trip: TripResponse, active: boolean, today: string): { label
   return { label: 'In progress', state: 'default' };
 }
 
-// Today on an active trip, otherwise the first day with posts
-function defaultDay(trip: TripResponse, posts: PostResponse[], today: string): string {
+// Today on an active trip, otherwise the first day with posts or stories
+function defaultDay(trip: TripResponse, posts: PostResponse[], stories: StoryResponse[], today: string): string {
   if (isActiveTrip(trip, today)) return today;
-  return posts[0]?.visitedOn ?? trip.startDate;
+  const firstDays = [posts[0]?.visitedOn, stories[0]?.storyDate].filter((d): d is string => Boolean(d));
+  return firstDays.sort()[0] ?? trip.startDate;
 }
 
 const styles = StyleSheet.create({

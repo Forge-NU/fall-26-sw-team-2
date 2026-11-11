@@ -3,10 +3,21 @@ import type { LocationResponse } from './locations.js';
 
 // Story contracts (docs/architecture/stories.md).
 
+/** The trip a story links to, when the viewer can open it */
+export type StoryTrip = {
+  id: string;
+  title: string;
+};
+
 export type StoryResponse = {
   id: string;
   owner: UserSummary;
   tripId: string | null;
+  /**
+   * The linked trip, only when the viewer can see it (their own trip, or a
+   * published one). Null for someone else's draft, so its title stays private.
+   */
+  trip: StoryTrip | null;
   text: string | null;
   location: LocationResponse | null;
   customLocationName: string | null;

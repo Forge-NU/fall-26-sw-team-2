@@ -77,6 +77,7 @@ Cascades remove rows, not S3 objects. Every delete that removes stories has to d
 - **Active story** (`expires_at > now()`): public, including when its trip is still a draft. It shows in the stories bar of its owner and everyone who follows them.
 - **Expired and kept:** visible only on its trip's page, to whoever can see the trip (`canViewTrip`: anyone once the trip is published, otherwise only the owner).
 - **Expired and not kept:** never returned. The cleanup job deletes it.
+- **The linked trip** (`trip` on a `StoryResponse`, #25 STORY-3): `{ id, title }` only when the viewer can see the trip (`canViewTrip`). An active story's trip is always a draft, so followers get `null` until the trip is published, and a draft's title never leaves the owner. `tripId` is always returned. The stories viewer shows a link to the trip page only when `trip` is set.
 
 Reads filter on `expires_at` themselves, so a story disappears on time even if the cleanup job hasn't run yet.
 
@@ -93,6 +94,7 @@ type StoryResponse = {
   id: string;
   owner: UserSummary;            // { id, username, firstName, lastName, avatarUrl }
   tripId: string | null;
+  trip: StoryTrip | null;        // { id, title }, only when the viewer can see the trip (see below)
   text: string | null;
   location: LocationResponse | null; // same type as posts (shared-types `locations.ts`)
   customLocationName: string | null;
@@ -102,6 +104,8 @@ type StoryResponse = {
   expiresAt: string;             // ISO 8601
   createdAt: string;
 };
+
+type StoryTrip = { id: string; title: string };
 
 type StoryGroup = { owner: UserSummary; stories: StoryResponse[] };
 
