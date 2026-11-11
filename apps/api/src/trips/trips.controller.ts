@@ -37,6 +37,12 @@ export class TripsController {
     return this.tripsService.listActive(userId, query.date);
   }
 
+  // The current user's saved trips. There's no route for anyone else's.
+  @Get('me/saved/trips')
+  listSaved(@CurrentUser() userId: string, @Query() query: PaginationQueryDto) {
+    return this.tripsService.listSaved(userId, query);
+  }
+
   @Get('users/:userId/trips')
   listForUser(
     @CurrentUser() currentUserId: string,
