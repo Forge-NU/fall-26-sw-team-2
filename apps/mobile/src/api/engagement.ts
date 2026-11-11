@@ -154,6 +154,7 @@ const mockPosts: PostResponse[] = [
   media: [],
   likeCount: 3 + i,
   saveCount: 1,
+  commentCount: 0,
   likedByMe: false,
   savedByMe: true,
   createdAt: `2026-09-1${i}T18:00:00.000Z`,
