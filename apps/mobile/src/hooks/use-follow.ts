@@ -1,9 +1,16 @@
 import { useMutation, useQueryClient, type InfiniteData, type QueryKey } from '@tanstack/react-query';
-import type { FollowListUser, FollowStatus, PaginatedResponse, UserResponse } from 'shared-types';
+import type {
+  FollowListUser,
+  FollowStatus,
+  PaginatedResponse,
+  SearchPage,
+  SearchPreview,
+  UserResponse,
+} from 'shared-types';
 
 import { followUser, unfollowUser } from '@/api/profiles';
 import { queryKeys } from '@/api/query-keys';
-import { adjustCount, setFollowingInPages } from '@/lib/follow-cache';
+import { adjustCount, setFollowingInPages, setFollowingInPreview, setFollowingInSearch } from '@/lib/follow-cache';
 
 type FollowPages = InfiniteData<PaginatedResponse<FollowListUser>>;
 
@@ -11,8 +18,8 @@ const isFollowList = (key: QueryKey) => key[0] === 'users' && (key[2] === 'follo
 
 /**
  * Follows or unfollows `userId` optimistically: the button, the counts on both
- * profiles and every loaded follow list change at once, and change back (with the
- * mutation's error toast) if the request fails.
+ * profiles, every loaded follow list and people search results change at once,
+ * and change back (with the mutation's error toast) if the request fails.
  */
 export function useFollow(userId: string) {
   const queryClient = useQueryClient();
@@ -30,6 +37,13 @@ export function useFollow(userId: string) {
     queryClient.setQueriesData<FollowPages>({ predicate: (query) => isFollowList(query.queryKey) }, (data) =>
       setFollowingInPages(data, userId, follow),
     );
+    // People search on the Map tab (SRCH-2)
+    queryClient.setQueriesData<InfiniteData<SearchPage<'people'>>>({ queryKey: queryKeys.searchPeople }, (data) =>
+      setFollowingInSearch(data, userId, follow),
+    );
+    queryClient.setQueriesData<SearchPreview>({ queryKey: queryKeys.searchPreview }, (data) =>
+      setFollowingInPreview(data, userId, follow),
+    );
   };
 
   const mutation = useMutation({
@@ -40,6 +54,8 @@ export function useFollow(userId: string) {
           queryClient.cancelQueries({ queryKey, exact: true }),
         ),
         queryClient.cancelQueries({ predicate: (query) => isFollowList(query.queryKey) }),
+        // People searches aren't cancelled: one cut off mid-typing wouldn't run again.
+        // A response that started before this follow is corrected by the refetch in onSettled.
       ]);
       apply(follow);
     },
@@ -53,6 +69,9 @@ export function useFollow(userId: string) {
         predicate: (query) => isFollowList(query.queryKey),
         refetchType: 'none',
       });
+      // The search on screen refetches (a follow doesn't remove anyone from it); older ones on next use
+      void queryClient.invalidateQueries({ queryKey: queryKeys.searchPeople });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.searchPreview });
     },
   });
 

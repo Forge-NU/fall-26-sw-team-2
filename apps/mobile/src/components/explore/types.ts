@@ -6,9 +6,6 @@ export type ZoomLevel = 'world' | 'region' | 'city';
 export type Category = 'food' | 'hotels' | 'sightseeing' | 'activities';
 export type CategoryFilter = 'all' | Category;
 
-export type ResultKind = 'destination' | 'place' | 'activity';
-export type KindFilter = 'all' | ResultKind;
-
 export interface LatLng {
   latitude: number;
   longitude: number;
@@ -80,13 +77,4 @@ export interface PinItem {
   stats: Stats;
   zoomDelta: number;
   place?: Place;
-}
-
-export interface SearchResult {
-  id: string;
-  kind: ResultKind;
-  title: string;
-  subtitle: string;
-  statsLine: string;
-  target: { type: 'area'; area: Area } | { type: 'place'; place: Place };
 }
