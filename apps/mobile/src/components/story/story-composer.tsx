@@ -15,7 +15,7 @@ import { Toggle } from '@/components/ui/toggle';
 import { StoryTokens } from '@/constants/story-tokens';
 import { Palette, Radii, Spacing } from '@/constants/theme';
 import { useStoryComposer } from '@/hooks/use-story-composer';
-import { formatDay, formatRange, tripDayNumber } from '@/utils/dates';
+import { formatDate, formatDateRange, tripDayNumber } from '@/utils/local-date';
 
 type Sheet = 'trip' | 'new-trip' | 'date' | null;
 
@@ -32,7 +32,7 @@ export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; 
   const { trip, storyDate } = composer;
 
   const tripDetail = trip
-    ? `${formatRange(trip.startDate, trip.endDate)} · ${tripStatusLabel(trip)}`
+    ? `${formatDateRange(trip.startDate, trip.endDate)} · ${tripStatusLabel(trip)}`
     : composer.tripsLoading
       ? 'Loading your trips…'
       : composer.tripsError
@@ -177,7 +177,7 @@ export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; 
               <Icon name="calendar" size={16} color="coral" />
               <View style={styles.grow}>
                 <AppText variant="caption">
-                  {`${formatDay(storyDate)} · Day ${tripDayNumber(storyDate, trip.startDate)}`}
+                  {`${formatDate(storyDate)} · Day ${tripDayNumber(trip.startDate, storyDate)}`}
                 </AppText>
                 <AppText variant="caption" color="placeholderGray">
                   {storyDate === composer.today ? 'Today · editable' : 'Picked manually · editable'}

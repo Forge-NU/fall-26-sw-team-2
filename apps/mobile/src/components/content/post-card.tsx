@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 import type { PostResponse } from "shared-types";
 import { AppText } from "@/components/ui/app-text";
 import { CardLink } from "./card-link";
-import { formatDate } from "./format-date";
+import { formatDate } from "@/utils/local-date";
 import { UserRow } from "./user-row";
 import { StatRow, type Stat } from "./stat-row";
 import { MediaCarousel, type Photo } from "./media-carousel";

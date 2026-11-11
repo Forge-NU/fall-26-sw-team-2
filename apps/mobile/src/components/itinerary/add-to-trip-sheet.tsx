@@ -3,7 +3,7 @@ import { Alert } from 'react-native';
 import { TripChooserSheet, type ChooserTrip } from '@/components/trip-chooser-sheet';
 import { useToast } from '@/components/ui/toast-provider';
 import { UnpublishedTrips, type ActiveTrip } from '@/data/mock';
-import { isWithin, toIsoDate } from '@/utils/dates';
+import { isDateWithin, todayLocalIso } from '@/utils/local-date';
 
 type AddToTripSheetProps = {
   visible: boolean;
@@ -23,8 +23,8 @@ const chooserTrips: ChooserTrip[] = UnpublishedTrips.map((trip) => ({
 }));
 
 function tripStatus(trip: ChooserTrip) {
-  const today = toIsoDate(new Date());
-  if (isWithin(today, trip.startDate, trip.endDate)) return 'In progress';
+  const today = todayLocalIso();
+  if (isDateWithin(today, trip.startDate, trip.endDate)) return 'In progress';
   return today < trip.startDate ? 'Upcoming' : 'Ended';
 }
 

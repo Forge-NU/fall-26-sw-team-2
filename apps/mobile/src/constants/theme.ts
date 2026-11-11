@@ -20,6 +20,8 @@ const light = {
   accent: Palette.teal,
   border: Palette.lightPink,
   notification: Palette.coral,
+  // Dimmed backdrop behind sheets and dialogs
+  scrim: 'rgba(0, 0, 0, 0.35)',
 } as const;
 export const Colors = { light, dark: light } as const;
 export type ThemeColor = keyof typeof light;
