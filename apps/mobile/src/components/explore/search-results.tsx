@@ -2,7 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ReactNode } from 'react';
 import { ActivityIndicator, Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
 
-import type { SearchPerson, SearchPlace } from '@/api/search-types';
+import type { SearchPerson, SearchPlace } from 'shared-types';
 import { UserRow } from '@/components/content/user-row';
 import { aggregate } from '@/components/explore/explore-stats';
 import { colors, formatCount, radius } from '@/components/explore/explore-theme';

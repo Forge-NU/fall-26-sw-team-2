@@ -3,7 +3,7 @@
 import { apiGet } from '@/api/client';
 import { mockDelay, mockPage, withMock } from '@/api/mock';
 import { mockSearchPeople } from '@/api/profiles';
-import type { SearchItems, SearchPage, SearchPlace } from '@/api/search-types';
+import type { SearchItems, SearchPage, SearchPlace } from 'shared-types';
 import { AREA_BY_ID, COUNTRY_BY_ID, PLACES } from '@/components/explore/mock-data';
 import { normalizeSearchText } from '@/utils/search-text';
 

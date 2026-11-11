@@ -1,9 +1,8 @@
 import { useMutation, useQueryClient, type InfiniteData, type QueryKey } from '@tanstack/react-query';
-import type { FollowListUser, FollowStatus, PaginatedResponse, UserResponse } from 'shared-types';
+import type { FollowListUser, FollowStatus, PaginatedResponse, UserResponse , SearchPage } from 'shared-types';
 
 import { followUser, unfollowUser } from '@/api/profiles';
 import { queryKeys } from '@/api/query-keys';
-import type { SearchPage } from '@/api/search-types';
 import { adjustCount, setFollowingInPages, setFollowingInSearch } from '@/lib/follow-cache';
 
 type FollowPages = InfiniteData<PaginatedResponse<FollowListUser>>;

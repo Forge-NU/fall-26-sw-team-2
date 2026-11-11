@@ -5,7 +5,7 @@ import { Animated, Keyboard, Platform, Pressable, StyleSheet, Text, View } from 
 import MapView, { type Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import type { SearchPerson, SearchPlace } from '@/api/search-types';
+import type { SearchPerson, SearchPlace } from 'shared-types';
 
 import { savedPlaces, useSavedPlaces } from '@/components/saved/saved-places';
 import { AudienceToggle } from '@/components/explore/audience-toggle';
