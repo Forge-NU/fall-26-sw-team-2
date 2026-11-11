@@ -20,7 +20,7 @@ async function main() {
       readFileSync(
         join(
           __dirname,
-          '../prisma/migrations/20261103120000_advanced_search/migration.sql',
+          '../prisma/migrations/20261111120000_advanced_search/migration.sql',
         ),
         'utf8',
       ),
