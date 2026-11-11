@@ -4,14 +4,19 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, Trip } from '../generated/prisma/client';
+import { PostSave, Prisma, Trip } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { formatDateOnly, parseDateOnly } from '../common/dates';
-import { PaginationQueryDto, buildPage, pageLimit } from '../common/pagination';
+import {
+  PaginationQueryDto,
+  buildPage,
+  keyset,
+  pageLimit,
+} from '../common/pagination';
 import { toUserSummary, userSummarySelect } from '../common/user-summary';
 import { TRIP_POSTS, TripsService } from '../trips/trips.service';
-import { canViewTrip } from '../trips/trip-rules';
+import { canViewTrip, visibleTripWhere } from '../trips/trip-rules';
 import { lockTripForShare } from '../trips/trip-locks';
 import { toLocation } from '../locations/locations.service';
 import { refreshLocationRatings } from '../locations/location-ratings';
@@ -20,21 +25,40 @@ import { MediaItemDto } from './dto/media-item.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import type { PaginatedResponse, PostResponse } from 'shared-types';
 
-const postInclude = {
-  trip: {
-    select: {
-      ownerId: true,
-      status: true,
-      startDate: true,
-      endDate: true,
-      owner: { select: userSummarySelect },
+// `viewerId` is who's reading, for likedByMe and savedByMe. Each of those
+// relations has at most one row for them (it's the primary key).
+function postInclude(viewerId: string) {
+  return {
+    trip: {
+      select: {
+        ownerId: true,
+        status: true,
+        startDate: true,
+        endDate: true,
+        owner: { select: userSummarySelect },
+      },
     },
-  },
-  location: true,
-  media: { orderBy: { position: 'asc' } },
-} satisfies Prisma.PostInclude;
+    location: true,
+    media: { orderBy: { position: 'asc' } },
+    _count: { select: { likes: true, saves: true, comments: true } },
+    likes: { where: { userId: viewerId }, select: { userId: true } },
+    saves: { where: { userId: viewerId }, select: { userId: true } },
+  } satisfies Prisma.PostInclude;
+}
 
-type PostWithDetails = Prisma.PostGetPayload<{ include: typeof postInclude }>;
+type PostWithDetails = Prisma.PostGetPayload<{
+  include: ReturnType<typeof postInclude>;
+}>;
+
+// One user's saved posts, most recently saved first
+const SAVED_POSTS = keyset<
+  PostSave,
+  Prisma.PostSaveWhereInput,
+  Prisma.PostSaveOrderByWithRelationInput
+>([
+  { field: 'createdAt', direction: 'desc', type: 'date' },
+  { field: 'postId', direction: 'desc', type: 'string' },
+]);
 
 const CUSTOM_LOCATION_RATING =
   'Only posts at a Mapbox place can be rated, not a custom location';
@@ -83,7 +107,7 @@ export class PostsService {
             rating: dto.rating ?? null,
             media: { create: toMediaRows(dto.media) },
           },
-          include: postInclude,
+          include: postInclude(userId),
         });
 
         // Only a rating in a published trip counts toward the place. The
@@ -93,7 +117,7 @@ export class PostsService {
         // Read after the refresh, so the place's rating includes this post
         return tx.post.findUniqueOrThrow({
           where: { id: created.id },
-          include: postInclude,
+          include: postInclude(userId),
         });
       }),
     );
@@ -104,7 +128,7 @@ export class PostsService {
   async findOne(viewerId: string, id: string): Promise<PostResponse> {
     const post = await this.prisma.post.findUnique({
       where: { id },
-      include: postInclude,
+      include: postInclude(viewerId),
     });
 
     if (!post || !canViewTrip(viewerId, post.trip)) {
@@ -112,6 +136,22 @@ export class PostsService {
     }
 
     return this.toResponse(post);
+  }
+
+  // Several posts in one query, keyed by id, for callers that already have
+  // the ids (search). Posts the viewer can't see, or that no longer exist,
+  // are left out rather than thrown.
+  async findManyForViewer(
+    viewerId: string,
+    ids: string[],
+  ): Promise<Map<string, PostResponse>> {
+    const posts = await this.prisma.post.findMany({
+      where: { id: { in: ids } },
+      include: postInclude(viewerId),
+    });
+    const visible = posts.filter((post) => canViewTrip(viewerId, post.trip));
+    const items = await Promise.all(visible.map((p) => this.toResponse(p)));
+    return new Map(items.map((item) => [item.id, item]));
   }
 
   async update(
@@ -206,7 +246,7 @@ export class PostsService {
             // Prisma doesn't bump @updatedAt for a media-only change
             updatedAt: new Date(),
           },
-          include: postInclude,
+          include: postInclude(userId),
         });
 
         if (!refreshPlaces) return { updated: edited, removedKeys };
@@ -214,7 +254,7 @@ export class PostsService {
         // Read after the refresh, so the place's rating includes this edit
         const updated = await tx.post.findUniqueOrThrow({
           where: { id },
-          include: postInclude,
+          include: postInclude(userId),
         });
 
         return { updated, removedKeys };
@@ -274,7 +314,7 @@ export class PostsService {
         ...TRIP_POSTS.after(TRIP_POSTS.decode(query.cursor, list)),
       },
       orderBy: TRIP_POSTS.orderBy,
-      include: postInclude,
+      include: postInclude(viewerId),
       take: limit + 1,
     });
 
@@ -283,6 +323,39 @@ export class PostsService {
     );
     return {
       items: await Promise.all(page.items.map((post) => this.toResponse(post))),
+      nextCursor: page.nextCursor,
+    };
+  }
+
+  // The posts in the Saved tab, most recently saved first. Only ever the
+  // current user's own saves.
+  async listSaved(
+    userId: string,
+    query: PaginationQueryDto,
+  ): Promise<PaginatedResponse<PostResponse>> {
+    const list = `saved-posts:${userId}`;
+    const limit = pageLimit(query);
+    const saves = await this.prisma.postSave.findMany({
+      where: {
+        userId,
+        // Saves stay visible only while their trip is. Every saved post was
+        // visible when saved, and publishing can't be undone, so this is a
+        // guard.
+        post: { trip: visibleTripWhere(userId) },
+        ...SAVED_POSTS.after(SAVED_POSTS.decode(query.cursor, list)),
+      },
+      orderBy: SAVED_POSTS.orderBy,
+      include: { post: { include: postInclude(userId) } },
+      take: limit + 1,
+    });
+
+    const page = buildPage(saves, limit, (save) =>
+      SAVED_POSTS.cursor(list, save),
+    );
+    return {
+      items: await Promise.all(
+        page.items.map((save) => this.toResponse(save.post)),
+      ),
       nextCursor: page.nextCursor,
     };
   }
@@ -315,7 +388,7 @@ export class PostsService {
   private async getOwnedPost(userId: string, id: string) {
     const post = await this.prisma.post.findUnique({
       where: { id },
-      include: postInclude,
+      include: postInclude(userId),
     });
 
     if (!post || !canViewTrip(userId, post.trip)) {
@@ -412,6 +485,11 @@ export class PostsService {
           durationMs: m.durationMs,
         })),
       ),
+      likeCount: post._count.likes,
+      saveCount: post._count.saves,
+      commentCount: post._count.comments,
+      likedByMe: post.likes.length > 0,
+      savedByMe: post.saves.length > 0,
       createdAt: post.createdAt.toISOString(),
       updatedAt: post.updatedAt.toISOString(),
     };

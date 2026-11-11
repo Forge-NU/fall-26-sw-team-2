@@ -8,7 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { TripsService } from '../trips/trips.service';
 import { parseDateOnly } from '../common/dates';
-import { encodeCursor } from '../common/pagination';
+import { decodeCursor, encodeCursor } from '../common/pagination';
 import { PostsService } from './posts.service';
 import { CreatePostDto } from './dto/create-post.dto';
 
@@ -48,6 +48,9 @@ function makePost(overrides: Record<string, unknown> = {}) {
     updatedAt: new Date('2026-10-13T12:00:00Z'),
     trip: { ...makeTrip(), owner },
     location: null,
+    _count: { likes: 0, saves: 0, comments: 0 },
+    likes: [],
+    saves: [],
     media: [
       {
         id: 'm1',
@@ -94,6 +97,7 @@ describe('PostsService', () => {
       deleteMany: jest.fn(),
     },
     postMedia: { findMany: jest.fn(), deleteMany: jest.fn() },
+    postSave: { findFirst: jest.fn(), findMany: jest.fn() },
     location: { findUnique: jest.fn() },
     $transaction: jest.fn(),
     $queryRaw: jest.fn(),
@@ -336,6 +340,30 @@ describe('PostsService', () => {
         await rejects(['users/user_other/posts/a.jpg']);
         expect(prisma.post.create).not.toHaveBeenCalled();
       });
+    });
+  });
+
+  describe('findManyForViewer', () => {
+    it('loads every id in one query and leaves out posts you cannot see', async () => {
+      const visible = makePost({
+        trip: { ...makeTrip(), status: 'published', owner },
+      });
+      const inOthersDraft = makePost({
+        id: '99999999-9999-4999-8999-999999999999',
+        trip: { ...makeTrip(), status: 'draft', owner },
+      });
+      prisma.post.findMany.mockResolvedValue([visible, inOthersDraft]);
+
+      const posts = await service.findManyForViewer('user_other', [
+        visible.id,
+        inOthersDraft.id,
+      ]);
+
+      expect(prisma.post.findMany).toHaveBeenCalledTimes(1);
+      expect([...posts.keys()]).toEqual([visible.id]);
+      expect(posts.get(visible.id)?.media[0].url).toBe(
+        `https://s3/users/${ownerId}/posts/a.jpg`,
+      );
     });
   });
 
@@ -682,6 +710,101 @@ describe('PostsService', () => {
         }),
       );
       expect(page.nextCursor).toBeNull();
+    });
+  });
+
+  describe('counts and viewer flags', () => {
+    it("returns like and save counts and whether you've liked or saved it", async () => {
+      prisma.post.findUnique.mockResolvedValue(
+        makePost({
+          _count: { likes: 7, saves: 2, comments: 5 },
+          likes: [{ userId: ownerId }],
+          saves: [],
+        }),
+      );
+
+      const post = await service.findOne(ownerId, postId);
+
+      const [args] = prisma.post.findUnique.mock.calls[0] as [
+        { include: Record<string, unknown> },
+      ];
+      expect(args.include).toMatchObject({
+        _count: { select: { likes: true, saves: true, comments: true } },
+        likes: { where: { userId: ownerId }, select: { userId: true } },
+        saves: { where: { userId: ownerId }, select: { userId: true } },
+      });
+      expect(post).toMatchObject({
+        likeCount: 7,
+        saveCount: 2,
+        commentCount: 5,
+        likedByMe: true,
+        savedByMe: false,
+      });
+    });
+  });
+
+  describe('listSaved', () => {
+    it("lists only the user's own visible saves, most recent first", async () => {
+      prisma.postSave.findMany.mockResolvedValue([
+        { postId, post: makePost({ saves: [{ userId: 'user_saver' }] }) },
+      ]);
+
+      const page = await service.listSaved('user_saver', {});
+
+      expect(prisma.postSave.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            userId: 'user_saver',
+            post: {
+              trip: {
+                OR: [{ status: 'published' }, { ownerId: 'user_saver' }],
+              },
+            },
+          },
+          orderBy: [{ createdAt: 'desc' }, { postId: 'desc' }],
+        }),
+      );
+      expect(page.items[0]).toMatchObject({ id: postId, savedByMe: true });
+      expect(page.nextCursor).toBeNull();
+    });
+
+    it('starts after the cursor and returns the next one', async () => {
+      const savedAt = new Date('2026-10-20T12:00:00Z');
+      const cursor = encodeCursor('saved-posts:user_saver', [savedAt, 'a']);
+      prisma.postSave.findMany.mockResolvedValue([
+        { postId: 'b', createdAt: savedAt, post: makePost({ id: 'b' }) },
+        { postId: 'c', createdAt: savedAt, post: makePost({ id: 'c' }) },
+      ]);
+
+      const page = await service.listSaved('user_saver', { cursor, limit: 1 });
+
+      const [args] = prisma.postSave.findMany.mock.calls[0] as [
+        { where: { OR: unknown }; orderBy: unknown; take: number },
+      ];
+      expect(args.where.OR).toEqual([
+        { createdAt: { lt: savedAt } },
+        { createdAt: savedAt, postId: { lt: 'a' } },
+      ]);
+      expect(args.orderBy).toEqual([{ createdAt: 'desc' }, { postId: 'desc' }]);
+      expect(args.take).toBe(2);
+      expect(page.items).toHaveLength(1);
+      expect(
+        decodeCursor(page.nextCursor!, 'saved-posts:user_saver', [
+          'date',
+          'string',
+        ]),
+      ).toEqual([savedAt, 'b']);
+    });
+
+    it("rejects a cursor from someone else's list", async () => {
+      const cursor = encodeCursor('saved-posts:someone_else', [
+        new Date('2026-10-20T12:00:00Z'),
+        'a',
+      ]);
+      await expect(service.listSaved('user_saver', { cursor })).rejects.toThrow(
+        'Invalid cursor',
+      );
+      expect(prisma.postSave.findMany).not.toHaveBeenCalled();
     });
   });
 });

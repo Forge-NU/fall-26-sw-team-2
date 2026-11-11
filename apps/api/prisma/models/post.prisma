@@ -18,6 +18,9 @@ model Post {
   trip     Trip        @relation(fields: [tripId], references: [id], onDelete: Cascade)
   location Location?   @relation(fields: [locationId], references: [id], onDelete: Restrict)
   media    PostMedia[]
+  likes    PostLike[]
+  saves    PostSave[]
+  comments Comment[]
 
   @@index([tripId, visitedOn, createdAt])
   @@index([locationId])
