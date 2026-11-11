@@ -154,7 +154,8 @@ const mockPosts: PostResponse[] = [
   media: [],
   likeCount: 3 + i,
   saveCount: 1,
-  commentCount: 0,
+  // Matches the comment mocks in api/comments.ts
+  commentCount: i === 0 ? 4 : 0,
   likedByMe: false,
   savedByMe: true,
   createdAt: `2026-09-1${i}T18:00:00.000Z`,
@@ -163,6 +164,12 @@ const mockPosts: PostResponse[] = [
 
 const mockSaved = new Set([...mockTrips.map((trip) => `trip:${trip.id}`), ...mockPosts.map((post) => `post:${post.id}`)]);
 const mockLiked = new Set<string>();
+
+/** Keeps a mock post's commentCount in step with the comment mocks. */
+export function mockAdjustCommentCount(postId: string, delta: number) {
+  const post = mockPosts.find((p) => p.id === postId);
+  if (post) post.commentCount = Math.max(0, post.commentCount + delta);
+}
 
 function mockFindPost(id: string): PostResponse {
   return mockPosts.find((post) => post.id === id) ?? mockError(404, 'Post not found', postPath(id));

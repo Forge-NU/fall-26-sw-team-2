@@ -137,6 +137,18 @@ Response `204`.
 
 Errors: `403` if it isn't your comment (even on your own post), and `404 Comment not found`.
 
+## Mobile (INT-4)
+
+Built in #52:
+
+- `api/comments.ts`: the endpoints above, with mocks for `EXPO_PUBLIC_API_MOCKS=all`.
+- `components/comments/comments-view.tsx`: the comment list and composer. POST-3 (#43) can put it under post detail. For now it opens from the comment button on `PostCard` (`postStats(post, { onCommentsPress })`), at `app/saved/posts/[id]/comments.tsx`.
+- Replies load behind "View replies (N)". Tapping Reply on a reply prefills `@username ` in the composer. The app takes the mention back off the body before sending, because the API stores it as `replyTo` and the app shows it in front of the text. Replying to a top-level comment, or to your own reply, has no prefill.
+- The composer's Post button is off when the body is empty or over 500 characters, counted by code point the way Postgres counts. A counter shows from 450.
+- Delete is only on your own comments. It asks first, and warns when replies will go too. The comment disappears straight away and comes back if the request fails. A 404 counts as already deleted.
+- New comments are added to the end of the list once the API returns them. The post's `commentCount` updates everywhere it's on screen.
+- A 404 `Post not found` shows "Post no longer available".
+
 ## Seed data
 
 `npx prisma db seed` adds a reply thread on Maya's first Lisbon post: Priya comments, Maya replies, and Alex replies to Maya's reply. That last one is stored under Priya's comment with `replyTo` set to Maya. There are a few more top-level comments elsewhere.
