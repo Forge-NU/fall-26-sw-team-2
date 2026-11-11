@@ -52,6 +52,8 @@ function mockTrip(title: string, destination: string, startDate: string, endDate
     publishedAt: null,
     postCount: 0,
     coverImageUrl: null,
+    saveCount: 0,
+    savedByMe: false,
     createdAt: now,
     updatedAt: now,
   };
@@ -98,6 +100,10 @@ function mockPost(
       height: 1200,
       durationMs: null,
     })),
+    likeCount: 0,
+    saveCount: 0,
+    likedByMe: false,
+    savedByMe: false,
     createdAt: now,
     updatedAt: now,
   };
@@ -286,6 +292,10 @@ export async function mockCreatePost(body: CreatePostRequest): Promise<PostRespo
       height: item.height ?? null,
       durationMs: item.durationMs ?? null,
     })),
+    likeCount: 0,
+    saveCount: 0,
+    likedByMe: false,
+    savedByMe: false,
     createdAt: now,
     updatedAt: now,
   };

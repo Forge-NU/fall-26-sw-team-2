@@ -130,6 +130,10 @@ export const listUserPosts = withMock<Parameters<ListFetcher<PostResponse>>, Pag
       customLocationName: null,
       rating: null,
       media: [],
+      likeCount: 0,
+      saveCount: 0,
+      likedByMe: false,
+      savedByMe: false,
       createdAt: MOCK_TIMESTAMP,
       updatedAt: MOCK_TIMESTAMP,
     }));
@@ -210,6 +214,8 @@ function mockTrips(owner: UserSummary): TripResponse[] {
     publishedAt: i < 2 ? null : MOCK_TIMESTAMP,
     postCount: [14, 9, 52, 77, 82, 49][i],
     coverImageUrl: null,
+    saveCount: 0,
+    savedByMe: false,
     createdAt: MOCK_TIMESTAMP,
     updatedAt: MOCK_TIMESTAMP,
   }));

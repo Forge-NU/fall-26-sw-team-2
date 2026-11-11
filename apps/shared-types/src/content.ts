@@ -17,6 +17,9 @@ export type TripResponse = {
   publishedAt: string | null;
   postCount: number;
   coverImageUrl: string | null;
+  saveCount: number;
+  /** Whether the viewer has saved this trip */
+  savedByMe: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -62,6 +65,12 @@ export type PostResponse = {
   customLocationName: string | null;
   rating: number | null; // 1-5 stars for the place; always null with a custom location
   media: MediaResponse[]; // carousel order
+  likeCount: number;
+  saveCount: number;
+  /** Whether the viewer has liked this post */
+  likedByMe: boolean;
+  /** Whether the viewer has saved this post */
+  savedByMe: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -84,4 +93,25 @@ export type CreatePostMedia = {
   width?: number;
   height?: number;
   durationMs?: number; // videos only (#53)
+};
+
+// Likes and saves (#49 INT-1). See docs/architecture/likes-and-saves.md.
+
+/** Returned by POST and DELETE /api/posts/:id/like */
+export type LikeStatusResponse = {
+  liked: boolean;
+  likeCount: number;
+};
+
+/** One row of GET /api/posts/:id/likes, newest like first */
+export type PostLikerResponse = UserSummary & {
+  /** Whether the viewer follows this user */
+  isFollowing: boolean;
+  likedAt: string;
+};
+
+/** Returned by POST and DELETE /api/trips/:id/save and /api/posts/:id/save */
+export type SaveStatusResponse = {
+  saved: boolean;
+  saveCount: number;
 };

@@ -14,7 +14,8 @@ The doc has three kinds of content:
   - `follower-system.md` for follows (#16)
   - `itinerary-schema.md` for trips, posts, and locations (#17)
   - `stories.md` for stories (#23)
-  - the docs that INT-1 and INT-2 will add for likes, saves, and comments
+  - `likes-and-saves.md` for likes and saves (#49)
+  - the doc that INT-2 will add for comments
 - **Suggestion (Christian):** a suggestion for that owner to accept or push back on in their PR.
 
 When an owner confirms or changes their tables, update this doc to match. [Changes to open PRs](#changes-to-open-prs) lists what has to change in each one.
@@ -143,7 +144,7 @@ The diagram includes Christian's suggested columns (`avatar_key`, `published_at`
 | `follows` | #10 FOL-1 | Ruoxi | Ruoxi's doc in #16, with changes to match #15 | No, the changes need Ruoxi's review |
 | `trips`, `posts`, `post_media`, `locations` | #3 DB-1 | Duke (Grace reviews `locations` in #37 LOC-1) | Duke's draft in #17, with changes for the #33 decisions | No, #17 is still a draft |
 | `stories` | #23 STORY-1 | Richie | `stories.md` (#23), which takes both suggestions below | Built in #23, not merged yet |
-| `post_likes`, `post_saves`, `trip_saves` | #49 INT-1 | Unassigned | The INT-1 ticket scope | No, not designed yet |
+| `post_likes`, `post_saves`, `trip_saves` | #49 INT-1 | Aditya | `likes-and-saves.md` (#49), which takes both suggestions below | Built in #49, not merged yet |
 | `comments` | #50 INT-2 | Unassigned | The INT-2 ticket scope | No, not designed yet |
 
 ## Tables
@@ -218,6 +219,7 @@ Only the rules that cross features are listed here. Column types and lengths fol
 - **Suggestion (Christian):** add these indexes:
   - `post_likes (post_id, created_at)` for the likes list
   - `post_saves (user_id, created_at)` and `trip_saves (user_id, created_at)` for the Saved tab
+- Built in #49 ([`likes-and-saves.md`](likes-and-saves.md)) with both suggestions. Each index also ends with the other key column, so the lists page in a stable order, and `post_saves (post_id)` and `trip_saves (trip_id)` back the save counts. Likes and saves are inserted with `ON CONFLICT DO NOTHING` rather than an upsert.
 
 ### comments
 
