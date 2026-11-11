@@ -20,8 +20,8 @@ The stacks (`infra/lib/`):
 |---|---|---|
 | `YujiStagingData` | VPC, media bucket `yuji-media-<account>`, Postgres (`db.t4g.micro`), the database and Clerk secrets | Hand only. It has termination protection. |
 | `YujiStagingApi` | ECS cluster and service, load balancer, CloudFront, the hourly cleanup schedule | CI on every merge to `main` |
-| `YujiCi` | The role GitHub Actions uses to deploy (OIDC, no stored AWS keys) | Hand only |
-| `YujiBudget` (optional) | A monthly cost alert email | Hand only, with `-c yuji:budgetEmail=...` |
+| `YujiCi` | `yuji-github-deploy`, the IAM user GitHub Actions deploys as. It can only assume CDK's deploy roles. | Hand only |
+| `YujiBudget` (optional) | A monthly cost alert email. Not deployed on staging, where the budget was made in the console. | Hand only, with `-c yuji:budgetEmail=...` |
 
 - **The API URL** is the `ApiUrl` output of `YujiStagingApi`, an `https://….cloudfront.net` address.
   CloudFront gives us HTTPS without owning a domain, and caches nothing.
@@ -101,8 +101,9 @@ reached.
    prefix list lookup so CI can synth without AWS credentials: `npx cdk synth --profile yuji`.
 6. **Deploy the data and CI stacks:**
    `npx cdk deploy YujiStagingData YujiCi --profile yuji`.
-   Optionally add the cost alert:
-   `npx cdk deploy YujiBudget -c yuji:budgetEmail=<email> --profile yuji`.
+   Then create a monthly cost budget with email alerts. We made ours ($40) from the
+   **Explore AWS** widget on Console Home, which also earns a Free Tier credit. Without the
+   credit, `npx cdk deploy YujiBudget -c yuji:budgetEmail=<email> --profile yuji` does the same.
 7. **Fill in the Clerk secret.** In the Secrets Manager console, open `yuji/staging/clerk`,
    choose **Retrieve secret value → Edit**, and replace the three `replace-me` values with
    the Clerk **development** instance's keys (`CLERK_SECRET_KEY`, `CLERK_PUBLISHABLE_KEY`).
@@ -115,9 +116,13 @@ reached.
    `user.deleted` events. Copy its signing secret into `CLERK_WEBHOOK_SIGNING_SECRET` in
    the Clerk secret, then restart the API so it reads the new value:
    `aws ecs update-service --cluster <ClusterName> --service <ServiceName> --force-new-deployment --profile yuji`.
-10. **Let CI deploy.** In the GitHub repo, Settings → Secrets and variables → Actions →
-    **Variables**, add `AWS_DEPLOY_ROLE_ARN` set to the `DeployRoleArn` output of `YujiCi`.
-    Until it's set, the Deploy API workflow skips itself.
+10. **Let CI deploy.** GitHub OIDC would avoid a stored key, but the project's AWS-managed
+    guardrails deny creating identity providers, so CI uses the `yuji-github-deploy` IAM user.
+    In the IAM console, open **Users → yuji-github-deploy → Security credentials → Create
+    access key** (use case: "Third-party service"). In the GitHub repo, Settings → Secrets
+    and variables → Actions → **Secrets**, add `AWS_DEPLOY_ACCESS_KEY_ID` and
+    `AWS_DEPLOY_SECRET_ACCESS_KEY`. Don't save the key anywhere else. Until the secrets are
+    set, the Deploy API workflow skips itself.
 11. **Point the app at it.** Set `EXPO_PUBLIC_API_URL` to the `ApiUrl` for the `preview`
     environment on expo.dev, and in your own `apps/mobile/.env` to try it locally.
 
@@ -131,3 +136,12 @@ reached.
 Running tasks read secrets when they start, so after changing a value, force a new
 deployment (step 9's command). Don't put secret values in `infra/`, workflow files or
 PRs.
+
+### The CI access key
+
+The `yuji-github-deploy` key is long-lived, so rotate it every few months and whenever
+someone with access to the repo secrets leaves: create a second key, update both GitHub
+secrets, check that a deploy works, then deactivate and delete the old key in IAM. If it
+leaks, deactivate it in IAM right away. All it can do is run CDK deploys, but a CDK deploy
+can change anything in the account.
+

@@ -24,30 +24,28 @@ concurrency:
 
 permissions:
   contents: read
-  id-token: write # GitHub's OIDC token, exchanged for the AWS deploy role
 
 jobs:
-  # Until the AWS_DEPLOY_ROLE_ARN variable is set, skip instead of failing.
+  # Until the deploy user's key is in the repo secrets, skip instead of failing.
   check:
     runs-on: ubuntu-latest
     outputs:
-      ready: ${{ steps.role.outputs.ready }}
+      ready: ${{ steps.key.outputs.ready }}
     steps:
-      - id: role
+      - id: key
         env:
-          ROLE: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          KEY_ID: ${{ secrets.AWS_DEPLOY_ACCESS_KEY_ID }}
         run: |
-          if [ -n "$ROLE" ]; then
+          if [ -n "$KEY_ID" ]; then
             echo "ready=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::notice::Skipping the deploy until the AWS_DEPLOY_ROLE_ARN variable is set (see docs/process/deployment.md)."
+            echo "::notice::Skipping the deploy until the AWS_DEPLOY_ACCESS_KEY_ID secret is set (see docs/process/deployment.md)."
           fi
 
   deploy:
     needs: check
     if: needs.check.outputs.ready == 'true'
     # ARM runner, so the arm64 image builds natively (free for public repos).
-    # No `environment:` here: it would change the OIDC subject the AWS role trusts.
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
@@ -62,10 +60,13 @@ jobs:
       - name: Install dependencies
         run: npm ci -w infra
 
+      # The yuji-github-deploy user (YujiCi stack), which can only assume the CDK
+      # deploy roles. OIDC isn't available in the project's AWS account.
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-access-key-id: ${{ secrets.AWS_DEPLOY_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_DEPLOY_SECRET_ACCESS_KEY }}
           aws-region: us-east-2
 
       - name: Deploy

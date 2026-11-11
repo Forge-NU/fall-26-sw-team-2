@@ -15,7 +15,6 @@ export function createStacks(app: App) {
     );
   }
   const region = (app.node.tryGetContext('yuji:region') as string | undefined) ?? 'us-east-2';
-  const githubRepo = app.node.tryGetContext('yuji:githubRepo') as string;
   const env = { account, region };
 
   Tags.of(app).add('project', 'yuji');
@@ -37,8 +36,7 @@ export function createStacks(app: App) {
   });
   const ci = new CiStack(app, 'YujiCi', {
     env,
-    description: 'GitHub Actions deploy role for the Yuji staging API',
-    githubRepo,
+    description: 'GitHub Actions deploy user for the Yuji staging API',
   });
 
   const budgetEmail = app.node.tryGetContext('yuji:budgetEmail') as string | undefined;

@@ -187,23 +187,10 @@ describe('YujiStagingApi', () => {
 });
 
 describe('YujiCi', () => {
-  it('trusts only pushes to main of the team repo', () => {
-    ci.hasResourceProperties('AWS::IAM::Role', {
-      AssumeRolePolicyDocument: {
-        Statement: [
-          Match.objectLike({
-            Action: 'sts:AssumeRoleWithWebIdentity',
-            Condition: {
-              StringEquals: {
-                'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
-                'token.actions.githubusercontent.com:sub':
-                  'repo:Forge-NU/fall-26-sw-team-2:ref:refs/heads/main',
-              },
-            },
-          }),
-        ],
-      },
-    });
+  it('creates a deploy user without an access key or console login', () => {
+    ci.hasResourceProperties('AWS::IAM::User', { UserName: 'yuji-github-deploy' });
+    ci.resourceCountIs('AWS::IAM::AccessKey', 0);
+    ci.hasResourceProperties('AWS::IAM::User', { LoginProfile: Match.absent() });
   });
 
   it('can only assume the CDK bootstrap roles', () => {

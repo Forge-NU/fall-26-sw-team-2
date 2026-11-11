@@ -18,7 +18,6 @@
   "context": {
     "yuji:account": "345075859588",
     "yuji:region": "us-east-2",
-    "yuji:githubRepo": "Forge-NU/fall-26-sw-team-2",
     "@aws-cdk-containers/ecs-service-extensions:enableDefaultLogDriver": true,
     "@aws-cdk/aws-apigateway:authorizerChangeDeploymentLogicalId": true,
     "@aws-cdk/aws-apigateway:disableCloudWatchRole": true,
