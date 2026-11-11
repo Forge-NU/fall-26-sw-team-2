@@ -8,7 +8,7 @@ import { StatRow } from '@/components/content/stat-row';
 import { UserRow } from '@/components/content/user-row';
 import { PostDraftsBanner } from '@/components/posts/post-drafts-banner';
 import { DayPosts } from '@/components/trips/day-posts';
-import { TripError, TripLoading } from '@/components/trips/trip-states';
+import { tripErrorState } from '@/components/trips/trip-error-state';
 import { AppText } from '@/components/ui/app-text';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -39,9 +39,18 @@ export default function TripScreen() {
   const user = useCurrentUser();
 
   const isOwner = trip.data?.owner.id === user.id;
+  const error = trip.error ?? posts.error;
+  const refetch = () => {
+    void trip.refetch();
+    void posts.refetch();
+  };
 
   return (
     <Screen
+      loading={trip.isPending || posts.isPending}
+      error={error}
+      onRetry={refetch}
+      errorState={tripErrorState(error)}
       header={
         <ScreenHeader
           left={{ icon: 'arrow-left', label: 'Back', onPress: () => router.back() }}
@@ -56,28 +65,15 @@ export default function TripScreen() {
           }
         />
       }>
-      {trip.isPending || posts.isPending ? (
-        <TripLoading />
-      ) : trip.isError || posts.isError ? (
-        <TripError
-          error={trip.error ?? posts.error}
-          onRetry={() => {
-            void trip.refetch();
-            void posts.refetch();
-          }}
-        />
-      ) : (
+      {trip.data && posts.data ? (
         <TripBody
           trip={trip.data}
           posts={posts.data}
           isOwner={isOwner}
           refreshing={trip.isRefetching || posts.isRefetching}
-          onRefresh={() => {
-            void trip.refetch();
-            void posts.refetch();
-          }}
+          onRefresh={refetch}
         />
-      )}
+      ) : null}
     </Screen>
   );
 }

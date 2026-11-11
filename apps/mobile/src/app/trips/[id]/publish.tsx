@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { getErrorMessage } from '@/api/client';
-import { TripError, TripLoading } from '@/components/trips/trip-states';
+import { tripErrorState } from '@/components/trips/trip-error-state';
 import { AppText } from '@/components/ui/app-text';
 import { Button } from '@/components/ui/button';
 import { Media } from '@/components/ui/media';
@@ -27,20 +27,11 @@ export default function PublishTripScreen() {
   const publish = usePublishTrip(id);
   const { showToast } = useToast();
 
-  let body;
-  if (trip.isPending || posts.isPending) {
-    body = <TripLoading />;
-  } else if (trip.isError || posts.isError) {
-    body = (
-      <TripError
-        error={trip.error ?? posts.error}
-        onRetry={() => {
-          void trip.refetch();
-          void posts.refetch();
-        }}
-      />
-    );
-  } else {
+  const error = trip.error ?? posts.error;
+
+  // Screen shows the loading and error states, so this only builds the page
+  let body = null;
+  if (trip.data && posts.data) {
     const days = tripDayCount(trip.data.startDate, trip.data.endDate);
     const postCount = posts.data.length;
     const places = new Set(posts.data.map((post) => post.location?.id ?? post.customLocationName)).size;
@@ -112,6 +103,13 @@ export default function PublishTripScreen() {
 
   return (
     <Screen
+      loading={trip.isPending || posts.isPending}
+      error={error}
+      onRetry={() => {
+        void trip.refetch();
+        void posts.refetch();
+      }}
+      errorState={tripErrorState(error)}
       header={
         <ScreenHeader
           title="Publish trip"
