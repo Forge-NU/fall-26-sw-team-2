@@ -1,14 +1,15 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
-    "version": "1.0.0",
+    "name": "Yuji",
+    "slug": "yuji",
+    "version": "0.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "mobile",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.forgenu.yuji"
     },
     "android": {
       "adaptiveIcon": {
@@ -34,17 +35,38 @@
         }
       ],
       [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Yuji uses your location to show places near you on the map."
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#208AEF",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
-      ]
+      ],
+      "@clerk/expo",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "ca950b21-cd7a-4dc2-9026-d865a6b93b18"
+      }
+    },
+    "owner": "forgeyuji",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/ca950b21-cd7a-4dc2-9026-d865a6b93b18"
     }
   }
 }

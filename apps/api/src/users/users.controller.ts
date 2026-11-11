@@ -17,15 +17,23 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { UpdateMeDto } from './dto/update-me.dto';
 import { CreateProfileDto } from './dto/create-profile.dto';
 import { FollowsService } from '../follows/follows.service';
-import { UserResponse, PaginatedResponse } from 'shared-types';
+import type {
+  PaginatedResponse,
+  UserResponse,
+  UserSummary,
+  UsernameAvailabilityResponse,
+} from 'shared-types';
 import { PaginationDto } from '../common/decorators/pagination.dto';
 import { mapUserToResponse } from './utils/user.mapper';
+import { UsernameAvailabilityDto } from './dto/username-availability.dto';
+import { StorageService } from '../storage/storage.service';
 
 @Controller()
 export class UsersController {
   constructor(
     private readonly usersService: UsersService,
     private readonly followsService: FollowsService,
+    private readonly storage: StorageService,
   ) {}
 
   @Get('me')
@@ -39,7 +47,7 @@ export class UsersController {
 
     return {
       ...(await this.followsService.getCounts(user.id)),
-      ...mapUserToResponse(user),
+      ...(await mapUserToResponse(this.storage, user)),
     };
   }
 
@@ -53,7 +61,7 @@ export class UsersController {
 
     return {
       ...(await this.followsService.getCounts(user.id)),
-      ...mapUserToResponse(user),
+      ...(await mapUserToResponse(this.storage, user)),
     };
   }
 
@@ -67,7 +75,7 @@ export class UsersController {
 
     return {
       ...(await this.followsService.getCounts(user.id)),
-      ...mapUserToResponse(user),
+      ...(await mapUserToResponse(this.storage, user)),
     };
   }
 
@@ -78,7 +86,17 @@ export class UsersController {
     await this.usersService.deleteAccount(userId);
   }
 
-  @Get('users/:id')
+  @Get('users/username-availability')
+  @UseGuards(ClerkAuthGuard)
+  async checkUsername(
+    @Query() query: UsernameAvailabilityDto,
+  ): Promise<UsernameAvailabilityResponse> {
+    return {
+      available: await this.usersService.isUsernameAvailable(query.username),
+    };
+  }
+
+  @Get('users/id/:id')
   @UseGuards(ClerkAuthGuard)
   async findById(@Param('id') id: string): Promise<UserResponse> {
     const user = await this.usersService.findById(id);
@@ -89,7 +107,22 @@ export class UsersController {
 
     return {
       ...(await this.followsService.getCounts(user.id)),
-      ...mapUserToResponse(user),
+      ...(await mapUserToResponse(this.storage, user)),
+    };
+  }
+
+  @Get('users/:username')
+  @UseGuards(ClerkAuthGuard)
+  async findByUsername(
+    @Param('username') username: string,
+  ): Promise<UserResponse> {
+    const user = await this.usersService.findByUsername(username);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return {
+      ...(await this.followsService.getCounts(user.id)),
+      ...(await mapUserToResponse(this.storage, user)),
     };
   }
 
@@ -97,11 +130,13 @@ export class UsersController {
   @UseGuards(ClerkAuthGuard)
   async listUsers(
     @Query() pagination: PaginationDto,
-  ): Promise<PaginatedResponse<UserResponse>> {
+  ): Promise<PaginatedResponse<UserSummary>> {
     const result = await this.usersService.listUsers(pagination);
 
     return {
-      items: result.items.map(mapUserToResponse),
+      items: await Promise.all(
+        result.items.map((user) => mapUserToResponse(this.storage, user)),
+      ),
       nextCursor: result.nextCursor,
     };
   }

@@ -2,6 +2,7 @@ import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { StorageService } from '../storage/storage.service';
 import { LikesService } from './likes.service';
 
 const postId = '22222222-2222-4222-8222-222222222222';
@@ -47,7 +48,14 @@ describe('LikesService', () => {
     prisma.postLike.count.mockResolvedValue(1);
 
     const module = await Test.createTestingModule({
-      providers: [LikesService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        LikesService,
+        { provide: PrismaService, useValue: prisma },
+        {
+          provide: StorageService,
+          useValue: { getReadUrl: (key: string) => Promise.resolve(key) },
+        },
+      ],
     }).compile();
 
     service = module.get(LikesService);

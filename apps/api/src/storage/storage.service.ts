@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import {
   DeleteObjectsCommand,
   GetObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
@@ -66,6 +67,31 @@ export class StorageService {
     );
   }
 
+  // Every key under the prefix, following S3's pagination. Without a bucket
+  // (local dev) there's nothing to list.
+  async listKeys(prefix: string): Promise<string[]> {
+    if (!this.bucket) return [];
+
+    const keys: string[] = [];
+    let continuationToken: string | undefined;
+    do {
+      const result = await this.s3.send(
+        new ListObjectsV2Command({
+          Bucket: this.bucket,
+          Prefix: prefix,
+          ContinuationToken: continuationToken,
+        }),
+      );
+      for (const object of result.Contents ?? []) {
+        if (object.Key) keys.push(object.Key);
+      }
+      continuationToken = result.IsTruncated
+        ? result.NextContinuationToken
+        : undefined;
+    } while (continuationToken);
+    return keys;
+  }
+
   // Never throws. Called after the rows are already deleted, so a failure here
   // only leaves orphaned objects behind, which are logged to clean up later.
   async deleteObjects(keys: string[]): Promise<void> {
@@ -98,6 +124,34 @@ export class StorageService {
           `Failed to delete S3 objects: ${batch.join(', ')}`,
           e instanceof Error ? e.stack : String(e),
         );
+      }
+    }
+  }
+
+  // Used by account deletion before removing the rows that contain object
+  // keys. Deletion is idempotent, so a partial batch can safely be retried.
+  async deleteObjectsStrict(keys: string[]): Promise<void> {
+    if (keys.length === 0) return;
+    if (!this.bucket) {
+      this.logger.warn(
+        `S3_BUCKET_NAME not set, skipping delete of ${keys.length} objects`,
+      );
+      return;
+    }
+
+    for (let i = 0; i < keys.length; i += DELETE_BATCH_SIZE) {
+      const batch = keys.slice(i, i + DELETE_BATCH_SIZE);
+      const result = await this.s3.send(
+        new DeleteObjectsCommand({
+          Bucket: this.bucket,
+          Delete: { Objects: batch.map((Key) => ({ Key })), Quiet: true },
+        }),
+      );
+      const failed = (result.Errors ?? []).map(
+        (error) => error.Key ?? 'unknown',
+      );
+      if (failed.length > 0) {
+        throw new Error(`Failed to delete S3 objects: ${failed.join(', ')}`);
       }
     }
   }

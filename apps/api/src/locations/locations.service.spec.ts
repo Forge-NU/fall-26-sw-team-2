@@ -1,6 +1,6 @@
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { ResolveLocationRequest } from './location.types';
+import type { ResolveLocationRequest } from 'shared-types';
 import { LocationsService } from './locations.service';
 
 describe('LocationsService', () => {
@@ -36,6 +36,8 @@ describe('LocationsService', () => {
     city: 'Lisbon',
     region: 'Lisbon',
     countryCode: 'PT',
+    ratingCount: 3,
+    ratingSum: 13,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
   };
@@ -51,6 +53,7 @@ describe('LocationsService', () => {
     city: 'Lisbon',
     region: 'Lisbon',
     countryCode: 'PT',
+    rating: { average: 4.3, count: 3 },
   };
 
   const where = {

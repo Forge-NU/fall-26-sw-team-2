@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client';
+import { StorageService } from '../src/storage/storage.service';
 import { FollowsService } from '../src/follows/follows.service';
 import type { PrismaService } from '../src/prisma/prisma.service';
 
@@ -17,7 +18,7 @@ describeDatabase('FollowsService with PostgreSQL', () => {
     prisma = new PrismaClient({
       adapter: new PrismaPg({ connectionString: url }),
     });
-    service = new FollowsService(prisma as PrismaService);
+    service = new FollowsService(prisma as PrismaService, new StorageService());
     await prisma.user.createMany({
       data: ids.map((id) => ({
         id,

@@ -27,10 +27,14 @@ git clone https://github.com/Forge-NU/fall-26-sw-team-2.git
 cd fall-26-sw-team-2
 nvm use
 
-# install (each app has its own dependencies)
-cd apps/api && npm install && cp .env.example .env && cd ../..
-cd apps/mobile && npm install && cp .env.example .env && cd ../..
+# install every app from the repo root (npm workspaces, one package-lock.json)
+npm install
+npm run build -w shared-types   # the API imports shared-types from its built dist/
+cp apps/api/.env.example apps/api/.env
+cp apps/mobile/.env.example apps/mobile/.env
 ```
+
+The repo has a single `package-lock.json` at the root. To add a dependency, run `npx expo install <package>` from `apps/mobile` (it picks versions that match the Expo SDK), or `npm install <package> -w api` (or `-w shared-types`) from the root. Never use `--workspaces=false`, which would create a separate lockfile inside the app.
 
 ### Local database
 The API uses PostgreSQL through [Prisma](https://www.prisma.io/). For development, run Postgres in Docker (requires [Docker Desktop](https://www.docker.com/products/docker-desktop/) to be running). It listens on port **5433** so it won't clash with a Postgres you may already have on 5432, and the default `DATABASE_URL` in `apps/api/.env.example` already points at it.
@@ -58,16 +62,33 @@ npm start
 
 In the Expo terminal, press `i` for the iOS simulator, `a` for the Android emulator, or `w` for web, or scan the QR code with Expo Go on your phone. On a physical phone, set `EXPO_PUBLIC_API_URL` in `apps/mobile/.env` to your computer's LAN IP (e.g. `http://192.168.1.20:3000`) instead of `localhost`.
 
+### Local Clerk sign-up and webhook
+Set `CLERK_SECRET_KEY` and `CLERK_PUBLISHABLE_KEY` in `apps/api/.env`, and `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` in `apps/mobile/.env`. Clerk needs a public URL to deliver `user.created` to a local API. With the API running on port 3000, start a temporary tunnel in another terminal:
+
+```
+cloudflared tunnel --url http://localhost:3000
+```
+
+In the Clerk Dashboard, add the generated HTTPS URL followed by `/api/webhooks/clerk` as a webhook endpoint. Subscribe to `user.created`, `user.updated`, and `user.deleted`. Copy the endpoint signing secret into `CLERK_WEBHOOK_SIGNING_SECRET` in `apps/api/.env`, then restart the API. The temporary URL changes when the tunnel restarts, so update the Clerk endpoint when that happens. Use the machine's LAN IP for the mobile app's API URL when testing on a physical phone. Without a tunnel, sign-up still works: the row is created when you finish onboarding, but `user.updated` and `user.deleted` events won't reach your API. See [the authentication architecture guide](./docs/architecture/authentication.md) for the full local flow.
+
 ### Checks (same as CI)
 ```
+# shared-types (the API needs it built)
+npm run build -w shared-types
+
 # API
 cd apps/api
 npm run lint && npm test && npm run build
+npm run test:e2e   # needs the local database running and migrated (see Local database)
 
 # Mobile
 cd apps/mobile
-npm run lint && npm run typecheck
+npm run lint && npm run typecheck && npm run test:ui
+npx expo export --platform all
 ```
+
+### Releases and PR previews
+Every merged PR is a release (v0.0.1, v0.0.2, …), and PRs that change the app get a QR code in their description that opens that PR in Expo Go, plus a link to a web version. See [docs/release-process.md](./docs/release-process.md), which also lists the one-time setup.
 
 ## Repo Structure
 ```

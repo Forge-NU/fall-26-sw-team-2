@@ -6,24 +6,18 @@ How to get the Expo app (`apps/mobile`) running locally. Part of APP-1 (#30).
 
 Use Node 24 (`nvm install && nvm use` from the repo root).
 
-Install each app on its own, from inside its folder. Don't run `npm install`
-from the repo root: the root `package.json` declares npm workspaces, and a root
-install puts Expo's CLI and `expo-router` in different `node_modules` folders,
-so `npm start` fails with `Cannot find module 'expo-router/_ctx-shared'`.
+Install from the repo root. The root `package.json` declares npm workspaces,
+so one `npm install` installs every app against the single root
+`package-lock.json`:
 
 ```bash
-cd apps/mobile
-npm install --workspaces=false
-cp .env.example .env
+npm install                                   # from the repo root
+cp apps/mobile/.env.example apps/mobile/.env
 ```
 
-Metro also expects a `node_modules` folder at the repo root. If `npm start`
-fails with `ENOENT ... fall-26-sw-team-2/node_modules`, create an empty one
-(it's gitignored):
-
-```bash
-mkdir -p node_modules   # from the repo root
-```
+Add mobile dependencies with `npx expo install <package>` from `apps/mobile`,
+which picks versions that match the Expo SDK. Don't use
+`--workspaces=false`, which creates a second lockfile in `apps/mobile`.
 
 ## Environment
 
@@ -32,7 +26,7 @@ mkdir -p node_modules   # from the repo root
 | Variable | What it's for |
 |---|---|
 | `EXPO_PUBLIC_API_URL` | Base URL of the API, without `/api`. On a physical phone use your computer's LAN IP (e.g. `http://192.168.1.20:3000`), not `localhost`. |
-| `EXPO_PUBLIC_API_MOCKS` | `auto` (default), `all` or `none`. See [mobile-data-layer.md](mobile-data-layer.md#mocking-endpoints). |
+| `EXPO_PUBLIC_API_MOCKS` | `auto` (default), `all` or `none`. `all` also skips sign-in, so the trip, post and story screens run without a Clerk key or the API. See [mobile-data-layer.md](mobile-data-layer.md#mocking-endpoints). |
 
 `EXPO_PUBLIC_*` values are bundled into the app, so never put secrets in them.
 After changing `.env`, restart `npm start`.
@@ -51,8 +45,8 @@ only opens on a phone; clicking it on a Mac shows a "no application" dialog.
 Most screens use mock data, so the API doesn't have to be running. The API
 allows cross-origin requests outside production, so the browser build (`w`) can
 call your local API too. To run it
-too, see the root [README](../../README.md#local-database); install it with
-`npm install --workspaces=false` as above.
+too, see the root [README](../../README.md#local-database). The root
+`npm install` above already installed it.
 
 ## Checks
 

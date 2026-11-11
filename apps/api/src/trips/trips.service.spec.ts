@@ -50,13 +50,14 @@ describe('TripsService', () => {
       update: jest.fn(),
       deleteMany: jest.fn(),
     },
-    post: { count: jest.fn() },
+    post: { count: jest.fn(), groupBy: jest.fn() },
     tripSave: { findFirst: jest.fn(), findMany: jest.fn() },
     postMedia: { findMany: jest.fn() },
     story: { findMany: jest.fn() },
     user: { findUnique: jest.fn() },
     $transaction: jest.fn(),
     $queryRaw: jest.fn(),
+    $executeRaw: jest.fn(),
   };
   const storage = {
     getReadUrl: jest.fn((key: string) => Promise.resolve(`https://s3/${key}`)),
@@ -65,6 +66,8 @@ describe('TripsService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    // The trip's rated posts, for the place ratings
+    prisma.post.groupBy.mockResolvedValue([]);
     prisma.$transaction.mockImplementation(
       (fn: (tx: typeof prisma) => unknown) => fn(prisma),
     );
@@ -287,6 +290,32 @@ describe('TripsService', () => {
       ]);
     });
 
+    it("recomputes the places the trip's posts rated, after the delete", async () => {
+      prisma.trip.findUnique.mockResolvedValue(makeTrip());
+      prisma.postMedia.findMany.mockResolvedValue([]);
+      prisma.post.groupBy.mockResolvedValue([
+        { locationId: 'loc_b' },
+        { locationId: 'loc_a' },
+      ]);
+      const order: string[] = [];
+      prisma.trip.deleteMany.mockImplementation(() => {
+        order.push('delete');
+        return Promise.resolve({ count: 1 });
+      });
+      prisma.$executeRaw.mockImplementation(() => {
+        order.push('refresh');
+        return Promise.resolve(2);
+      });
+
+      await service.remove(owner.id, makeTrip().id);
+
+      expect(order).toEqual(['delete', 'refresh']);
+      expect(prisma.$executeRaw.mock.calls[0]).toContainEqual([
+        'loc_a',
+        'loc_b',
+      ]);
+    });
+
     it("also deletes the S3 objects of the trip's stories", async () => {
       prisma.trip.findUnique.mockResolvedValue(makeTrip());
       prisma.postMedia.findMany.mockResolvedValue([
@@ -335,6 +364,27 @@ describe('TripsService', () => {
       );
       expect(trip.status).toBe('published');
       expect(prisma.$queryRaw).toHaveBeenCalled();
+    });
+
+    it("starts counting the trip's ratings toward its places", async () => {
+      prisma.trip.findUnique.mockResolvedValue(
+        makeTrip({ _count: { posts: 1 } }),
+      );
+      prisma.trip.update.mockResolvedValue(
+        makeTrip({ status: 'published', publishedAt: new Date() }),
+      );
+      prisma.post.groupBy.mockResolvedValue([{ locationId: 'loc_a' }]);
+
+      await service.publish(owner.id, makeTrip().id);
+
+      expect(prisma.post.groupBy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tripId: makeTrip().id,
+          }) as unknown,
+        }),
+      );
+      expect(prisma.$executeRaw.mock.calls[0]).toContainEqual(['loc_a']);
     });
 
     it('does nothing for an already-published trip', async () => {

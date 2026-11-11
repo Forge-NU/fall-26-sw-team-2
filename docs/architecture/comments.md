@@ -74,7 +74,7 @@ All endpoints are under `/api` and need a Clerk session. Errors use the shared s
 
 Lists use the cursor pagination in [`itinerary-schema.md`](itinerary-schema.md#api-contracts) (`?cursor=&limit=1-50`, default 20, `{ items, nextCursor }`). The cursor is a comment ID, and one from another list returns 400. The helper is the stand-in until API-2 (#90).
 
-Types are in `shared-types` (`CommentResponse`, `CreateCommentRequest`) and `apps/api/src/comments/comment.types.ts`.
+Types are in `shared-types` (`CommentResponse`, `CreateCommentRequest`).
 
 ### `Comment`
 
