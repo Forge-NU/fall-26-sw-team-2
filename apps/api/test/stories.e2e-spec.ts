@@ -360,6 +360,70 @@ describe('Stories (e2e)', () => {
     });
   });
 
+  // The trip link on a story (#25 STORY-3): only for viewers who can open the trip
+  describe('linked trip', () => {
+    // One story as `viewer` sees it in the stories bar
+    async function storyInFeed(viewer: User, storyId: string) {
+      let cursor: string | null = null;
+      do {
+        const res = await request(app.getHttpServer())
+          .get('/api/stories/feed')
+          .query(cursor ? { limit: 50, cursor } : { limit: 50 })
+          .set(as(viewer))
+          .expect(200);
+        const page = res.body as StoriesFeedResponse;
+        const story = page.items
+          .flatMap((group) => group.stories)
+          .find((s) => s.id === storyId);
+        if (story) return story;
+        cursor = page.nextCursor;
+      } while (cursor);
+      throw new Error(`Story ${storyId} is not in the feed`);
+    }
+
+    it('returns the trip to its owner when the story is created', async () => {
+      const trip = await createTrip(owner);
+
+      const res = await createStory(owner, { tripId: trip.id }).expect(201);
+
+      expect((res.body as StoryResponse).trip).toEqual({
+        id: trip.id,
+        title: 'Test trip',
+      });
+    });
+
+    it("hides a draft trip from followers until it's published", async () => {
+      const trip = await createTrip(owner);
+      const story = await insertStory(owner, { tripId: trip.id });
+
+      // The owner always sees their trip
+      expect((await storyInFeed(owner, story.id)).trip).toEqual({
+        id: trip.id,
+        title: 'Test trip',
+      });
+      // A follower gets the id but not the draft's title
+      const draft = await storyInFeed(other, story.id);
+      expect(draft.tripId).toBe(trip.id);
+      expect(draft.trip).toBeNull();
+
+      await prisma.trip.update({
+        where: { id: trip.id },
+        data: { status: 'published', publishedAt: new Date() },
+      });
+
+      expect((await storyInFeed(other, story.id)).trip).toEqual({
+        id: trip.id,
+        title: 'Test trip',
+      });
+    });
+
+    it('is null for a story without a trip', async () => {
+      const story = await insertStory(owner);
+
+      expect((await storyInFeed(other, story.id)).trip).toBeNull();
+    });
+  });
+
   describe('GET /api/trips/:id/stories', () => {
     it('keeps a kept story on the trip after it expires, and drops the rest', async () => {
       const trip = await createTrip(owner, { published: true });

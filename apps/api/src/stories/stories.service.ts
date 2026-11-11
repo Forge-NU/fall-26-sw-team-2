@@ -31,6 +31,7 @@ import type {
 const storyInclude = {
   owner: { select: userSummarySelect },
   location: true,
+  trip: { select: { id: true, title: true, ownerId: true, status: true } },
 } satisfies Prisma.StoryInclude;
 
 type StoryWithDetails = Prisma.StoryGetPayload<{
@@ -135,7 +136,7 @@ export class StoriesService {
       }),
     );
 
-    return this.toResponse(story);
+    return this.toResponse(userId, story);
   }
 
   // Owner only. Anyone else gets 404, the same as a story that doesn't exist.
@@ -218,7 +219,9 @@ export class StoriesService {
       if (!ownerStories) continue;
       items.push({
         owner: await toUserSummary(ownerStories[0].owner, this.storage),
-        stories: await Promise.all(ownerStories.map((s) => this.toResponse(s))),
+        stories: await Promise.all(
+          ownerStories.map((s) => this.toResponse(viewerId, s)),
+        ),
       });
     }
 
@@ -261,7 +264,7 @@ export class StoriesService {
       ...pageArgs(query),
     });
 
-    return toPage(stories, query, (s) => this.toResponse(s));
+    return toPage(stories, query, (s) => this.toResponse(viewerId, s));
   }
 
   private async assertLocationExists(locationId: string) {
@@ -274,11 +277,20 @@ export class StoriesService {
     }
   }
 
-  private async toResponse(story: StoryWithDetails): Promise<StoryResponse> {
+  private async toResponse(
+    viewerId: string,
+    story: StoryWithDetails,
+  ): Promise<StoryResponse> {
+    const { trip } = story;
     return {
       id: story.id,
       owner: await toUserSummary(story.owner, this.storage),
       tripId: story.tripId,
+      // Only a trip the viewer can open, so a draft's title stays private
+      trip:
+        trip && canViewTrip(viewerId, trip)
+          ? { id: trip.id, title: trip.title }
+          : null,
       text: story.text,
       location: story.location ? toLocation(story.location) : null,
       customLocationName: story.customLocationName,
