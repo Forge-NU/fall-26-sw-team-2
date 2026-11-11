@@ -1,13 +1,34 @@
 /**
- * User profile response shape
- * Used by GET /api/me and GET /api/users/:id
+ * The user fields shown next to content (trip owner, post author) and in user lists
+ * Used by GET /api/users
  */
-export interface UserResponse {
+export interface UserSummary {
   id: string;
   firstName: string;
   lastName: string;
-  username: string;
+  username: string | null;
   avatarUrl: string | null;
+}
+
+/** Body of PATCH /api/me. avatarKey is an s3Key from an "avatar" upload, or null to remove it. */
+export interface UpdateMeRequest {
+  firstName?: string;
+  lastName?: string;
+  username?: string;
+  avatarKey?: string | null;
+}
+
+export interface UsernameAvailabilityResponse {
+  available: boolean;
+}
+
+/**
+ * User profile response shape
+ * Used by GET /api/me, GET /api/users/:id, POST /api/me/profile and PATCH /api/me
+ */
+export interface UserResponse extends UserSummary {
+  followerCount: number;
+  followingCount: number;
 }
 
 /**
@@ -31,7 +52,10 @@ export interface ApiErrorResponse {
   timestamp: string;
 }
 
-export type { TripStatus, TripResponse, ActiveTripsResponse, MediaType, MediaResponse, LocationResponse, PostResponse, LikeStatusResponse, PostLikerResponse, SaveStatusResponse } from './content';
+export type { TripStatus, TripResponse, ActiveTripsResponse, CreateTripRequest, UpdateTripRequest, MediaType, MediaResponse, PostResponse, CreatePostRequest, CreatePostMedia, LikeStatusResponse, PostLikerResponse, SaveStatusResponse } from './content.js';
+export type { LocationRating, LocationResponse, PlaceSuggestion, ResolveLocationRequest, ResolveLocationResponse } from './locations.js';
+export type { StoryResponse, StoryGroup, StoriesFeedResponse, TripStoriesResponse, CreateStoryRequest } from './stories.js';
+export type { FollowListUser, FollowListPage, FollowStatus, FollowCounts } from './follows.js';
 
 /**
  * Photo uploads (MEDIA-1)
