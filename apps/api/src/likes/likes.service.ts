@@ -9,12 +9,16 @@ import {
   toPage,
 } from '../common/pagination';
 import { toUserSummary, userSummarySelect } from '../common/user-summary';
+import { StorageService } from '../storage/storage.service';
 import { canViewTrip } from '../trips/trip-rules';
-import { LikeStatusResponse, PostLikerResponse } from './like.types';
+import type { LikeStatusResponse, PostLikerResponse } from 'shared-types';
 
 @Injectable()
 export class LikesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
+  ) {}
 
   // Idempotent: liking a post you already like keeps the one row.
   async like(userId: string, postId: string): Promise<LikeStatusResponse> {
@@ -81,8 +85,8 @@ export class LikesService {
     return toPage(
       likes,
       query,
-      ({ user, createdAt }) => ({
-        ...toUserSummary(user),
+      async ({ user, createdAt }) => ({
+        ...(await toUserSummary(user, this.storage)),
         isFollowing: user.followers.length > 0,
         likedAt: createdAt.toISOString(),
       }),

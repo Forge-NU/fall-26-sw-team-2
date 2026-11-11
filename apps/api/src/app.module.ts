@@ -10,6 +10,7 @@ import { StoriesModule } from './stories/stories.module';
 import { MediaModule } from './media/media.module';
 import { LikesModule } from './likes/likes.module';
 import { SavesModule } from './saves/saves.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { SavesModule } from './saves/saves.module';
     MediaModule,
     LikesModule,
     SavesModule,
+    WebhooksModule,
   ],
   controllers: [AppController],
   providers: [AppService],

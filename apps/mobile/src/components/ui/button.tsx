@@ -17,6 +17,8 @@ export type ButtonProps = Omit<PressableProps, 'children'> & {
   disabled?: boolean;
   loading?: boolean;
   size?: "default" | "compact";
+  /** Shows the solid (pressed) colors at rest, e.g. once a form is ready to submit. */
+  filled?: boolean;
 };
 
 export function Button({
@@ -26,6 +28,7 @@ export function Button({
   disabled = false,
   loading = false,
   size = "default",
+  filled = false,
   style,
   onHoverIn,
   onHoverOut,
@@ -64,7 +67,7 @@ export function Button({
         onBlur?.(event);
       }}
       style={(state) => {
-        const active = !isDisabled && (state.pressed || hovered || focused);
+        const active = filled || (!isDisabled && (state.pressed || hovered || focused));
 
         return [
           styles.button,
@@ -82,12 +85,12 @@ export function Button({
       }}
     >
       {({ pressed }) => {
-        const active = !isDisabled && (pressed || hovered || focused);
+        const active = filled || (!isDisabled && (pressed || hovered || focused));
 
         return (
           <>
             {loading && (
-              <ActivityIndicator color={colors.defaultText} accessible={false} />
+              <ActivityIndicator color={filled ? colors.activeText : colors.defaultText} accessible={false} />
             )}
             <Text
               style={[

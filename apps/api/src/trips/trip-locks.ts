@@ -12,6 +12,15 @@ export async function lockTripForUpdate(
   await tx.$queryRaw`SELECT id FROM trips WHERE id = ${tripId}::uuid FOR UPDATE`;
 }
 
+// Every trip a user owns, FOR UPDATE, for changes to all of them at once
+// (deleting the account). In id order, so two callers can't deadlock.
+export async function lockOwnerTripsForUpdate(
+  tx: Prisma.TransactionClient,
+  ownerId: string,
+) {
+  await tx.$queryRaw`SELECT id FROM trips WHERE owner_id = ${ownerId} ORDER BY id FOR UPDATE`;
+}
+
 export async function lockTripForShare(
   tx: Prisma.TransactionClient,
   tripId: string,
