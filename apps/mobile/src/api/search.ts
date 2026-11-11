@@ -1,5 +1,5 @@
-// GET /api/search (SRCH-3, #113). Not merged yet, so this returns mock data until
-// it is: set live to true once #113 is on main.
+// GET /api/search (SRCH-3, #113). EXPO_PUBLIC_API_MOCKS=all switches back to
+// the mock below.
 import { apiGet } from '@/api/client';
 import { mockDelay, mockPage, withMock } from '@/api/mock';
 import { mockSearchPeople } from '@/api/profiles';
@@ -27,7 +27,7 @@ export type SearchArgs<K extends SearchKind> = [
 ];
 
 export const searchByType = withMock<SearchArgs<SearchKind>, SearchPage<SearchKind>>({
-  live: false,
+  live: true,
   real: (type, q, cursor, signal) => apiGet('/api/search', { q, type, cursor, limit: 20 }, { signal }),
   mock: async (type, q, cursor) => {
     await mockDelay();
