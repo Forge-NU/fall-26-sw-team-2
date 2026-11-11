@@ -8,7 +8,11 @@ import { TripsModule } from './trips/trips.module';
 import { PostsModule } from './posts/posts.module';
 import { StoriesModule } from './stories/stories.module';
 import { MediaModule } from './media/media.module';
+import { LikesModule } from './likes/likes.module';
+import { SavesModule } from './saves/saves.module';
+import { CommentsModule } from './comments/comments.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
+import { SearchModule } from './search/search.module';
 
 @Module({
   imports: [
@@ -19,7 +23,11 @@ import { WebhooksModule } from './webhooks/webhooks.module';
     LocationsModule,
     StoriesModule,
     MediaModule,
+    LikesModule,
+    SavesModule,
+    CommentsModule,
     WebhooksModule,
+    SearchModule,
   ],
   controllers: [AppController],
   providers: [AppService],

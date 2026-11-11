@@ -12,7 +12,7 @@ import {
 import type { Request } from 'express';
 import { ClerkAuthGuard } from '../auth/clerk-auth.guard';
 import { FollowsService } from './follows.service';
-import { FollowListQueryDto } from './dto/follow-list-query.dto';
+import { PaginationQueryDto } from '../common/pagination';
 
 type AuthedRequest = Request & {
   user: { userId: string };
@@ -27,7 +27,7 @@ export class FollowsController {
   getFollowers(
     @Req() request: AuthedRequest,
     @Param('userId') userId: string,
-    @Query() query: FollowListQueryDto,
+    @Query() query: PaginationQueryDto,
   ) {
     return this.followsService.getFollowList(
       request.user.userId,
@@ -41,7 +41,7 @@ export class FollowsController {
   getFollowing(
     @Req() request: AuthedRequest,
     @Param('userId') userId: string,
-    @Query() query: FollowListQueryDto,
+    @Query() query: PaginationQueryDto,
   ) {
     return this.followsService.getFollowList(
       request.user.userId,
