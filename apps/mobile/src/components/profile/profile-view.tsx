@@ -65,7 +65,7 @@ export function ProfileView({ userId: routeUserId }: { userId?: string }) {
   ) : (
     <View style={styles.topBar}>
       <ScreenHeader
-        left={signOut ? { icon: 'log-out-outline', label: 'Sign out', onPress: () => void signOut() } : undefined}
+        left={{ icon: 'log-out-outline', label: 'Sign out', onPress: () => void signOut() }}
         right={<IconButton icon="add" label="New trip" onPress={newTrip} />}
       />
     </View>

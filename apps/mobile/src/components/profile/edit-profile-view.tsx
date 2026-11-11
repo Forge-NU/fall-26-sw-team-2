@@ -6,18 +6,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { UserResponse } from 'shared-types';
 
 import { getErrorMessage } from '@/api/client';
-import { getMyProfile, updateMe } from '@/api/profiles';
+import { deleteMe, getMyProfile, updateMe } from '@/api/profiles';
 import { queryKeys } from '@/api/query-keys';
 import { Icon } from '@/components/icon';
 import { AppText } from '@/components/ui/app-text';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { Palette, Radii, Spacing } from '@/constants/theme';
 import { usePhotoUpload } from '@/hooks/use-photo-upload';
 import { hasChanges, MAX_NAME_LENGTH, nameChanges, nameError, type ProfileDraft } from '@/lib/edit-profile';
-import { useSetCurrentUser } from '@/lib/current-user';
+import { useSetCurrentUser, useSignOut } from '@/lib/current-user';
 import { choosePhoto, takePhoto, type PickedPhoto, type PickPhotoResult } from '@/lib/media/pick-photo';
 import { preparePhoto } from '@/lib/media/prepare-photo';
 import { showToast } from '@/lib/toast';
@@ -54,6 +55,7 @@ export function EditProfileView() {
 function EditProfileForm({ profile }: { profile: UserResponse }) {
   const queryClient = useQueryClient();
   const setCurrentUser = useSetCurrentUser();
+  const signOut = useSignOut();
   const avatarUpload = usePhotoUpload('avatar');
   // The last photo uploaded, so retrying a failed save doesn't upload it again
   const uploaded = useRef<{ uri: string; s3Key: string } | null>(null);
@@ -63,6 +65,7 @@ function EditProfileForm({ profile }: { profile: UserResponse }) {
   });
   const [preparing, setPreparing] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const firstNameError = nameError(draft.firstName, true);
   const lastNameError = nameError(draft.lastName, false);
@@ -102,7 +105,29 @@ function EditProfileForm({ profile }: { profile: UserResponse }) {
     },
   });
 
-  const busy = save.isPending || preparing;
+  const deleteAccount = useMutation({
+    meta: { toast: false },
+    mutationFn: deleteMe,
+    onSuccess: async () => {
+      setConfirmingDelete(false);
+      showToast({ message: 'Account deleted', variant: 'success' });
+      // The same path as the profile's Sign out button: it ends the Clerk
+      // session and clears the query cache, so AuthGate shows the sign-in screen.
+      // The account is already gone, so a failed sign-out mustn't count as a
+      // failed delete; AuthGate clears the cache either way.
+      await signOut().catch(() => undefined);
+    },
+    onError: (error) => {
+      // The account is untouched, so stay signed in on this screen
+      setConfirmingDelete(false);
+      showToast({
+        message: getErrorMessage(error, { other: "Couldn't delete your account. Try again." }),
+        variant: 'error',
+      });
+    },
+  });
+
+  const busy = save.isPending || preparing || deleteAccount.isPending;
 
   function leave() {
     if (router.canGoBack()) router.back();
@@ -219,8 +244,29 @@ function EditProfileForm({ profile }: { profile: UserResponse }) {
               editable={!save.isPending}
             />
           </View>
+
+          <Pressable
+            accessibilityRole="button"
+            disabled={busy}
+            onPress={() => setConfirmingDelete(true)}
+            style={({ pressed }) => [styles.delete, pressed && styles.pressed]}>
+            <AppText variant="label" style={styles.deleteText}>
+              Delete account
+            </AppText>
+          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <ConfirmDialog
+        visible={confirmingDelete}
+        title="Delete your account?"
+        message="This permanently deletes your profile, trips, posts, stories, likes, saves and comments. This can't be undone."
+        confirmLabel="Delete account"
+        destructive
+        loading={deleteAccount.isPending}
+        onCancel={() => setConfirmingDelete(false)}
+        onConfirm={() => deleteAccount.mutate()}
+      />
     </SafeAreaView>
   );
 }
@@ -229,7 +275,8 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Palette.warmWhite },
   flex: { flex: 1 },
   centered: { alignSelf: 'center', marginTop: Spacing.six },
-  content: { padding: Spacing.three, gap: Spacing.four },
+  // Grows so Delete account sits at the bottom, away from Save
+  content: { flexGrow: 1, padding: Spacing.three, gap: Spacing.four },
   avatarBlock: { alignItems: 'center', gap: Spacing.two },
   avatarButton: { position: 'relative' },
   cameraBadge: {
@@ -253,4 +300,12 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
     gap: Spacing.three,
   },
+  delete: {
+    marginTop: 'auto',
+    alignSelf: 'center',
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.three,
+  },
+  deleteText: { color: Palette.coral },
+  pressed: { opacity: 0.6 },
 });

@@ -88,6 +88,7 @@ export default function EditTripScreen() {
               : `"${trip.data.title}" will be deleted for good. You can't undo this.`
           }
           confirmLabel="Delete trip"
+          destructive
           loading={deleteTrip.isPending}
           onCancel={() => setConfirmingDelete(false)}
           onConfirm={() =>

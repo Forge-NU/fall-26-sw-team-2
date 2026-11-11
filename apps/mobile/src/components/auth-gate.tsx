@@ -9,6 +9,7 @@ import { me as mockUser } from '@/api/mock-backend';
 import { getMe } from '@/api/users';
 import AuthScreen from '@/components/auth-screen';
 import OnboardingScreen from '@/components/onboarding-screen';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Palette } from '@/constants/theme';
 import { setAuthTokenGetter } from '@/lib/auth';
 import { CurrentUserContext, type CurrentUser } from '@/lib/current-user';
@@ -17,15 +18,37 @@ import { queryClient } from '@/lib/query-client';
 /**
  * Shows its children only once the user is signed in and has a username.
  * With EXPO_PUBLIC_API_MOCKS=all it skips Clerk and signs in as the mock user,
- * so the app runs without an account or the API.
+ * so the app runs without an account or the API. Signing out there (or deleting
+ * the account) shows a mock signed-out screen instead of the Clerk sign-in.
  */
 export const AuthGate = getMockMode() === 'all' ? MockAuthGate : ClerkAuthGate;
 
 function MockAuthGate({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<CurrentUser>(mockUser);
+  const [user, setUser] = useState<CurrentUser | null>(mockUser);
+
+  if (!user) {
+    return (
+      <View style={styles.center}>
+        <EmptyState
+          icon="log-out-outline"
+          title="Signed out"
+          description="Mock mode has no real accounts, so this stands in for the sign-in screen."
+          action={{ title: 'Sign in as mock user', onPress: () => setUser(mockUser) }}
+        />
+      </View>
+    );
+  }
   return (
     <CurrentUserContext.Provider
-      value={{ user, setUser: (updated) => setUser({ ...updated, username: updated.username ?? user.username }) }}>
+      value={{
+        user,
+        signOut: async () => {
+          // Like a real sign-out: nothing cached carries over to the next session
+          queryClient.clear();
+          setUser(null);
+        },
+        setUser: (updated) => setUser({ ...updated, username: updated.username ?? user.username }),
+      }}>
       {children}
     </CurrentUserContext.Provider>
   );
@@ -82,10 +105,14 @@ function ClerkAuthGate({ children }: { children: ReactNode }) {
 
   const user: CurrentUser = { ...profile, username: profile.username };
   const handleSignOut = async () => {
-    await signOut();
-    // Don't let the next account see this one's cached trips and posts
-    queryClient.clear();
-    setProfileState(null);
+    try {
+      await signOut();
+    } finally {
+      // Even if Clerk fails, e.g. because a deleted account's session is already
+      // gone, don't let the next account see this one's cached trips and posts
+      queryClient.clear();
+      setProfileState(null);
+    }
   };
   return (
     <CurrentUserContext.Provider
