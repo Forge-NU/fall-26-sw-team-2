@@ -213,7 +213,7 @@ describe('YujiCi', () => {
           {
             Action: 'sts:AssumeRole',
             Effect: 'Allow',
-            Resource: 'arn:aws:iam::123456789012:role/cdk-hnb659fds-*-123456789012-us-east-1',
+            Resource: 'arn:aws:iam::123456789012:role/cdk-hnb659fds-*-123456789012-us-east-2',
           },
         ],
       },

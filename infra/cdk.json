@@ -16,8 +16,8 @@
     ]
   },
   "context": {
-    "yuji:account": "",
-    "yuji:region": "us-east-1",
+    "yuji:account": "345075859588",
+    "yuji:region": "us-east-2",
     "yuji:githubRepo": "Forge-NU/fall-26-sw-team-2",
     "@aws-cdk-containers/ecs-service-extensions:enableDefaultLogDriver": true,
     "@aws-cdk/aws-apigateway:authorizerChangeDeploymentLogicalId": true,

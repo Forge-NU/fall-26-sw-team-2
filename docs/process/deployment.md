@@ -40,7 +40,7 @@ The stacks (`infra/lib/`):
 
 ## Cost
 
-Rough us-east-1 prices at demo-level traffic:
+Rough us-east-2 prices at demo-level traffic:
 
 | Piece | ≈ per month |
 |---|---|
@@ -78,15 +78,22 @@ deploy sets the service back to 1 task.
 
 ## First-time setup
 
-Done once per AWS account. Commands run from `infra/` with an admin profile for the Yuji
-account (not the root user).
+Done once per AWS account. Commands run from `infra/`.
 
-1. **Sign in.** Create a CLI profile for the Yuji account:
-   `aws configure sso --profile yuji`, then `aws sso login --profile yuji`.
-2. **Account ID.** Put the 12-digit account ID in `infra/cdk.json` as `yuji:account`. CDK
-   refuses to deploy if your credentials are for a different account.
+The Yuji account (`345075859588`, us-east-2) is a project in AWS's new sign-up experience.
+Team members don't have IAM users: the project owner invites you from
+https://settings.aws.com, you sign in there with your own login, and you get the project's
+`AccountFullAccessRole`. The project's spend limit, set in AWS Settings, pauses it when
+reached.
+
+1. **Sign in.** Sign in at https://settings.aws.com, open the Yuji project's console, then
+   run `aws configure set region us-east-2 --profile yuji` and `aws login --profile yuji`,
+   choosing that console session. Sessions last up to 12 hours; run `aws login` again after.
+   Check with `aws sts get-caller-identity --profile yuji`.
+2. **Account ID.** `yuji:account` in `infra/cdk.json` is the account ID. CDK refuses to
+   deploy if your credentials are for a different account.
 3. **Bootstrap CDK** (creates the bucket and roles CDK deploys with):
-   `npx cdk bootstrap aws://<account>/us-east-1 --profile yuji`
+   `npx cdk bootstrap aws://345075859588/us-east-2 --profile yuji`
 4. **Check the Postgres version** RDS offers, and update `POSTGRES_FULL_VERSION` in
    `infra/lib/config.ts` (and the docker-compose and CI images) if 18.6 isn't listed:
    `aws rds describe-db-engine-versions --engine postgres --query "DBEngineVersions[?starts_with(EngineVersion,'18')].EngineVersion" --profile yuji`

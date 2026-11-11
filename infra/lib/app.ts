@@ -14,7 +14,7 @@ export function createStacks(app: App) {
       'Set "yuji:account" in infra/cdk.json to the 12-digit Yuji AWS account ID (see docs/process/deployment.md).',
     );
   }
-  const region = (app.node.tryGetContext('yuji:region') as string | undefined) ?? 'us-east-1';
+  const region = (app.node.tryGetContext('yuji:region') as string | undefined) ?? 'us-east-2';
   const githubRepo = app.node.tryGetContext('yuji:githubRepo') as string;
   const env = { account, region };
 
