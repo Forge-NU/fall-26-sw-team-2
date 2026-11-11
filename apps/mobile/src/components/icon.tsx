@@ -8,6 +8,7 @@ type IoniconName = ComponentProps<typeof Ionicons>['name'];
 // App icon names mapped to Ionicons, the icon set UI-1 uses (Avatar, EmptyState).
 // Names describe the meaning, so screens don't change if the icon set does.
 const Icons = {
+  'arrow-left': { glyph: 'arrow-back' },
   'arrow-right': { glyph: 'arrow-forward' },
   // Ionicons has no plain diagonal arrow, so the forward arrow is turned 45°.
   'arrow-up-right': { glyph: 'arrow-forward', rotate: '-45deg' },
@@ -28,6 +29,7 @@ const Icons = {
   'heart-filled': { glyph: 'heart' },
   house: { glyph: 'home-outline' },
   image: { glyph: 'image-outline' },
+  'log-out': { glyph: 'log-out-outline' },
   images: { glyph: 'images-outline' },
   map: { glyph: 'map-outline' },
   'map-pin': { glyph: 'location-outline' },

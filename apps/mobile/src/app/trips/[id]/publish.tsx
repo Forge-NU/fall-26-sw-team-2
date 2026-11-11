@@ -14,7 +14,7 @@ import { Palette } from '@/constants/palette';
 import { Radii, Spacing, Typography } from '@/constants/theme';
 import { usePublishTrip, useTrip, useTripPosts } from '@/hooks/use-trips';
 import { TRIP_ERROR_FALLBACKS } from '@/lib/trips';
-import { tripDayCount } from '@/utils/trip-dates';
+import { tripDayCount } from '@/utils/local-date';
 
 const PREVIEW_COUNT = 8;
 
@@ -111,11 +111,13 @@ export default function PublishTripScreen() {
   }
 
   return (
-    <Screen>
-      <ScreenHeader
-        title="Publish trip"
-        left={{ icon: 'arrow-back', label: 'Back', onPress: () => router.back() }}
-      />
+    <Screen
+      header={
+        <ScreenHeader
+          title="Publish trip"
+          left={{ icon: 'arrow-left', label: 'Back', onPress: () => router.back() }}
+        />
+      }>
       {body}
     </Screen>
   );

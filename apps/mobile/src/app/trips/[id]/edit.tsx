@@ -110,8 +110,10 @@ export default function EditTripScreen() {
   }
 
   return (
-    <Screen>
-      <ScreenHeader title="Edit trip" left={{ icon: 'close', label: 'Close', onPress: close }} />
+    <Screen
+      header={
+        <ScreenHeader title="Edit trip" left={{ icon: 'x', label: 'Close', onPress: close }} />
+      }>
       {body}
     </Screen>
   );
