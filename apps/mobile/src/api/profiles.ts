@@ -15,6 +15,7 @@ import { apiGet, apiRequest } from '@/api/client';
 import { mockDelay, mockError, mockPage, withMock } from '@/api/mock';
 import { me as mockMe } from '@/api/mock-backend';
 import { getMe } from '@/api/users';
+import { normalizeSearchText } from '@/utils/search-text';
 
 export type FollowList = 'followers' | 'following';
 
@@ -187,6 +188,21 @@ function mockProfile(id: string): UserResponse {
     followerCount: keys.filter((key) => key.endsWith(`>${id}`)).length,
     followingCount: keys.filter((key) => key.startsWith(`${id}>`)).length,
   };
+}
+
+/**
+ * People search (SRCH-2) on the same mock travelers and follows as above, so a
+ * follow from search shows up on their profile and in your Following list.
+ */
+export function mockSearchPeople(q: string): (UserResponse & { isFollowing: boolean })[] {
+  const query = normalizeSearchText(q);
+  return mockUsers
+    .filter((user) =>
+      [`${user.firstName} ${user.lastName}`, user.username ?? ''].some((field) =>
+        normalizeSearchText(field).includes(query),
+      ),
+    )
+    .map((user) => ({ ...mockProfile(user.id), isFollowing: mockFollows.has(followKey(MOCK_ME_ID, user.id)) }));
 }
 
 async function mockFollowList(id: string, list: FollowList, cursor: string | null) {
