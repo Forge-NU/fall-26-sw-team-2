@@ -5,7 +5,7 @@ process.env.EXPO_PUBLIC_API_URL = 'http://api.test';
 const { isSearchable, search } = await import('../src/api/search.ts');
 const { followUser, unfollowUser } = await import('../src/api/profiles.ts');
 const { setAuthTokenGetter } = await import('../src/lib/auth.ts');
-const { normalizeSearchText } = await import('../src/utils/search-text.ts');
+const { isRefinement, normalizeSearchText } = await import('../src/utils/search-text.ts');
 
 function withMode(mode, run) {
   const previous = process.env.EXPO_PUBLIC_API_MOCKS;
@@ -23,6 +23,15 @@ test('normalizeSearchText ignores accents, case and outer spaces', () => {
   assert.equal(normalizeSearchText('Sensō-ji'), 'senso-ji');
   // Already-decomposed text: "e" followed by a combining acute accent
   assert.equal(normalizeSearchText(`Caf${'e'}${String.fromCharCode(0x301)}`), 'cafe');
+});
+
+test('isRefinement is true only while typing or deleting within the same query', () => {
+  assert.equal(isRefinement('lis', 'lisbon'), true);
+  assert.equal(isRefinement('Lisbon', 'lisbo'), true);
+  assert.equal(isRefinement('joao', 'João'), true);
+  assert.equal(isRefinement('maya', 'lisbon'), false);
+  assert.equal(isRefinement('maya', 'may a'), false);
+  assert.equal(isRefinement(undefined, 'lisbon'), false);
 });
 
 test('isSearchable needs 2 characters after trimming, counting characters not UTF-16 units', () => {

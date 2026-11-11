@@ -1,9 +1,10 @@
-import { keepPreviousData, useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 
 import { queryKeys } from '@/api/query-keys';
 import { isSearchable, search, type SearchKind } from '@/api/search';
 import { uniqueById } from '@/lib/follow-cache';
+import { isRefinement } from '@/utils/search-text';
 
 const DEBOUNCE_MS = 300;
 
@@ -28,7 +29,10 @@ function useSearchType<K extends SearchKind>(type: K, q: string, enabled: boolea
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled,
     staleTime: 60_000,
-    placeholderData: keepPreviousData,
+    // While the next results load, keep showing the last ones only if this is
+    // the same search being refined, never an unrelated earlier one.
+    placeholderData: (previous, previousQuery) =>
+      isRefinement(previousQuery?.queryKey[2], q) ? previous : undefined,
   });
 
   return {
