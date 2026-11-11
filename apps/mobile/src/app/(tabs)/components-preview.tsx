@@ -16,6 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { SkeletonTokens } from '@/constants/skeleton-tokens';
 import { showToast as showApiToast } from '@/lib/toast';
 import { ContentPreview } from '@/components/content/content-preview';
+import { PrimitivesPreview } from '@/components/ui/primitives-preview';
 
 export default function ComponentsPreview() {
   const [pressCount, setPressCount] = useState(0);
@@ -187,6 +188,7 @@ export default function ComponentsPreview() {
         </View>
         <AppText variant="label">Static skeleton</AppText>
         <View style={styles.inputPreview}><Skeleton animate={false} /></View>
+        <PrimitivesPreview />
       </ScrollView>
     </SafeAreaView>
   );
