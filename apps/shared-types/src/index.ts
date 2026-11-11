@@ -52,7 +52,7 @@ export interface ApiErrorResponse {
   timestamp: string;
 }
 
-export type { TripStatus, TripResponse, ActiveTripsResponse, CreateTripRequest, UpdateTripRequest, MediaType, MediaResponse, PostResponse, CreatePostRequest, CreatePostMedia, LikeStatusResponse, PostLikerResponse, SaveStatusResponse } from './content.js';
+export type { TripStatus, TripResponse, ActiveTripsResponse, CreateTripRequest, UpdateTripRequest, MediaType, MediaResponse, PostResponse, CreatePostRequest, CreatePostMedia, LikeStatusResponse, PostLikerResponse, SaveStatusResponse, CommentResponse, CreateCommentRequest } from './content.js';
 export type { LocationRating, LocationResponse, PlaceSuggestion, ResolveLocationRequest, ResolveLocationResponse } from './locations.js';
 export type { StoryResponse, StoryGroup, StoriesFeedResponse, TripStoriesResponse, CreateStoryRequest } from './stories.js';
 export type { FollowListUser, FollowListPage, FollowStatus, FollowCounts } from './follows.js';

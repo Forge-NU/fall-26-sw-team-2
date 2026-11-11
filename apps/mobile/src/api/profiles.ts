@@ -132,6 +132,7 @@ export const listUserPosts = withMock<Parameters<ListFetcher<PostResponse>>, Pag
       media: [],
       likeCount: 0,
       saveCount: 0,
+      commentCount: 0,
       likedByMe: false,
       savedByMe: false,
       createdAt: MOCK_TIMESTAMP,
