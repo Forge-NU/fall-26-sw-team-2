@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, Trip } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { canViewTrip } from '../trips/trip-rules';
-import { SaveStatusResponse } from './save.types';
+import type { SaveStatusResponse } from 'shared-types';
 
 // Saving and unsaving trips and posts. Both are idempotent. The Saved tab
 // lists are in TripsService and PostsService, which build those responses.

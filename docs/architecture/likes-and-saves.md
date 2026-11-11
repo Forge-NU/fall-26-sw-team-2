@@ -54,7 +54,7 @@ All endpoints are under `/api` and need a Clerk session. Errors use the shared s
 
 List endpoints use the cursor pagination in [`itinerary-schema.md`](itinerary-schema.md#api-contracts): `?cursor=<from the last page>&limit=<1-50, default 20>` returns `{ "items": [...], "nextCursor": "..." | null }`. A cursor that doesn't belong to the list returns 400. The helper (`apps/api/src/common/pagination.ts`) is the stand-in until API-2 (#90).
 
-Response types are in `shared-types` (`LikeStatusResponse`, `PostLikerResponse`, `SaveStatusResponse`) and in `apps/api/src/likes/like.types.ts` and `saves/save.types.ts`.
+Response types are in `shared-types` (`LikeStatusResponse`, `PostLikerResponse`, `SaveStatusResponse`).
 
 ### Counts on posts and trips
 

@@ -14,8 +14,9 @@ import {
   toPage,
 } from '../common/pagination';
 import { toUserSummary, userSummarySelect } from '../common/user-summary';
+import { StorageService } from '../storage/storage.service';
 import { canViewTrip } from '../trips/trip-rules';
-import { CommentResponse } from './comment.types';
+import type { CommentResponse } from 'shared-types';
 import { CreateCommentDto } from './dto/create-comment.dto';
 
 const commentInclude = {
@@ -40,7 +41,10 @@ const tripVisibilitySelect = {
 
 @Injectable()
 export class CommentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
+  ) {}
 
   async create(
     userId: string,
@@ -90,7 +94,7 @@ export class CommentsService {
         },
         include: commentInclude,
       });
-      return toResponse(comment);
+      return await this.toResponse(comment);
     } catch (e) {
       // The post or the parent comment was deleted after the checks above
       if (
@@ -132,7 +136,7 @@ export class CommentsService {
       ...pageArgs(query),
     });
 
-    return toPage(comments, query, toResponse);
+    return toPage(comments, query, (c) => this.toResponse(c));
   }
 
   // A top-level comment's replies, oldest first
@@ -163,7 +167,7 @@ export class CommentsService {
       ...pageArgs(query),
     });
 
-    return toPage(replies, query, toResponse);
+    return toPage(replies, query, (c) => this.toResponse(c));
   }
 
   // Only the author can delete a comment. Deleting a top-level comment
@@ -202,17 +206,21 @@ export class CommentsService {
       throw new NotFoundException('Post not found');
     }
   }
-}
 
-function toResponse(comment: CommentWithDetails): CommentResponse {
-  return {
-    id: comment.id,
-    postId: comment.postId,
-    parentCommentId: comment.parentCommentId,
-    author: toUserSummary(comment.author),
-    replyTo: comment.replyTo ? toUserSummary(comment.replyTo) : null,
-    body: comment.body,
-    replyCount: comment._count.replies,
-    createdAt: comment.createdAt.toISOString(),
-  };
+  private async toResponse(
+    comment: CommentWithDetails,
+  ): Promise<CommentResponse> {
+    return {
+      id: comment.id,
+      postId: comment.postId,
+      parentCommentId: comment.parentCommentId,
+      author: await toUserSummary(comment.author, this.storage),
+      replyTo: comment.replyTo
+        ? await toUserSummary(comment.replyTo, this.storage)
+        : null,
+      body: comment.body,
+      replyCount: comment._count.replies,
+      createdAt: comment.createdAt.toISOString(),
+    };
+  }
 }

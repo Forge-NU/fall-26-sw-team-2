@@ -6,7 +6,8 @@ import type { PostLikerResponse } from 'shared-types';
 
 import { ApiError } from '@/api/client';
 import { listPostLikes } from '@/api/engagement';
-import { getMe } from '@/api/users';
+import { getMyProfile } from '@/api/profiles';
+import { queryKeys } from '@/api/query-keys';
 import { ListEmpty, ListFooter } from '@/components/content/list-states';
 import { UserRow } from '@/components/content/user-row';
 import { AppText } from '@/components/ui/app-text';
@@ -19,7 +20,7 @@ import { engagementKeys, uniqueById } from '@/lib/engagement-cache';
 
 /** Who liked a post, newest first, with a follow button on everyone but you. */
 export function PostLikesView({ postId }: { postId: string }) {
-  const me = useQuery({ queryKey: ['me'], queryFn: ({ signal }) => getMe(signal) });
+  const me = useQuery({ queryKey: queryKeys.myProfile, queryFn: ({ signal }) => getMyProfile(signal) });
   const likers = useInfiniteList<PostLikerResponse>({
     queryKey: engagementKeys.likes(postId),
     fetchPage: (cursor, signal) => listPostLikes(postId, cursor, signal),

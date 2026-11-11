@@ -7,7 +7,8 @@ import type { CommentResponse } from 'shared-types';
 
 import { ApiError } from '@/api/client';
 import { listComments } from '@/api/comments';
-import { getMe } from '@/api/users';
+import { getMyProfile } from '@/api/profiles';
+import { queryKeys } from '@/api/query-keys';
 import { ListEmpty, ListFooter } from '@/components/content/list-states';
 import { AppText } from '@/components/ui/app-text';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -26,7 +27,7 @@ import { CommentThread } from './comment-row';
  * POST-3 (#43) can put this under post detail.
  */
 export function CommentsView({ postId }: { postId: string }) {
-  const me = useQuery({ queryKey: ['me'], queryFn: ({ signal }) => getMe(signal) });
+  const me = useQuery({ queryKey: queryKeys.myProfile, queryFn: ({ signal }) => getMyProfile(signal) });
   const myId = me.data?.id;
   const comments = useInfiniteList<CommentResponse>({
     queryKey: commentKeys.list(postId),

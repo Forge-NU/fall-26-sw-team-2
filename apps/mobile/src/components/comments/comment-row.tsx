@@ -75,7 +75,7 @@ function Replies({ comment, ...actions }: CommentActions & { comment: CommentRes
 
 function CommentRow({ comment, myId, onReply, onDelete }: CommentActions & { comment: CommentResponse }) {
   const { author, replyTo } = comment;
-  const name = `${author.firstName} ${author.lastName}`.trim() || author.username;
+  const name = `${author.firstName} ${author.lastName}`.trim() || (author.username ?? '');
   const mine = author.id === myId;
   return (
     <View style={styles.row}>

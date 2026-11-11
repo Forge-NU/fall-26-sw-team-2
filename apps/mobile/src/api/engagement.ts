@@ -8,7 +8,7 @@ import type {
   PostResponse,
   SaveStatusResponse,
   TripResponse,
-  UserResponse,
+  UserSummary,
 } from 'shared-types';
 
 import { apiGet, apiRequest } from '@/api/client';
@@ -109,8 +109,8 @@ export const unfollowUser = withMock<[id: string], void>({
 
 // Mock data: a few of Maya's Lisbon posts and trips, with the mock user's saves in memory
 
-const maya: UserResponse = { id: 'mock-maya', username: 'maya.chen', firstName: 'Maya', lastName: 'Chen', avatarUrl: null };
-const people: UserResponse[] = ['Priya Shah', 'Noah Okafor', 'Sofia Silva', 'Kenji Tanaka', 'Amara Haddad'].map(
+const maya: UserSummary = { id: 'mock-maya', username: 'maya.chen', firstName: 'Maya', lastName: 'Chen', avatarUrl: null };
+const people: UserSummary[] = ['Priya Shah', 'Noah Okafor', 'Sofia Silva', 'Kenji Tanaka', 'Amara Haddad'].map(
   (name, i) => {
     const [firstName, lastName] = name.split(' ');
     return { id: `mock-liker-${i + 1}`, username: name.toLowerCase().replace(' ', '.'), firstName, lastName, avatarUrl: null };
@@ -150,6 +150,7 @@ const mockPosts: PostResponse[] = [
   visitedOn: `2026-09-1${i}`,
   location: null,
   customLocationName: `${place}, Lisbon`,
+  rating: null,
   media: [],
   likeCount: 3 + i,
   saveCount: 1,

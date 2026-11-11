@@ -10,20 +10,25 @@ import { postStats, tripStats } from '@/components/content/engagement-stats';
 import { ListEmpty, ListFooter } from '@/components/content/list-states';
 import { PostCard } from '@/components/content/post-card';
 import { TripCard } from '@/components/content/trip-card';
+import { SavedPlacesList } from '@/components/saved/saved-places-list';
 import { AppText } from '@/components/ui/app-text';
 import { YujiHeader } from '@/components/yuji-header';
 import { BottomTabInset, Palette, Spacing } from '@/constants/theme';
 import { useInfiniteList } from '@/hooks/use-infinite-list';
 import { engagementKeys, uniqueById, type SaveTarget } from '@/lib/engagement-cache';
 
-const SavedTabs: { key: SaveTarget; label: string }[] = [
+// Places are saved on the device from the Maps tab (#81), not through the API
+type SavedTab = SaveTarget | 'place';
+
+const SavedTabs: { key: SavedTab; label: string }[] = [
   { key: 'trip', label: 'Trips' },
   { key: 'post', label: 'Posts' },
+  { key: 'place', label: 'Places' },
 ];
 
-/** Your saved trips and posts. Only you can see them: the API has no route to anyone else's. */
+/** Your saved trips, posts and places. Only you can see them: the API has no route to anyone else's. */
 export function SavedView() {
-  const [activeTab, setActiveTab] = useState<SaveTarget>('trip');
+  const [activeTab, setActiveTab] = useState<SavedTab>('trip');
 
   return (
     <SafeAreaView edges={['top']} style={styles.screen}>
@@ -46,7 +51,9 @@ export function SavedView() {
           );
         })}
       </View>
-      {activeTab === 'trip' ? <SavedTrips /> : <SavedPosts />}
+      {activeTab === 'trip' && <SavedTrips />}
+      {activeTab === 'post' && <SavedPosts />}
+      {activeTab === 'place' && <SavedPlacesList />}
     </SafeAreaView>
   );
 }

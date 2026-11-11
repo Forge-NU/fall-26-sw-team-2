@@ -1,11 +1,11 @@
 // Comments for INT-4 (#52), on INT-2's endpoints (#50, see
 // docs/architecture/comments.md). The mocks are for EXPO_PUBLIC_API_MOCKS=all.
-import type { CommentResponse, CreateCommentRequest, PaginatedResponse, UserResponse } from 'shared-types';
+import type { CommentResponse, CreateCommentRequest, PaginatedResponse, UserSummary } from 'shared-types';
 
 import { apiGet, apiRequest } from '@/api/client';
 import { mockAdjustCommentCount } from '@/api/engagement';
 import { mockDelay, mockError, mockPage, withMock } from '@/api/mock';
-import { MOCK_ME } from '@/api/users';
+import { me as MOCK_ME } from '@/api/mock-backend';
 
 const commentsPath = (postId: string) => `/api/posts/${encodeURIComponent(postId)}/comments`;
 const commentPath = (id: string) => `/api/comments/${encodeURIComponent(id)}`;
@@ -84,7 +84,7 @@ export const deleteComment = withMock<[id: string], void>({
 // Mock data: the seed's thread on Maya's first Lisbon post (Priya comments,
 // Maya replies, Alex replies to Maya), plus one more comment
 
-const person = (id: string, firstName: string, lastName: string): UserResponse => ({
+const person = (id: string, firstName: string, lastName: string): UserSummary => ({
   id,
   firstName,
   lastName,
@@ -97,11 +97,11 @@ const alex = person('mock-alex', 'Alex', 'Rivera');
 
 const mockComment = (
   id: string,
-  author: UserResponse,
+  author: UserSummary,
   body: string,
   createdAt: string,
   parentCommentId: string | null = null,
-  replyTo: UserResponse | null = null,
+  replyTo: UserSummary | null = null,
 ): CommentResponse => ({
   id,
   postId: 'mock-post-1',

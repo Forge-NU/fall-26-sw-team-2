@@ -11,6 +11,7 @@ import { MediaModule } from './media/media.module';
 import { LikesModule } from './likes/likes.module';
 import { SavesModule } from './saves/saves.module';
 import { CommentsModule } from './comments/comments.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { CommentsModule } from './comments/comments.module';
     LikesModule,
     SavesModule,
     CommentsModule,
+    WebhooksModule,
   ],
   controllers: [AppController],
   providers: [AppService],

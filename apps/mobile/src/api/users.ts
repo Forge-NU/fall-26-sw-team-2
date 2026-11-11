@@ -1,28 +1,21 @@
-import type { PaginatedResponse, UserResponse } from 'shared-types';
+import type { PaginatedResponse, UserResponse, UserSummary, UsernameAvailabilityResponse } from 'shared-types';
 
-import { apiGet } from '@/api/client';
-import { mockDelay, withMock } from '@/api/mock';
+import { apiGet, apiRequest } from '@/api/client';
 
-/** API-1's example list endpoint. Needs sign-in, so it returns 401 until ACCT-1 (#29). */
-export function listUsers(cursor: string | null, signal?: AbortSignal): Promise<PaginatedResponse<UserResponse>> {
+/** API-1's example list endpoint. Needs sign-in. */
+export function listUsers(cursor: string | null, signal?: AbortSignal): Promise<PaginatedResponse<UserSummary>> {
   return apiGet('/api/users', { cursor, limit: 20 }, { signal });
 }
 
-/** The signed-in user, from ACCT-1's GET /api/me. Cached under ['me'], like #84's profile. */
-export const getMe = withMock<[signal?: AbortSignal], UserResponse>({
-  live: true,
-  real: (signal) => apiGet('/api/me', undefined, { signal }),
-  mock: async () => {
-    await mockDelay();
-    return MOCK_ME;
-  },
-});
+/** The signed-in user's profile. 404 until they finish onboarding. */
+export function getMe(signal?: AbortSignal): Promise<UserResponse> {
+  return apiGet('/api/me', undefined, { signal });
+}
 
-/** Who the mocks are signed in as */
-export const MOCK_ME: UserResponse = {
-  id: 'user_mock',
-  username: 'mock.traveler',
-  firstName: 'Mock',
-  lastName: 'Traveler',
-  avatarUrl: null,
-};
+export function createMyProfile(body: { firstName: string; lastName: string; username: string }): Promise<UserResponse> {
+  return apiRequest('POST', '/api/me/profile', body);
+}
+
+export function getUsernameAvailability(username: string): Promise<UsernameAvailabilityResponse> {
+  return apiGet('/api/users/username-availability', { username });
+}
