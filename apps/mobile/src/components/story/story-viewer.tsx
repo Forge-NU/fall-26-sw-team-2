@@ -9,6 +9,7 @@ import { Icon } from '@/components/icon';
 import { AppText } from '@/components/ui/app-text';
 import { Avatar } from '@/components/ui/avatar';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { StoryTokens } from '@/constants/story-tokens';
 import { Palette, Radii, Spacing } from '@/constants/theme';
 import { useDeleteStory } from '@/hooks/use-stories';
 import { useCurrentUser } from '@/lib/current-user';
@@ -248,11 +249,7 @@ export function StoryViewer({
       <ConfirmDialog
         visible={confirmingDelete}
         title="Delete story?"
-        message={
-          story.keepOnTrip
-            ? "It'll be removed from the stories bar and from your trip page."
-            : "It'll be removed from the stories bar."
-        }
+        message={deleteMessage(story)}
         confirmLabel="Delete"
         loading={deleteStory.isPending}
         onConfirm={confirmDelete}
@@ -260,6 +257,13 @@ export function StoryViewer({
       />
     </View>
   );
+}
+
+function deleteMessage(story: StoryGroup['stories'][number]): string {
+  const inBar = new Date(story.expiresAt).getTime() > Date.now();
+  if (story.keepOnTrip && inBar) return "It'll be removed from the stories bar and from your trip page.";
+  if (story.keepOnTrip) return "It'll be removed from your trip page.";
+  return "It'll be removed from the stories bar.";
 }
 
 /**
@@ -313,7 +317,7 @@ const styles = StyleSheet.create({
     right: 0,
     paddingHorizontal: Spacing.two,
     gap: Spacing.two,
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    backgroundColor: StoryTokens.viewer.headerScrim,
   },
   bars: {
     flexDirection: 'row',
@@ -324,7 +328,7 @@ const styles = StyleSheet.create({
     height: 3,
     borderRadius: Radii.circle,
     overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.35)',
+    backgroundColor: StoryTokens.viewer.progressTrack,
   },
   barFill: {
     width: '0%',
@@ -357,10 +361,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.three,
     gap: Spacing.two,
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    backgroundColor: StoryTokens.viewer.captionScrim,
   },
   text: {
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowColor: StoryTokens.viewer.textShadow,
     textShadowRadius: 4,
   },
   chips: {
@@ -376,7 +380,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.two + Spacing.half,
     paddingVertical: Spacing.one + Spacing.half,
     borderRadius: Radii.circle,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: StoryTokens.viewer.chip,
   },
   tripChip: {
     backgroundColor: Palette.warmWhite,

@@ -51,6 +51,10 @@ export function useDeleteStory() {
       );
       void queryClient.invalidateQueries({ queryKey: queryKeys.storiesFeed });
       if (story.tripId) {
+        // And from the trip page, for a kept story
+        queryClient.setQueryData<StoryResponse[]>(queryKeys.tripStories(story.tripId), (items) =>
+          items?.filter((s) => s.id !== story.id),
+        );
         void queryClient.invalidateQueries({ queryKey: queryKeys.tripStories(story.tripId) });
       }
     },

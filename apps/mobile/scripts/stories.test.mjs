@@ -10,6 +10,7 @@ import {
   storyAge,
   storyOwnerName,
   storyPlaceName,
+  storiesOnDay,
   withoutStory,
 } from '../src/lib/stories.ts';
 
@@ -86,4 +87,14 @@ test('storyAge rounds down to minutes, hours, then days', () => {
   assert.equal(storyAge(new Date(now - 12 * 60_000).toISOString(), now), '12m');
   assert.equal(storyAge(new Date(now - 5 * 3_600_000).toISOString(), now), '5h');
   assert.equal(storyAge(new Date(now - 30 * 3_600_000).toISOString(), now), '1d');
+});
+
+test("storiesOnDay keeps one day's stories in their order", () => {
+  const kept = [
+    { id: 'a', storyDate: '2026-11-09' },
+    { id: 'b', storyDate: '2026-11-10' },
+    { id: 'c', storyDate: '2026-11-10' },
+  ];
+  assert.deepEqual(storiesOnDay(kept, '2026-11-10').map((s) => s.id), ['b', 'c']);
+  assert.deepEqual(storiesOnDay(kept, '2026-11-11'), []);
 });

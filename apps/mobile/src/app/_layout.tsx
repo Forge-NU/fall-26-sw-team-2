@@ -90,6 +90,10 @@ export default function TabLayout() {
                   name="stories/[ownerId]"
                   options={{ presentation: "fullScreenModal", animation: "fade" }}
                 />
+                <Stack.Screen
+                  name="trips/[id]/stories"
+                  options={{ presentation: "fullScreenModal", animation: "fade" }}
+                />
               </Stack>
             </AuthGate>
           </ToastProvider>

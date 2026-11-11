@@ -75,3 +75,8 @@ export function storyAge(createdAt: string, now = Date.now()): string {
   if (hours < 24) return `${hours}h`;
   return `${Math.floor(hours / 24)}d`;
 }
+
+/** A trip's kept stories from one day (YYYY-MM-DD), in the order the API sorted them */
+export function storiesOnDay<T extends Pick<StoryResponse, 'storyDate'>>(stories: T[], day: string): T[] {
+  return stories.filter((story) => story.storyDate === day);
+}

@@ -1,9 +1,10 @@
-import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { StoryViewer } from '@/components/story/story-viewer';
 import { Palette } from '@/constants/theme';
+import { useCloseOnce } from '@/hooks/use-close-once';
 import { useStoriesFeed } from '@/hooks/use-stories';
 
 // The stories bar's viewer: opens on the tapped user's first story, then goes
@@ -51,18 +52,6 @@ export default function StoriesScreen() {
       onClose={close}
     />
   );
-}
-
-// Closing can be asked for twice (the last story ending as it's deleted), and
-// going back twice would leave the feed too
-function useCloseOnce() {
-  const closed = useRef(false);
-  return useCallback(() => {
-    if (closed.current) return;
-    closed.current = true;
-    if (router.canGoBack()) router.back();
-    else router.replace('/');
-  }, []);
 }
 
 const styles = StyleSheet.create({
