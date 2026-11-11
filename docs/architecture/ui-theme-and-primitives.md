@@ -46,7 +46,7 @@ loading, error or empty state in place of the content.
   header={<ScreenHeader title="My trips" left={{ icon: 'arrow-left', label: 'Back', onPress: back }} />}
   scroll
   loading={trips.isPending}
-  error={trips.error}
+  error={trips.data ? null : trips.error}
   onRetry={() => void trips.refetch()}
   empty={trips.data?.length === 0 && { title: 'No trips yet', action: { title: 'New trip', onPress: newTrip } }}>
   {trips.data?.map((trip) => <TripRow key={trip.id} trip={trip} />)}
@@ -59,7 +59,7 @@ loading, error or empty state in place of the content.
 | `scroll` | Wraps the content in a `ScrollView`. Leave it off when the screen has its own `FlatList`. |
 | `edges` | Safe-area edges, default top and bottom. Tab screens use `['top']`. |
 | `loading`, `loadingFallback` | Shows `loadingFallback`, or a few `Skeleton` rows. |
-| `error`, `onRetry`, `errorState` | Any non-null `error` shows an `EmptyState` with `getErrorMessage(error)` and Try again. `errorState` overrides parts of it. |
+| `error`, `onRetry`, `errorState` | Any non-null `error` shows an `EmptyState` with `getErrorMessage(error)` and Try again. `errorState` overrides parts of it. Pass `null` once there's data, so a failed refresh doesn't hide what already loaded. |
 | `empty` | `EmptyState` props, shown instead of the content when set. |
 
 Loading wins over error, error wins over empty, and the children only show when

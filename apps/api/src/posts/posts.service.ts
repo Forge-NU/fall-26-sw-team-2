@@ -4,41 +4,64 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Location, Prisma, Trip } from '../generated/prisma/client';
+import { PostSave, Prisma, Trip } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { formatDateOnly, parseDateOnly } from '../common/dates';
 import {
-  Page,
   PaginationQueryDto,
-  assertCursorInList,
-  pageArgs,
-  toPage,
+  buildPage,
+  keyset,
+  pageLimit,
 } from '../common/pagination';
 import { toUserSummary, userSummarySelect } from '../common/user-summary';
-import { POST_ORDER, TripsService } from '../trips/trips.service';
-import { canViewTrip } from '../trips/trip-rules';
+import { TRIP_POSTS, TripsService } from '../trips/trips.service';
+import { canViewTrip, visibleTripWhere } from '../trips/trip-rules';
 import { lockTripForShare } from '../trips/trip-locks';
+import { toLocation } from '../locations/locations.service';
+import { refreshLocationRatings } from '../locations/location-ratings';
 import { CreatePostDto } from './dto/create-post.dto';
 import { MediaItemDto } from './dto/media-item.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
-import { LocationResponse, PostResponse } from './post.types';
+import type { PaginatedResponse, PostResponse } from 'shared-types';
 
-const postInclude = {
-  trip: {
-    select: {
-      ownerId: true,
-      status: true,
-      startDate: true,
-      endDate: true,
-      owner: { select: userSummarySelect },
+// `viewerId` is who's reading, for likedByMe and savedByMe. Each of those
+// relations has at most one row for them (it's the primary key).
+function postInclude(viewerId: string) {
+  return {
+    trip: {
+      select: {
+        ownerId: true,
+        status: true,
+        startDate: true,
+        endDate: true,
+        owner: { select: userSummarySelect },
+      },
     },
-  },
-  location: true,
-  media: { orderBy: { position: 'asc' } },
-} satisfies Prisma.PostInclude;
+    location: true,
+    media: { orderBy: { position: 'asc' } },
+    _count: { select: { likes: true, saves: true, comments: true } },
+    likes: { where: { userId: viewerId }, select: { userId: true } },
+    saves: { where: { userId: viewerId }, select: { userId: true } },
+  } satisfies Prisma.PostInclude;
+}
 
-type PostWithDetails = Prisma.PostGetPayload<{ include: typeof postInclude }>;
+type PostWithDetails = Prisma.PostGetPayload<{
+  include: ReturnType<typeof postInclude>;
+}>;
+
+// One user's saved posts, most recently saved first
+const SAVED_POSTS = keyset<
+  PostSave,
+  Prisma.PostSaveWhereInput,
+  Prisma.PostSaveOrderByWithRelationInput
+>([
+  { field: 'createdAt', direction: 'desc', type: 'date' },
+  { field: 'postId', direction: 'desc', type: 'string' },
+]);
+
+const CUSTOM_LOCATION_RATING =
+  'Only posts at a Mapbox place can be rated, not a custom location';
 
 @Injectable()
 export class PostsService {
@@ -56,6 +79,9 @@ export class PostsService {
         'Send exactly one of locationId and customLocationName',
       );
     }
+    if (dto.rating != null && dto.customLocationName != null) {
+      throw new BadRequestException(CUSTOM_LOCATION_RATING);
+    }
     if (dto.locationId) {
       await this.assertLocationExists(dto.locationId);
     }
@@ -71,16 +97,27 @@ export class PostsService {
         const visitedOn = parseDateOnly(dto.visitedOn);
         assertWithinTrip(trip, visitedOn);
 
-        return tx.post.create({
+        const created = await tx.post.create({
           data: {
             tripId: trip.id,
             visitedOn,
             caption: dto.caption || null,
             locationId: dto.locationId ?? null,
             customLocationName: dto.customLocationName ?? null,
+            rating: dto.rating ?? null,
             media: { create: toMediaRows(dto.media) },
           },
-          include: postInclude,
+          include: postInclude(userId),
+        });
+
+        // Only a rating in a published trip counts toward the place. The
+        // trip's share lock means it can't be published mid-transaction.
+        if (!countsTowardPlace(trip, dto.rating)) return created;
+        await refreshLocationRatings(tx, [dto.locationId]);
+        // Read after the refresh, so the place's rating includes this post
+        return tx.post.findUniqueOrThrow({
+          where: { id: created.id },
+          include: postInclude(userId),
         });
       }),
     );
@@ -91,7 +128,7 @@ export class PostsService {
   async findOne(viewerId: string, id: string): Promise<PostResponse> {
     const post = await this.prisma.post.findUnique({
       where: { id },
-      include: postInclude,
+      include: postInclude(viewerId),
     });
 
     if (!post || !canViewTrip(viewerId, post.trip)) {
@@ -99,6 +136,22 @@ export class PostsService {
     }
 
     return this.toResponse(post);
+  }
+
+  // Several posts in one query, keyed by id, for callers that already have
+  // the ids (search). Posts the viewer can't see, or that no longer exist,
+  // are left out rather than thrown.
+  async findManyForViewer(
+    viewerId: string,
+    ids: string[],
+  ): Promise<Map<string, PostResponse>> {
+    const posts = await this.prisma.post.findMany({
+      where: { id: { in: ids } },
+      include: postInclude(viewerId),
+    });
+    const visible = posts.filter((post) => canViewTrip(viewerId, post.trip));
+    const items = await Promise.all(visible.map((p) => this.toResponse(p)));
+    return new Map(items.map((item) => [item.id, item]));
   }
 
   async update(
@@ -112,6 +165,9 @@ export class PostsService {
       throw new BadRequestException(
         'Send only one of locationId and customLocationName',
       );
+    }
+    if (dto.rating != null && dto.customLocationName !== undefined) {
+      throw new BadRequestException(CUSTOM_LOCATION_RATING);
     }
     if (dto.locationId) {
       await this.assertLocationExists(dto.locationId);
@@ -129,9 +185,35 @@ export class PostsService {
           assertWithinTrip(trip, parseDateOnly(dto.visitedOn));
         }
 
-        // Locked so two edits to the same post's media run one at a time,
-        // and the removed keys are worked out from what's actually there
-        await tx.$queryRaw`SELECT id FROM posts WHERE id = ${id}::uuid FOR UPDATE`;
+        // Locked so two edits to the same post run one at a time, and the
+        // removed keys and the old location and rating are worked out from
+        // what's actually there
+        const current = await this.lockPost(tx, id);
+
+        const locationChanged =
+          dto.locationId !== undefined || dto.customLocationName !== undefined;
+        const nextLocationId =
+          dto.customLocationName !== undefined
+            ? null
+            : (dto.locationId ?? current.location_id);
+        if (dto.rating != null && nextLocationId == null) {
+          throw new BadRequestException(CUSTOM_LOCATION_RATING);
+        }
+        // The rating was for the place, so switching to a custom location
+        // (which can't be rated) clears it
+        const nextRating =
+          dto.customLocationName !== undefined
+            ? null
+            : dto.rating !== undefined
+              ? dto.rating
+              : current.rating;
+        // The place totals can only change if the rating or location changed
+        // and the post was or will be rated, in a published trip
+        const refreshPlaces =
+          (dto.rating !== undefined || locationChanged) &&
+          (countsTowardPlace(trip, current.rating) ||
+            countsTowardPlace(trip, nextRating));
+
         let removedKeys: string[] = [];
         if (media) {
           const newKeys = new Set(media.map((m) => m.s3Key));
@@ -145,7 +227,7 @@ export class PostsService {
           await tx.postMedia.deleteMany({ where: { postId: id } });
         }
 
-        const updated = await tx.post.update({
+        const edited = await tx.post.update({
           where: { id },
           data: {
             visitedOn: dto.visitedOn ? parseDateOnly(dto.visitedOn) : undefined,
@@ -159,11 +241,20 @@ export class PostsService {
               locationId: null,
               customLocationName: dto.customLocationName,
             }),
+            rating: nextRating,
             ...(media && { media: { create: toMediaRows(media) } }),
             // Prisma doesn't bump @updatedAt for a media-only change
             updatedAt: new Date(),
           },
-          include: postInclude,
+          include: postInclude(userId),
+        });
+
+        if (!refreshPlaces) return { updated: edited, removedKeys };
+        await refreshLocationRatings(tx, [current.location_id, nextLocationId]);
+        // Read after the refresh, so the place's rating includes this edit
+        const updated = await tx.post.findUniqueOrThrow({
+          where: { id },
+          include: postInclude(userId),
         });
 
         return { updated, removedKeys };
@@ -183,12 +274,17 @@ export class PostsService {
 
     const keys = await this.prisma.$transaction(async (tx) => {
       // Locked so publishing can't count this post while it's being deleted
-      await this.lockedTrip(tx, post.tripId);
+      const trip = await this.lockedTrip(tx, post.tripId);
+      // Locked so the location and rating read are the ones being deleted
+      const current = await this.lockPost(tx, id);
       const media = await tx.postMedia.findMany({
         where: { postId: id },
         select: { s3Key: true },
       });
       await tx.post.deleteMany({ where: { id } });
+      if (countsTowardPlace(trip, current.rating)) {
+        await refreshLocationRatings(tx, [current.location_id]);
+      }
       return media.map((m) => m.s3Key);
     });
 
@@ -201,7 +297,7 @@ export class PostsService {
     viewerId: string,
     tripId: string,
     query: PaginationQueryDto,
-  ): Promise<Page<PostResponse>> {
+  ): Promise<PaginatedResponse<PostResponse>> {
     const trip = await this.prisma.trip.findUnique({
       where: { id: tripId },
       select: { ownerId: true, status: true },
@@ -210,21 +306,58 @@ export class PostsService {
       throw new NotFoundException('Trip not found');
     }
 
-    await assertCursorInList(query, (cursor) =>
-      this.prisma.post.findFirst({
-        where: { id: cursor, tripId },
-        select: { id: true },
-      }),
-    );
-
+    const list = `posts:${tripId}`;
+    const limit = pageLimit(query);
     const posts = await this.prisma.post.findMany({
-      where: { tripId },
-      orderBy: POST_ORDER,
-      include: postInclude,
-      ...pageArgs(query),
+      where: {
+        tripId,
+        ...TRIP_POSTS.after(TRIP_POSTS.decode(query.cursor, list)),
+      },
+      orderBy: TRIP_POSTS.orderBy,
+      include: postInclude(viewerId),
+      take: limit + 1,
     });
 
-    return toPage(posts, query, (post) => this.toResponse(post));
+    const page = buildPage(posts, limit, (post) =>
+      TRIP_POSTS.cursor(list, post),
+    );
+    return {
+      items: await Promise.all(page.items.map((post) => this.toResponse(post))),
+      nextCursor: page.nextCursor,
+    };
+  }
+
+  // The posts in the Saved tab, most recently saved first. Only ever the
+  // current user's own saves.
+  async listSaved(
+    userId: string,
+    query: PaginationQueryDto,
+  ): Promise<PaginatedResponse<PostResponse>> {
+    const list = `saved-posts:${userId}`;
+    const limit = pageLimit(query);
+    const saves = await this.prisma.postSave.findMany({
+      where: {
+        userId,
+        // Saves stay visible only while their trip is. Every saved post was
+        // visible when saved, and publishing can't be undone, so this is a
+        // guard.
+        post: { trip: visibleTripWhere(userId) },
+        ...SAVED_POSTS.after(SAVED_POSTS.decode(query.cursor, list)),
+      },
+      orderBy: SAVED_POSTS.orderBy,
+      include: { post: { include: postInclude(userId) } },
+      take: limit + 1,
+    });
+
+    const page = buildPage(saves, limit, (save) =>
+      SAVED_POSTS.cursor(list, save),
+    );
+    return {
+      items: await Promise.all(
+        page.items.map((save) => this.toResponse(save.post)),
+      ),
+      nextCursor: page.nextCursor,
+    };
   }
 
   // Takes a share lock on the trip (see trip-locks.ts) and re-reads it, since
@@ -238,12 +371,24 @@ export class PostsService {
     return trip;
   }
 
+  // Locks the post row for an edit or delete and reads what the place totals
+  // depend on. 404 if it was deleted since the ownership check.
+  private async lockPost(tx: Prisma.TransactionClient, id: string) {
+    const [row] = await tx.$queryRaw<
+      { location_id: string | null; rating: number | null }[]
+    >`SELECT location_id, rating FROM posts WHERE id = ${id}::uuid FOR UPDATE`;
+    if (!row) {
+      throw new NotFoundException('Post not found');
+    }
+    return row;
+  }
+
   // Same rules as trips: 404 if the viewer can't see the post's trip, 403 if
   // they can but don't own it.
   private async getOwnedPost(userId: string, id: string) {
     const post = await this.prisma.post.findUnique({
       where: { id },
-      include: postInclude,
+      include: postInclude(userId),
     });
 
     if (!post || !canViewTrip(userId, post.trip)) {
@@ -324,11 +469,12 @@ export class PostsService {
     return {
       id: post.id,
       tripId: post.tripId,
-      author: toUserSummary(post.trip.owner),
+      author: await toUserSummary(post.trip.owner, this.storage),
       caption: post.caption,
       visitedOn: formatDateOnly(post.visitedOn),
-      location: post.location ? toLocationResponse(post.location) : null,
+      location: post.location ? toLocation(post.location) : null,
       customLocationName: post.customLocationName,
+      rating: post.rating,
       media: await Promise.all(
         post.media.map(async (m) => ({
           id: m.id,
@@ -339,6 +485,11 @@ export class PostsService {
           durationMs: m.durationMs,
         })),
       ),
+      likeCount: post._count.likes,
+      saveCount: post._count.saves,
+      commentCount: post._count.comments,
+      likedByMe: post.likes.length > 0,
+      savedByMe: post.saves.length > 0,
       createdAt: post.createdAt.toISOString(),
       updatedAt: post.updatedAt.toISOString(),
     };
@@ -367,6 +518,15 @@ function assertMediaDurations(media: MediaItemDto[]) {
   }
 }
 
+// Whether a post with this rating, in this trip, counts toward its place's
+// rating (see locations/location-ratings.ts)
+function countsTowardPlace(
+  trip: Pick<Trip, 'status'>,
+  rating: number | null | undefined,
+): boolean {
+  return trip.status === 'published' && rating != null;
+}
+
 function toMediaRows(media: MediaItemDto[]) {
   return media.map((m, position) => ({
     s3Key: m.s3Key,
@@ -376,19 +536,4 @@ function toMediaRows(media: MediaItemDto[]) {
     height: m.height ?? null,
     durationMs: m.durationMs ?? null,
   }));
-}
-
-function toLocationResponse(location: Location): LocationResponse {
-  return {
-    id: location.id,
-    provider: location.provider,
-    providerPlaceId: location.providerPlaceId,
-    name: location.name,
-    address: location.address,
-    latitude: location.latitude.toNumber(),
-    longitude: location.longitude.toNumber(),
-    city: location.city,
-    region: location.region,
-    countryCode: location.countryCode,
-  };
 }

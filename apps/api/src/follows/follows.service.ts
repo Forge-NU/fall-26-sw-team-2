@@ -4,27 +4,40 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import type { FollowListQueryDto } from './dto/follow-list-query.dto';
-import type {
-  FollowCounts,
-  FollowListPage,
-  FollowStatus,
-} from './follow-list.types';
+import { StorageService } from '../storage/storage.service';
+import { resolveAvatarUrl } from '../common/avatar';
+import {
+  type PaginationQueryDto,
+  buildPage,
+  keyset,
+  pageLimit,
+} from '../common/pagination';
+import type { FollowCounts, FollowListPage, FollowStatus } from 'shared-types';
 import { Prisma } from '../generated/prisma/client';
-import { decodeFollowCursor, followPage } from './follow-pagination';
+
+// Followers and following, in user id order
+const FOLLOW_LIST = keyset<
+  { id: string },
+  Prisma.UserWhereInput,
+  Prisma.UserOrderByWithRelationInput
+>([{ field: 'id', direction: 'asc', type: 'string' }]);
 
 @Injectable()
 export class FollowsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
+  ) {}
 
   async getFollowList(
     viewerId: string,
     userId: string,
     direction: 'followers' | 'following',
-    { cursor, limit = 20 }: FollowListQueryDto,
+    query: PaginationQueryDto,
   ): Promise<FollowListPage> {
-    const scope = { userId, direction };
-    const after = decodeFollowCursor(cursor, scope);
+    const list = `${direction}:${userId}`;
+    const after = FOLLOW_LIST.decode(query.cursor, list);
+    const limit = pageLimit(query);
 
     const target = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -34,12 +47,12 @@ export class FollowsService {
 
     const users = await this.prisma.user.findMany({
       where: {
-        ...(after === undefined ? {} : { id: { gt: after } }),
+        ...FOLLOW_LIST.after(after),
         ...(direction === 'followers'
           ? { following: { some: { followingId: userId } } }
           : { followers: { some: { followerId: userId } } }),
       },
-      orderBy: { id: 'asc' },
+      orderBy: FOLLOW_LIST.orderBy,
       take: limit + 1,
       select: {
         id: true,
@@ -54,11 +67,16 @@ export class FollowsService {
         },
       },
     });
-    const page = followPage(users, limit, scope);
-    const items = page.items.map(({ followers, ...user }) => ({
-      ...user,
-      isFollowing: followers.length > 0,
-    }));
+    const page = buildPage(users, limit, (user) =>
+      FOLLOW_LIST.cursor(list, user),
+    );
+    const items = await Promise.all(
+      page.items.map(async ({ followers, ...user }) => ({
+        ...user,
+        avatarUrl: await resolveAvatarUrl(this.storage, user.avatarUrl),
+        isFollowing: followers.length > 0,
+      })),
+    );
     return {
       items,
       nextCursor: page.nextCursor,

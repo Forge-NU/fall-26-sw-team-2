@@ -1,10 +1,11 @@
 import { router } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
+import { ApiError, getErrorMessage } from '@/api/client';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spacing } from '@/constants/theme';
-import { describeError } from '@/lib/api-errors';
+import { TRIP_ERROR_FALLBACKS } from '@/lib/trips';
 
 export function TripLoading() {
   return (
@@ -19,13 +20,13 @@ export function TripLoading() {
 }
 
 export function TripError({ error, onRetry }: { error: unknown; onRetry: () => void }) {
-  const gone = describeError(error, '') === "This trip doesn't exist anymore.";
+  const gone = error instanceof ApiError && error.status === 404;
   return (
     <View style={styles.center}>
       <EmptyState
         icon={gone ? 'map-outline' : 'cloud-offline-outline'}
         title={gone ? 'Trip not found' : "Couldn't load this trip"}
-        description={describeError(error, 'Something went wrong. Try again.')}
+        description={gone ? TRIP_ERROR_FALLBACKS[404] : getErrorMessage(error, TRIP_ERROR_FALLBACKS)}
         action={
           gone
             ? { title: 'Go back', onPress: () => router.back() }

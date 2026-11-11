@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { SlideInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -15,6 +15,8 @@ type BottomSheetProps = {
   subtitle?: string;
   closeSize?: number;
   gap?: number;
+  /** iOS only: called once the sheet has finished closing. */
+  onDismiss?: () => void;
   children: ReactNode;
 };
 
@@ -26,13 +28,18 @@ export function BottomSheet({
   subtitle,
   closeSize = 18,
   gap = Spacing.three,
+  onDismiss,
   children,
 }: BottomSheetProps) {
   const insets = useSafeAreaInsets();
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.root}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} onDismiss={onDismiss}>
+      {/* Lifts the sheet above the keyboard when it has text fields. Android
+          needs it too: edge-to-edge (SDK 58) stops the window resizing. */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.root}>
         <Pressable style={styles.scrim} onPress={onClose} accessibilityLabel="Close" />
         <Animated.View
           entering={SlideInDown.duration(220)}
@@ -62,7 +69,7 @@ export function BottomSheet({
           </View>
           {children}
         </Animated.View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

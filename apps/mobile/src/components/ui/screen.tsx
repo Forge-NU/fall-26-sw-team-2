@@ -17,7 +17,9 @@ export type ScreenProps = {
   // Shows `loadingFallback`, or a few skeleton rows
   loading?: boolean;
   loadingFallback?: ReactNode;
-  // Anything but null/undefined shows the error state, with Try again if `onRetry` is set
+  // Anything but null/undefined shows the error state, with Try again if `onRetry` is set.
+  // Pass null once there's data (`error={query.data ? null : query.error}`), so a failed
+  // refresh doesn't hide what already loaded.
   error?: unknown;
   onRetry?: () => void;
   // Replaces parts of the default error state, e.g. a different title

@@ -2,10 +2,12 @@
 // Every row has a fixed ID and is upserted, so running this twice doesn't
 // duplicate anything. #45 (DEV-1) owns the seed script overall; this covers
 // the users the trips need plus the #3 tables (trips, posts, post_media,
-// locations), follow relationships for #10, and stories (#23).
+// locations), follow relationships for #10, stories (#23), likes and saves
+// (#49), comments (#50), and place ratings (RATE-1).
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client';
+import { refreshLocationRatings } from '../src/locations/location-ratings';
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env['DATABASE_URL'] }),
@@ -197,6 +199,29 @@ const trips = [
     status: 'draft' as const,
     publishedAt: null,
   },
+  {
+    // Published; adds a second and third rating to places in Maya's Lisbon trip
+    id: '00000000-0000-4000-b000-000000000005',
+    ownerId: 'user_seed_priya',
+    title: 'Lisbon layover',
+    destination: 'Lisbon, Portugal',
+    description: 'Two days between flights, spent mostly in Belém.',
+    startDate: new Date('2026-10-02'),
+    endDate: new Date('2026-10-03'),
+    status: 'published' as const,
+    publishedAt: new Date('2026-10-04T09:00:00Z'),
+  },
+  {
+    id: '00000000-0000-4000-b000-000000000006',
+    ownerId: 'user_seed_alex',
+    title: 'A day in Belém',
+    destination: 'Lisbon, Portugal',
+    description: null,
+    startDate: new Date('2026-10-10'),
+    endDate: new Date('2026-10-10'),
+    status: 'published' as const,
+    publishedAt: new Date('2026-10-11T08:00:00Z'),
+  },
 ];
 
 type SeedPost = {
@@ -207,9 +232,15 @@ type SeedPost = {
   caption: string | null;
   locationId?: string;
   customLocationName?: string;
+  // 1-5 stars, only with a locationId
+  rating?: number;
   mediaCount: number;
 };
 
+// Place ratings this gives, counting only published trips:
+// Pastéis de Belém 4.3 (3), Belém Tower 4.0 (2), Pena Palace 4.0 (1; Alex's
+// draft rating doesn't count), Miradouro de Santa Luzia, Nyhavn and Tivoli
+// one each, and LX Factory and Torvehallerne none.
 const posts: SeedPost[] = [
   {
     id: '00000000-0000-4000-9000-000000000001',
@@ -218,6 +249,7 @@ const posts: SeedPost[] = [
     visitedOn: new Date('2026-09-12'),
     caption: 'Got here right at opening and still had to queue. Worth it.',
     locationId: locations[0].id,
+    rating: 5,
     mediaCount: 3,
   },
   {
@@ -227,6 +259,7 @@ const posts: SeedPost[] = [
     visitedOn: new Date('2026-09-12'),
     caption: 'Six pastéis between the two of us. No regrets.',
     locationId: locations[1].id,
+    rating: 5,
     mediaCount: 2,
   },
   {
@@ -236,6 +269,7 @@ const posts: SeedPost[] = [
     visitedOn: new Date('2026-09-13'),
     caption: 'Sunset, right on schedule.',
     locationId: locations[2].id,
+    rating: 5,
     mediaCount: 1,
   },
   {
@@ -254,6 +288,7 @@ const posts: SeedPost[] = [
     visitedOn: new Date('2026-09-15'),
     caption: 'Took the early train out to Sintra to beat the crowds.',
     locationId: locations[4].id,
+    rating: 4,
     mediaCount: 3,
   },
   {
@@ -282,6 +317,7 @@ const posts: SeedPost[] = [
     visitedOn: new Date('2026-09-25'),
     caption: 'Obligatory Nyhavn photo.',
     locationId: locations[5].id,
+    rating: 3,
     mediaCount: 2,
   },
   {
@@ -300,6 +336,7 @@ const posts: SeedPost[] = [
     visitedOn: new Date('2026-09-26'),
     caption: 'Tivoli at night is something else.',
     locationId: locations[6].id,
+    rating: 5,
     mediaCount: 2,
   },
   {
@@ -309,7 +346,38 @@ const posts: SeedPost[] = [
     visitedOn: daysFromToday(-1),
     caption: 'Made it up the hill before the fog rolled in.',
     locationId: locations[4].id,
+    rating: 5,
     mediaCount: 2,
+  },
+  {
+    id: '00000000-0000-4000-9000-000000000012',
+    tripId: trips[4].id,
+    ownerId: 'user_seed_priya',
+    visitedOn: new Date('2026-10-02'),
+    caption: 'Everyone said to come here. Everyone was right.',
+    locationId: locations[1].id,
+    rating: 4,
+    mediaCount: 1,
+  },
+  {
+    id: '00000000-0000-4000-9000-000000000013',
+    tripId: trips[4].id,
+    ownerId: 'user_seed_priya',
+    visitedOn: new Date('2026-10-03'),
+    caption: 'Smaller than I expected, but the river views are great.',
+    locationId: locations[0].id,
+    rating: 3,
+    mediaCount: 2,
+  },
+  {
+    id: '00000000-0000-4000-9000-000000000014',
+    tripId: trips[5].id,
+    ownerId: 'user_seed_alex',
+    visitedOn: new Date('2026-10-10'),
+    caption: 'Ate three standing at the counter.',
+    locationId: locations[1].id,
+    rating: 4,
+    mediaCount: 1,
   },
 ];
 
@@ -378,6 +446,89 @@ const stories: SeedStory[] = [
   },
 ];
 
+// Likes and saves (#49 INT-1). Only on published trips, since nobody else can
+// see a draft. Maya's Lisbon posts get likes from both followers, and Priya's
+// Copenhagen trip gets a couple back. Maya saves her own post too, which is
+// allowed.
+const postLikes = [
+  { userId: 'user_seed_priya', postId: posts[0].id },
+  { userId: 'user_seed_alex', postId: posts[0].id },
+  { userId: 'user_seed_priya', postId: posts[1].id },
+  { userId: 'user_seed_alex', postId: posts[2].id },
+  { userId: 'user_seed_priya', postId: posts[4].id },
+  { userId: 'user_seed_maya', postId: posts[7].id },
+  { userId: 'user_seed_maya', postId: posts[9].id },
+  { userId: 'user_seed_alex', postId: posts[9].id },
+];
+
+const tripSaves = [
+  { userId: 'user_seed_priya', tripId: trips[0].id },
+  { userId: 'user_seed_alex', tripId: trips[0].id },
+  { userId: 'user_seed_maya', tripId: trips[2].id },
+];
+
+const postSaves = [
+  { userId: 'user_seed_alex', postId: posts[1].id },
+  { userId: 'user_seed_alex', postId: posts[4].id },
+  { userId: 'user_seed_priya', postId: posts[2].id },
+  { userId: 'user_seed_maya', postId: posts[8].id },
+  { userId: 'user_seed_maya', postId: posts[5].id },
+];
+
+// Comments (#50 INT-2), on published trips. The first is a reply thread:
+// Priya comments, Maya replies, and Alex replies to Maya's reply, which the
+// API stores under Priya's comment with an @mention of Maya.
+type SeedComment = {
+  id: string;
+  postId: string;
+  authorId: string;
+  body: string;
+  parentCommentId?: string;
+  replyToUserId?: string;
+  createdAt: Date;
+};
+
+const comments: SeedComment[] = [
+  {
+    id: '00000000-0000-4000-d000-000000000001',
+    postId: posts[0].id,
+    authorId: 'user_seed_priya',
+    body: 'How long was the queue? Thinking of going in December.',
+    createdAt: new Date('2026-09-18T16:00:00Z'),
+  },
+  {
+    id: '00000000-0000-4000-d000-000000000002',
+    postId: posts[0].id,
+    authorId: 'user_seed_maya',
+    body: 'About 40 minutes at opening. Get there 15 minutes early!',
+    parentCommentId: '00000000-0000-4000-d000-000000000001',
+    createdAt: new Date('2026-09-18T16:20:00Z'),
+  },
+  {
+    id: '00000000-0000-4000-d000-000000000003',
+    postId: posts[0].id,
+    authorId: 'user_seed_alex',
+    body: 'Good tip, adding it to my list.',
+    parentCommentId: '00000000-0000-4000-d000-000000000001',
+    replyToUserId: 'user_seed_maya',
+    createdAt: new Date('2026-09-18T17:05:00Z'),
+  },
+  {
+    id: '00000000-0000-4000-d000-000000000004',
+    postId: posts[1].id,
+    authorId: 'user_seed_alex',
+    body: 'Six is the correct number.',
+    createdAt: new Date('2026-09-18T18:00:00Z'),
+  },
+  {
+    id: '00000000-0000-4000-d000-000000000005',
+    postId: posts[9].id,
+    authorId: 'user_seed_maya',
+    body: 'Tivoli at night is on my list now.',
+    createdAt: new Date('2026-09-28T12:00:00Z'),
+  },
+];
+
 async function main() {
   for (const user of users) {
     await prisma.user.upsert({
@@ -417,6 +568,7 @@ async function main() {
       ...post,
       locationId: post.locationId ?? null,
       customLocationName: post.customLocationName ?? null,
+      rating: post.rating ?? null,
     };
     await prisma.post.upsert({
       where: { id },
@@ -464,8 +616,36 @@ async function main() {
     });
   }
 
+  // Keyed by (user, post) or (user, trip), so rerunning skips existing rows
+  await prisma.postLike.createMany({ data: postLikes, skipDuplicates: true });
+  await prisma.tripSave.createMany({ data: tripSaves, skipDuplicates: true });
+  await prisma.postSave.createMany({ data: postSaves, skipDuplicates: true });
+
+  // In order, so each reply's parent is already there
+  for (const { id, ...comment } of comments) {
+    const data = {
+      ...comment,
+      parentCommentId: comment.parentCommentId ?? null,
+      replyToUserId: comment.replyToUserId ?? null,
+    };
+    await prisma.comment.upsert({
+      where: { id },
+      update: data,
+      create: { id, ...data },
+    });
+  }
+
+  // The place totals are derived from the posts, so recompute them for every
+  // seeded place rather than seeding them
+  await prisma.$transaction((tx) =>
+    refreshLocationRatings(
+      tx,
+      locations.map((l) => l.id),
+    ),
+  );
+
   console.log(
-    `Seeded ${users.length} users, ${follows.length} follows, ${locations.length} locations, ${trips.length} trips, ${posts.length} posts, ${stories.length} stories`,
+    `Seeded ${users.length} users, ${follows.length} follows, ${locations.length} locations, ${trips.length} trips, ${posts.length} posts, ${stories.length} stories, ${postLikes.length} likes, ${tripSaves.length + postSaves.length} saves, ${comments.length} comments`,
   );
 }
 

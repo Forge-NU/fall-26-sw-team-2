@@ -9,9 +9,74 @@
       "count": 17
     }
   },
+  "src/components/auth-screen.tsx": {
+    "no-restricted-syntax": {
+      "count": 5
+    }
+  },
   "src/components/bottom-toolbar.tsx": {
     "no-restricted-syntax": {
       "count": 3
+    }
+  },
+  "src/components/explore/audience-toggle.tsx": {
+    "no-restricted-syntax": {
+      "count": 3
+    }
+  },
+  "src/components/explore/explore-screen.tsx": {
+    "no-restricted-syntax": {
+      "count": 8
+    }
+  },
+  "src/components/explore/explore-theme.ts": {
+    "no-restricted-syntax": {
+      "count": 17
+    }
+  },
+  "src/components/explore/filters-menu.tsx": {
+    "no-restricted-syntax": {
+      "count": 10
+    }
+  },
+  "src/components/explore/map-cards.tsx": {
+    "no-restricted-syntax": {
+      "count": 11
+    }
+  },
+  "src/components/explore/map-controls.tsx": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
+  "src/components/explore/map-style.ts": {
+    "no-restricted-syntax": {
+      "count": 16
+    }
+  },
+  "src/components/explore/place-detail.tsx": {
+    "no-restricted-syntax": {
+      "count": 50
+    }
+  },
+  "src/components/explore/rating-pin.tsx": {
+    "no-restricted-syntax": {
+      "count": 16
+    }
+  },
+  "src/components/explore/search-bar.tsx": {
+    "no-restricted-syntax": {
+      "count": 7
+    }
+  },
+  "src/components/explore/search-results.tsx": {
+    "no-restricted-syntax": {
+      "count": 19
+    }
+  },
+  "src/components/explore/sheet.tsx": {
+    "no-restricted-syntax": {
+      "count": 5
     }
   },
   "src/components/feed/itinerary-card.tsx": {
@@ -34,6 +99,11 @@
       "count": 12
     }
   },
+  "src/components/onboarding-screen.tsx": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  },
   "src/components/post-author.tsx": {
     "no-restricted-syntax": {
       "count": 4
@@ -44,17 +114,7 @@
       "count": 6
     }
   },
-  "src/components/story/location-picker-placeholder.tsx": {
-    "no-restricted-syntax": {
-      "count": 11
-    }
-  },
-  "src/components/story/story-composer.tsx": {
-    "no-restricted-syntax": {
-      "count": 22
-    }
-  },
-  "src/components/story/story-date-sheet.tsx": {
+  "src/components/saved/saved-places-list.tsx": {
     "no-restricted-syntax": {
       "count": 9
     }

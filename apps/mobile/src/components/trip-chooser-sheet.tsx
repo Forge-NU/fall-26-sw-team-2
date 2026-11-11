@@ -1,24 +1,33 @@
 import { Pressable, StyleSheet, View } from 'react-native';
+import type { TripResponse } from 'shared-types';
 
 import { AppText } from '@/components/ui/app-text';
 import { BottomSheet } from '@/components/bottom-sheet';
 import { Icon } from '@/components/icon';
 import { Palette, Radii } from '@/constants/theme';
-import type { ActiveTrip } from '@/data/mock';
 import { formatDateRange } from '@/utils/local-date';
+
+// The fields the chooser shows, so callers can pass a full TripResponse
+export type ChooserTrip = Pick<TripResponse, 'id' | 'title' | 'startDate' | 'endDate' | 'status'>;
+
+export function tripStatusLabel(trip: Pick<TripResponse, 'status'>): string {
+  return trip.status === 'published' ? 'Published' : 'Unpublished';
+}
 
 type TripChooserSheetProps = {
   visible: boolean;
   title?: string;
-  trips: ActiveTrip[];
+  trips: ChooserTrip[];
   selectedId: string | null;
   onSelect: (tripId: string) => void;
   /** Status line under each trip's dates. */
-  describe: (trip: ActiveTrip) => string;
+  describe: (trip: ChooserTrip) => string;
   /** Shows the "Post without a trip" row when provided. */
   onPostWithoutTrip?: () => void;
   onCreateTrip: () => void;
   onClose: () => void;
+  /** iOS only: called once the sheet has finished closing. */
+  onDismiss?: () => void;
 };
 
 /** Pick one of your trips. Used by the story composer and by "Add places to itinerary". */
@@ -32,9 +41,10 @@ export function TripChooserSheet({
   onPostWithoutTrip,
   onCreateTrip,
   onClose,
+  onDismiss,
 }: TripChooserSheetProps) {
   return (
-    <BottomSheet visible={visible} onClose={onClose} title={title}>
+    <BottomSheet visible={visible} onClose={onClose} onDismiss={onDismiss} title={title}>
       <View style={styles.content}>
         <View style={styles.trips}>
           {trips.map((trip) => {
@@ -52,7 +62,7 @@ export function TripChooserSheet({
                     {trip.title}
                   </AppText>
                   <AppText variant="caption" color="placeholderGray">
-                    {formatDateRange(trip.startDate, trip.endDate)} · {trip.status}
+                    {formatDateRange(trip.startDate, trip.endDate)} · {tripStatusLabel(trip)}
                   </AppText>
                   <AppText variant="caption" color="placeholderGray">
                     {describe(trip)}

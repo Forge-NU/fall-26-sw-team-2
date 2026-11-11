@@ -36,7 +36,7 @@ export default function ApiExamplesScreen() {
         <AppText variant="caption" color="placeholderGray">
           {example === 'mocked'
             ? `withMock, 45 fake users in pages of 20 · mocks: ${getMockMode()}`
-            : `GET ${API_URL}/api/users · 401 until sign-in lands (#29)`}
+            : `GET ${API_URL}/api/users · needs sign-in`}
         </AppText>
       </View>
       <View style={styles.body}>{example === 'mocked' ? <MockedExample /> : <RealExample />}</View>

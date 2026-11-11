@@ -1,4 +1,4 @@
-import { View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import type { PostResponse } from "shared-types";
 import { AppText } from "@/components/ui/app-text";
 import { CardLink } from "./card-link";
@@ -8,6 +8,7 @@ import { StatRow, type Stat } from "./stat-row";
 import { MediaCarousel, type Photo } from "./media-carousel";
 import { contentStyles } from "./content-styles";
 import { ShareAction } from "./share-action";
+import { ContentTokens } from "@/constants/content-tokens";
 
 export type PostCardProps = {
   post: PostResponse;
@@ -15,6 +16,8 @@ export type PostCardProps = {
   onPress?: () => void;
   onUserPress?: () => void;
   onShare?: () => void;
+  /** Opens who liked the post; shown once it has likes */
+  onLikesPress?: () => void;
 };
 export function PostCard({
   post,
@@ -22,6 +25,7 @@ export function PostCard({
   onPress,
   onUserPress,
   onShare,
+  onLikesPress,
 }: PostCardProps) {
   const photos = post.media.filter(
     (item): item is Photo => item.mediaType === "image",
@@ -49,13 +53,25 @@ export function PostCard({
                       ? "heart"
                       : stat.key === "comments"
                         ? "message-circle"
-                        : undefined),
+                        : stat.key === "saves"
+                          ? "bookmark"
+                          : undefined),
                 }))}
               />
             )}
           </View>
           {onShare && <ShareAction label="Share post" onPress={onShare} />}
         </View>
+      )}
+      {onLikesPress && post.likeCount > 0 && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`See who liked this post, ${likedBy(post.likeCount)}`}
+          onPress={onLikesPress}
+          style={styles.likedBy}
+        >
+          <AppText variant="label">{likedBy(post.likeCount)}</AppText>
+        </Pressable>
       )}
       {post.caption && (
         <AppText numberOfLines={onPress ? 3 : undefined}>
@@ -71,3 +87,14 @@ export function PostCard({
     </View>
   );
 }
+
+const likedBy = (count: number) =>
+  `Liked by ${count.toLocaleString()} ${count === 1 ? "person" : "people"}`;
+
+const styles = StyleSheet.create({
+  likedBy: {
+    alignSelf: "flex-start",
+    justifyContent: "center",
+    minHeight: ContentTokens.actionSize,
+  },
+});

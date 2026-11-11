@@ -117,7 +117,7 @@ Returns a paginated list of users who follow the specified user.
 - `cursor`: Optional opaque cursor returned by the previous page.
 - `limit`: Optional page size.
 
-Pages default to 20 users, with an integer limit from 1 to 100. Results are
+Pages default to 20 users, with an integer limit from 1 to 50. Results are
 ordered by user ID ascending. Cursors belong to a specific user and list
 direction; invalid or mismatched cursors return 400.
 
@@ -233,10 +233,9 @@ Counts reflect the current follow relationships. Following or unfollowing update
 
 ## Pending Integrations
 
-- **API-1 (#28):** Replace the local helper in `follow-pagination.ts` with the
-  shared pagination helper and move the response contracts in
-  `follow-list.types.ts` into shared-types. Adopt `@CurrentUser()` and the global
-  API prefix when available, keeping existing URLs unchanged.
+- **API-1 (#28):** Adopt `@CurrentUser()` and the global API prefix when
+  available, keeping existing URLs unchanged. (The follow lists use the shared
+  pagination helper as of API-2, #90.)
 - **Account (#29):** Include counts in the username profile response by reusing
   `getCounts(user.id)`. Counts currently appear on `/api/me` and `/api/users/:id`.
 

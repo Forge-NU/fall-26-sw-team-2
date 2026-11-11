@@ -29,6 +29,7 @@ const Icons = {
   'heart-filled': { glyph: 'heart' },
   house: { glyph: 'home-outline' },
   image: { glyph: 'image-outline' },
+  'log-out': { glyph: 'log-out-outline' },
   images: { glyph: 'images-outline' },
   map: { glyph: 'map-outline' },
   'map-pin': { glyph: 'location-outline' },

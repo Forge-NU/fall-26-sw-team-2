@@ -10,9 +10,9 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import type { PlaceSuggestion, ResolveLocationResponse } from 'shared-types';
 
 import { newSearchSessionToken, resolveLocation, retrievePlace } from '@/api/locations';
-import type { PlaceSuggestion, ResolveLocationResponse } from '@/api/types';
 import { AppText } from '@/components/ui/app-text';
 import { Input } from '@/components/ui/input';
 import { ScreenHeader } from '@/components/ui/screen-header';

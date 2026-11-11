@@ -2,10 +2,6 @@ import type { ApiErrorResponse } from 'shared-types';
 
 import { getAuthToken } from '@/lib/auth';
 
-// Off unless EXPO_PUBLIC_USE_MOCK_API=true is in .env, so builds always use
-// the real API. Turn it on locally until sign-in works (#38, #56, #61).
-export const USE_MOCK_API = process.env.EXPO_PUBLIC_USE_MOCK_API === 'true';
-
 /**
  * Base URL of the Yuji API, without the /api prefix. Set per environment with
  * EXPO_PUBLIC_API_URL (see .env.example); on a physical phone use your computer's LAN IP.
@@ -73,17 +69,24 @@ export function apiGet<T>(path: string, query?: Query, options: Omit<RequestOpti
   return apiRequest<T>('GET', path, undefined, { ...options, query });
 }
 
-/** What to tell the user about a failed request. */
-export function getErrorMessage(error: unknown): string {
+/**
+ * Messages for when the server doesn't say what went wrong: one per status
+ * (e.g. 404: "This trip doesn't exist anymore."), and `other` for anything else.
+ */
+export type ErrorFallbacks = { [status: number]: string; other?: string };
+
+/** What to tell the user about a failed request. The server's own message wins over `fallbacks`. */
+export function getErrorMessage(error: unknown, fallbacks: ErrorFallbacks = {}): string {
+  const other = fallbacks.other ?? 'Something went wrong. Try again.';
   if (error instanceof ApiError) {
     if (error.status === 401) return "You've been signed out. Sign in again to keep going.";
-    if (error.status >= 500) return 'Something went wrong on our end. Try again.';
-    return error.body?.message ?? 'Something went wrong. Try again.';
+    if (error.status >= 500) return fallbacks.other ?? 'Something went wrong on our end. Try again.';
+    return error.body?.message || fallbacks[error.status] || other;
   }
   if (error instanceof TypeError) {
     return "Couldn't reach the server. Check your connection and try again.";
   }
-  return 'Something went wrong. Try again.';
+  return other;
 }
 
 function buildUrl(path: string, query: Query = {}): string {
