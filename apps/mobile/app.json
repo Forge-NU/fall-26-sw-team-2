@@ -43,9 +43,9 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "backgroundColor": "#FFFCFA",
+          "image": "./assets/images/yuji/logo.png",
+          "imageWidth": 90
         }
       ],
       "@clerk/expo",

@@ -7,6 +7,7 @@ import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { UsersService } from './users.service';
+import { decodeCursor, encodeCursor } from '../common/pagination';
 
 const mockGetClerkUser = jest.fn<Promise<unknown>, [string]>();
 
@@ -655,7 +656,7 @@ describe('UsersService', () => {
       expect(mockPrismaService.user.findMany).toHaveBeenCalledWith({
         where: {},
         take: 21,
-        orderBy: { id: 'asc' },
+        orderBy: [{ id: 'asc' }],
       });
     });
 
@@ -667,16 +668,16 @@ describe('UsersService', () => {
       mockPrismaService.user.findMany.mockResolvedValue(mockUsers);
 
       const result = await service.listUsers({
-        cursor: 'dXNlcl8xMjM=',
+        cursor: encodeCursor('users', ['user_123']),
         limit: 20,
       });
 
       expect(result.items).toEqual(mockUsers);
       expect(result.nextCursor).toBeNull();
       expect(mockPrismaService.user.findMany).toHaveBeenCalledWith({
-        where: { id: { gt: 'user_123' } },
+        where: { OR: [{ id: { gt: 'user_123' } }] },
         take: 21,
-        orderBy: { id: 'asc' },
+        orderBy: [{ id: 'asc' }],
       });
     });
 
@@ -691,7 +692,9 @@ describe('UsersService', () => {
       const result = await service.listUsers({ limit: 20 });
 
       expect(result.items).toHaveLength(20);
-      expect(result.nextCursor).toBe('dXNlcl8xOQ==');
+      expect(decodeCursor(result.nextCursor!, 'users', ['string'])).toEqual([
+        'user_19',
+      ]);
     });
 
     it('returns empty list when no users exist', async () => {

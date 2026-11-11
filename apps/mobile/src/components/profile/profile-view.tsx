@@ -12,7 +12,8 @@ import { Icon } from '@/components/icon';
 import { AppText } from '@/components/ui/app-text';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Media } from '@/components/ui/media';
-import { IconButton, ScreenHeader } from '@/components/ui/screen-header';
+import { IconButton } from '@/components/ui/icon-button';
+import { ScreenHeader } from '@/components/ui/screen-header';
 import { BottomTabInset, Palette, Spacing } from '@/constants/theme';
 import { useInfiniteList } from '@/hooks/use-infinite-list';
 import { useCurrentUser, useSignOut } from '@/lib/current-user';
@@ -65,8 +66,8 @@ export function ProfileView({ userId: routeUserId }: { userId?: string }) {
   ) : (
     <View style={styles.topBar}>
       <ScreenHeader
-        left={signOut ? { icon: 'log-out-outline', label: 'Sign out', onPress: () => void signOut() } : undefined}
-        right={<IconButton icon="add" label="New trip" onPress={newTrip} />}
+        left={signOut ? { icon: 'log-out', label: 'Sign out', onPress: () => void signOut() } : undefined}
+        right={<IconButton icon="plus" accessibilityLabel="New trip" onPress={newTrip} />}
       />
     </View>
   );

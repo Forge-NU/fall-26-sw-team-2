@@ -4,7 +4,7 @@ import { Keyboard, KeyboardAvoidingView, Platform, Pressable, SafeAreaView, Styl
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ThemedText } from '@/components/themed-text';
+import { AppText } from '@/components/ui/app-text';
 import { Palette, Typography } from '@/constants/theme';
 
 type AuthMode = 'sign-in' | 'sign-up';
@@ -165,8 +165,8 @@ export default function AuthScreen() {
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={styles.content}>
-        <ThemedText type="title" style={styles.title}>Yuji</ThemedText>
-        <ThemedText type="subtitle" style={styles.subtitle}>{subtitle}</ThemedText>
+        <AppText variant="heading" style={styles.title}>Yuji</AppText>
+        <AppText variant="supporting" style={styles.subtitle}>{subtitle}</AppText>
 
         {step === 'form' && (
           <>
@@ -205,7 +205,7 @@ export default function AuthScreen() {
               textContentType={mode === 'sign-up' ? 'newPassword' : 'password'}
               hint={mode === 'sign-up' && !passwordValid ? `At least ${MIN_PASSWORD_LENGTH} characters.` : undefined}
             />
-            {error && <ThemedText style={styles.error}>{error}</ThemedText>}
+            {error && <AppText style={styles.error}>{error}</AppText>}
             <Button
               title={mode === 'sign-up' ? 'Create account' : 'Sign in'}
               onPress={submitForm}
@@ -215,7 +215,7 @@ export default function AuthScreen() {
             />
             {mode === 'sign-in' && (
               <Pressable onPress={() => goTo('forgot')} style={styles.link}>
-                <ThemedText type="linkPrimary">Forgot password?</ThemedText>
+                <AppText variant="label" color="coral">Forgot password?</AppText>
               </Pressable>
             )}
           </>
@@ -223,18 +223,18 @@ export default function AuthScreen() {
 
         {step === 'verify' && (
           <>
-            <ThemedText style={styles.hint}>
+            <AppText style={styles.hint}>
               {mode === 'sign-up' ? `We sent a code to ${identifier.trim()}.` : 'New device: we sent a code to your email.'}
-            </ThemedText>
+            </AppText>
             <Input label="Verification code" value={code} onChangeText={setCode} keyboardType="number-pad" autoComplete="one-time-code" textContentType="oneTimeCode" maxLength={6} />
-            {error && <ThemedText style={styles.error}>{error}</ThemedText>}
-            {notice && <ThemedText style={styles.hint}>{notice}</ThemedText>}
+            {error && <AppText style={styles.error}>{error}</AppText>}
+            {notice && <AppText style={styles.hint}>{notice}</AppText>}
             <Button title="Verify and continue" onPress={verifyCode} loading={busy} disabled={!code.trim()} filled={codeReady} />
             <Pressable onPress={resendCode} disabled={busy} style={styles.link}>
-              <ThemedText type="linkPrimary">Resend code</ThemedText>
+              <AppText variant="label" color="coral">Resend code</AppText>
             </Pressable>
             <Pressable onPress={() => goTo('form')} style={styles.link}>
-              <ThemedText type="linkPrimary">Back</ThemedText>
+              <AppText variant="label" color="coral">Back</AppText>
             </Pressable>
           </>
         )}
@@ -250,17 +250,17 @@ export default function AuthScreen() {
               keyboardType="email-address"
               autoComplete="email"
             />
-            {error && <ThemedText style={styles.error}>{error}</ThemedText>}
+            {error && <AppText style={styles.error}>{error}</AppText>}
             <Button title="Send reset code" onPress={sendResetCode} loading={busy} disabled={!identifier.trim()} filled={!!identifier.trim()} />
             <Pressable onPress={() => goTo('form')} style={styles.link}>
-              <ThemedText type="linkPrimary">Back to sign in</ThemedText>
+              <AppText variant="label" color="coral">Back to sign in</AppText>
             </Pressable>
           </>
         )}
 
         {step === 'reset' && (
           <>
-            <ThemedText style={styles.hint}>We sent a reset code to your email.</ThemedText>
+            <AppText style={styles.hint}>We sent a reset code to your email.</AppText>
             <Input label="Reset code" value={code} onChangeText={setCode} keyboardType="number-pad" autoComplete="one-time-code" textContentType="oneTimeCode" maxLength={6} />
             <Input
               label="New password"
@@ -272,14 +272,14 @@ export default function AuthScreen() {
               textContentType="newPassword"
               hint={!passwordValid ? `At least ${MIN_PASSWORD_LENGTH} characters.` : undefined}
             />
-            {error && <ThemedText style={styles.error}>{error}</ThemedText>}
-            {notice && <ThemedText style={styles.hint}>{notice}</ThemedText>}
+            {error && <AppText style={styles.error}>{error}</AppText>}
+            {notice && <AppText style={styles.hint}>{notice}</AppText>}
             <Button title="Reset password" onPress={resetPassword} loading={busy} disabled={!codeReady || !passwordValid} filled={codeReady && passwordValid} />
             <Pressable onPress={resendCode} disabled={busy} style={styles.link}>
-              <ThemedText type="linkPrimary">Resend code</ThemedText>
+              <AppText variant="label" color="coral">Resend code</AppText>
             </Pressable>
             <Pressable onPress={() => goTo('form')} style={styles.link}>
-              <ThemedText type="linkPrimary">Back to sign in</ThemedText>
+              <AppText variant="label" color="coral">Back to sign in</AppText>
             </Pressable>
           </>
         )}
@@ -291,7 +291,7 @@ export default function AuthScreen() {
 }
 
 function ModeChoice({ selected, label, onPress }: { selected: boolean; label: string; onPress: () => void }) {
-  return <Pressable onPress={onPress} style={[styles.choice, selected && styles.choiceSelected]}><ThemedText style={selected ? styles.choiceTextSelected : styles.choiceText}>{label}</ThemedText></Pressable>;
+  return <Pressable onPress={onPress} style={[styles.choice, selected && styles.choiceSelected]}><AppText style={selected ? styles.choiceTextSelected : styles.choiceText}>{label}</AppText></Pressable>;
 }
 
 const styles = StyleSheet.create({

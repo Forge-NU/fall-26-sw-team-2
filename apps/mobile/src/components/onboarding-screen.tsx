@@ -5,7 +5,7 @@ import type { UserResponse } from 'shared-types';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ThemedText } from '@/components/themed-text';
+import { AppText } from '@/components/ui/app-text';
 import { ApiError } from '@/api/client';
 import { createMyProfile, getUsernameAvailability } from '@/api/users';
 import { Palette, Typography } from '@/constants/theme';
@@ -78,7 +78,7 @@ export default function OnboardingScreen({
   };
 
   if (loadError) {
-    return <SafeAreaView style={styles.screen}><View style={styles.content}><ThemedText type="title" style={styles.title}>Your profile didn’t load</ThemedText><ThemedText style={styles.hint}>{loadError}</ThemedText><Button title="Try again" onPress={() => onRetry?.()} /></View></SafeAreaView>;
+    return <SafeAreaView style={styles.screen}><View style={styles.content}><AppText variant="heading" style={styles.title}>Your profile didn’t load</AppText><AppText style={styles.hint}>{loadError}</AppText><Button title="Try again" onPress={() => onRetry?.()} /></View></SafeAreaView>;
   }
 
   const usernameStatus = checkedUsername === username.trim()
@@ -92,8 +92,8 @@ export default function OnboardingScreen({
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={styles.content}>
-        <ThemedText type="title" style={styles.title}>Set up your profile</ThemedText>
-        <ThemedText style={styles.hint}>Choose a username so friends can find you.</ThemedText>
+        <AppText variant="heading" style={styles.title}>Set up your profile</AppText>
+        <AppText style={styles.hint}>Choose a username so friends can find you.</AppText>
         <Input label="First name" value={firstName} onChangeText={setFirstName} autoCapitalize="words" autoComplete="given-name" />
         <Input label="Last name" value={lastName} onChangeText={setLastName} autoCapitalize="words" autoComplete="family-name" />
         <Input
@@ -107,7 +107,7 @@ export default function OnboardingScreen({
           error={usernameError}
           hint={username.length > 0 && !USERNAME_PATTERN.test(username.trim()) ? '4–30 letters, numbers, or underscores.' : usernameStatus === 'checking' ? 'Checking availability…' : usernameStatus === 'available' ? 'Available' : undefined}
         />
-        {error && <ThemedText style={styles.error}>{error}</ThemedText>}
+        {error && <AppText style={styles.error}>{error}</AppText>}
         <Button title="Continue to Yuji" onPress={submit} loading={busy} disabled={!valid || busy} filled={valid} />
       </View>
       </KeyboardAvoidingView>

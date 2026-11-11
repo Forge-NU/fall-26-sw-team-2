@@ -28,6 +28,12 @@ export class PostsController {
     return this.postsService.create(userId, dto);
   }
 
+  // The current user's saved posts. There's no route for anyone else's.
+  @Get('me/saved/posts')
+  listSaved(@CurrentUser() userId: string, @Query() query: PaginationQueryDto) {
+    return this.postsService.listSaved(userId, query);
+  }
+
   @Get('trips/:id/posts')
   listForTrip(
     @CurrentUser() userId: string,

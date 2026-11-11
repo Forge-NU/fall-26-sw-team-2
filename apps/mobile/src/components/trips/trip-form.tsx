@@ -15,7 +15,7 @@ import {
   type TripFormErrors,
   type TripFormValues,
 } from '@/lib/trip-form';
-import { tripDayCount } from '@/utils/trip-dates';
+import { tripDayCount } from '@/utils/local-date';
 
 export type TripFormProps = {
   initialValues: TripFormValues;

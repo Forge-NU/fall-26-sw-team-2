@@ -1,16 +1,18 @@
-import { useState } from 'react';
+import { useState, type Ref } from 'react';
 import {
   Platform,
   StyleSheet,
   Text,
   TextInput,
   View,
+  type TextInputInstance,
   type TextInputProps,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
 
 import { InputTokens } from '@/constants/input-tokens';
+import { Spacing } from '@/constants/theme';
 
 export type InputProps = TextInputProps & {
   label?: string;
@@ -21,6 +23,8 @@ export type InputProps = TextInputProps & {
   // 'bare' drops the box (border, background, padding) for text typed over
   // media, like the story composer's photo. Style the text with `style`.
   variant?: 'default' | 'bare';
+  /** For focusing the field, e.g. when tapping Reply */
+  ref?: Ref<TextInputInstance>;
 };
 
 export function Input({
@@ -103,7 +107,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   field: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.two,
     borderRadius: InputTokens.borderRadius,
     paddingHorizontal: InputTokens.paddingHorizontal,
   },

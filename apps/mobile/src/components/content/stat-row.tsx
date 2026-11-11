@@ -5,6 +5,12 @@ import { Spacing } from "@/constants/theme";
 import { Icon, type IconName } from "@/components/icon";
 import { ContentTokens } from "@/constants/content-tokens";
 
+// Outline icons that fill in when selected, like a liked heart or a saved bookmark
+const selectedIcons: Partial<Record<IconName, IconName>> = {
+  heart: "heart-filled",
+  bookmark: "bookmark-filled",
+};
+
 export type Stat = {
   key: string;
   label: string;
@@ -23,7 +29,7 @@ export function StatRow({ items }: { items: readonly Stat[] }) {
             <IconButton
               key={item.key}
               icon={item.icon}
-              selectedIcon={item.icon === "heart" ? "heart-filled" : undefined}
+              selectedIcon={selectedIcons[item.icon]}
               selected={item.selected}
               count={item.count}
               accessibilityLabel={label}
@@ -36,9 +42,7 @@ export function StatRow({ items }: { items: readonly Stat[] }) {
             {item.icon && (
               <Icon
                 name={
-                  item.icon === "heart" && item.selected
-                    ? "heart-filled"
-                    : item.icon
+                  (item.selected && selectedIcons[item.icon]) || item.icon
                 }
                 size={Spacing.four}
                 color={item.selected ? "coral" : "black"}
@@ -87,7 +91,6 @@ const styles = StyleSheet.create({
   stat: {
     flexDirection: "row",
     alignItems: "center",
-    flexWrap: "wrap",
     gap: Spacing.one,
     paddingVertical: Spacing.two,
   },

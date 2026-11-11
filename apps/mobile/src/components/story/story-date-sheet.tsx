@@ -8,13 +8,13 @@ import { BottomSheet } from '@/components/bottom-sheet';
 import { Icon } from '@/components/icon';
 import { Palette, Radii, Spacing } from '@/constants/theme';
 import {
-  formatDay,
+  formatDate,
+  formatDateRange,
   formatMonth,
-  formatRange,
-  isWithin,
+  isDateWithin,
   monthGrid,
   parseIsoDate,
-} from '@/utils/dates';
+} from '@/utils/local-date';
 
 const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
@@ -38,15 +38,15 @@ function StoryDateSheetContent({ trip, value, capturedAt, onConfirm, onClose }: 
   const [pending, setPending] = useState(value);
   const [visibleMonth, setVisibleMonth] = useState(() => {
     const date = parseIsoDate(value);
-    return { year: date.getFullYear(), month: date.getMonth() };
+    return { year: date.getFullYear(), month: date.getMonth() + 1 };
   });
 
-  const isSelectable = (iso: string) => !trip || isWithin(iso, trip.startDate, trip.endDate);
+  const isSelectable = (iso: string) => !trip || isDateWithin(iso, trip.startDate, trip.endDate);
 
   const shiftMonth = (delta: number) =>
     setVisibleMonth(({ year, month }) => {
-      const next = new Date(year, month + delta, 1);
-      return { year: next.getFullYear(), month: next.getMonth() };
+      const next = new Date(year, month - 1 + delta, 1);
+      return { year: next.getFullYear(), month: next.getMonth() + 1 };
     });
 
   return (
@@ -58,7 +58,7 @@ function StoryDateSheetContent({ trip, value, capturedAt, onConfirm, onClose }: 
       gap={Spacing.two}>
       {trip && (
         <AppText variant="caption" color="placeholderGray">
-          {trip.title} · {formatRange(trip.startDate, trip.endDate)}
+          {trip.title} · {formatDateRange(trip.startDate, trip.endDate)}
         </AppText>
       )}
 
@@ -67,7 +67,7 @@ function StoryDateSheetContent({ trip, value, capturedAt, onConfirm, onClose }: 
           <Icon name="sparkle" size={14} color="coral" />
           <View style={styles.suggestionText}>
             <AppText variant="caption">
-              From photo · {formatDay(capturedAt.date)}, {capturedAt.time}
+              From photo · {formatDate(capturedAt.date)}, {capturedAt.time}
             </AppText>
             <AppText variant="caption" color="placeholderGray">
               Suggested date. Pick another date to change it.
@@ -107,7 +107,7 @@ function StoryDateSheetContent({ trip, value, capturedAt, onConfirm, onClose }: 
                   key={iso}
                   disabled={!selectable}
                   accessibilityRole="button"
-                  accessibilityLabel={formatDay(iso)}
+                  accessibilityLabel={formatDate(iso)}
                   accessibilityState={{ selected, disabled: !selectable }}
                   onPress={() => setPending(iso)}
                   style={[

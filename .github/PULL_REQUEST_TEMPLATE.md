@@ -15,6 +15,7 @@ Closes #
 - [ ] I did not commit secrets, API keys, or `.env` files
 - [ ] I updated docs/README if needed
 - [ ] I requested at least one reviewer
+- [ ] UI change: I went through the [UI checklist](https://github.com/Forge-NU/fall-26-sw-team-2/blob/main/docs/process/ui-checklist.md)
 
 ## Screenshots (if UI change)
 
