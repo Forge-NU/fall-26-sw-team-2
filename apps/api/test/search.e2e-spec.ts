@@ -7,7 +7,7 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from '../src/generated/prisma/client';
+import { Prisma, PrismaClient } from '../src/generated/prisma/client';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { StorageService } from '../src/storage/storage.service';
 import { SearchModule } from '../src/search/search.module';
@@ -43,6 +43,7 @@ describeDatabase('Advanced search HTTP + PostgreSQL', () => {
   const trips = Array.from({ length: 7 }, () => randomUUID());
   const locations = Array.from({ length: 4 }, () => randomUUID());
   const posts = Array.from({ length: 8 }, () => randomUUID());
+  let queryCount = 0;
 
   beforeAll(async () => {
     pool = new Pool({ connectionString: url });
@@ -62,12 +63,17 @@ describeDatabase('Advanced search HTTP + PostgreSQL', () => {
       await client.query('RESET search_path');
       client.release();
     }
-    prisma = new PrismaClient({
+    const counted = new PrismaClient({
       adapter: new PrismaPg(
         { connectionString: url, options: `-c search_path=${schema},public` },
         { schema },
       ),
+      log: [{ emit: 'event', level: 'query' }],
     });
+    counted.$on('query', () => {
+      queryCount += 1;
+    });
+    prisma = counted;
     await prisma.user.createMany({
       data: ['search-owner', 'search-viewer'].map((id) => ({
         id,
@@ -372,6 +378,77 @@ describeDatabase('Advanced search HTTP + PostgreSQL', () => {
         rating: { average: 5, count: 1 },
       }),
     ]);
+  });
+  it('loads a page in the same number of queries whatever its size', async () => {
+    await prisma.user.createMany({
+      data: [1, 2, 3, 4].map((n) => ({
+        id: `batch-user-${n}`,
+        email: `batch${n}@example.com`,
+        username: `batch${n}`,
+        firstName: 'Batch',
+        lastName: 'Person',
+      })),
+    });
+    const queriesFor = async (
+      type: SearchType,
+      q: string,
+      limit: number,
+    ): Promise<number> => {
+      queryCount = 0;
+      const page = await service.page('search-viewer', type, { q, limit });
+      expect(page.items).toHaveLength(limit);
+      return queryCount;
+    };
+    for (const [type, q, small, large] of [
+      ['people', 'Batch Person', 1, 4],
+      ['trips', 'Lisbon trip', 1, 4],
+      ['posts', 'Lisbon photo', 1, 4],
+      ['places', 'Lisbon place', 1, 2],
+    ] as const) {
+      expect({ type, queries: await queriesFor(type, q, large) }).toEqual({
+        type,
+        queries: await queriesFor(type, q, small),
+      });
+    }
+  });
+  it('skips a result deleted between ranking and loading instead of failing', async () => {
+    const doomed = await prisma.trip.create({
+      data: {
+        ownerId: 'search-owner',
+        title: 'Vanishing Lisbon trip',
+        destination: 'Lisbon',
+        startDate: new Date('2026-09-12'),
+        endDate: new Date('2026-09-16'),
+        status: 'published',
+        publishedAt: new Date('2026-10-01T00:00:00Z'),
+      },
+    });
+    // Search calls $queryRaw once with the ranking SQL; delete the trip after
+    // it is ranked but before the page loads it.
+    const rank = prisma.$queryRaw.bind(prisma) as (
+      sql: Prisma.Sql,
+    ) => Promise<unknown>;
+    const rankThenDelete = async (sql: Prisma.Sql) => {
+      const rows = await rank(sql);
+      await prisma.trip.delete({ where: { id: doomed.id } });
+      return rows;
+    };
+    const spy = jest
+      .spyOn(prisma, '$queryRaw')
+      .mockImplementationOnce(
+        rankThenDelete as unknown as typeof prisma.$queryRaw,
+      );
+    try {
+      const response = await get({ q: 'Vanishing Lisbon', type: 'trips' });
+      expect(response.status).toBe(200);
+      const ids = (response.body as SearchPage<'trips'>).items.map(
+        (item) => item.id,
+      );
+      expect(ids).not.toContain(doomed.id);
+      expect(ids.length).toBeGreaterThan(0);
+    } finally {
+      spy.mockRestore();
+    }
   });
   it('leaves out users who have not finished onboarding', async () => {
     // The Clerk webhook creates the row before onboarding picks a username.

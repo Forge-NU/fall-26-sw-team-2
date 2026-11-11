@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import type {
   SearchItems,
   SearchPage,
+  SearchPerson,
+  SearchPlace,
   SearchPreview,
   SearchResponse,
   SearchType,
@@ -80,52 +82,81 @@ export class SearchService {
     const rows = await this.prisma.$queryRaw<RankedRow[]>(
       buildSearchSql(type, query, published.status, limit + 1, cursor),
     );
-    const items = await Promise.all(
-      rows.slice(0, limit).map((row) => this.toItem(viewerId, type, row.id)),
-    );
+    const ranked = rows.slice(0, limit).map((row) => row.id);
+    const loaded = await this.load(viewerId, type, ranked);
+    // Keep the SQL's ranking. A row deleted between ranking and loading is
+    // skipped; the cursor still comes from the ranked rows, so paging is fine.
+    const items = ranked.flatMap((id) => loaded.get(id) ?? []);
     return buildSearchPage(rows, limit, items, (row) => ({ ...row, scope }));
   }
 
-  private async toItem<K extends SearchType>(
+  // Loads the ranked ids with a fixed number of queries per type, however
+  // many rows the page has. Ids that no longer exist are missing from the map.
+  private async load<K extends SearchType>(
     viewerId: string,
     type: K,
-    id: string,
-  ): Promise<SearchItems[K]> {
-    let item: SearchItems[SearchType];
-    if (type === 'people') {
-      const user = await this.prisma.user.findUniqueOrThrow({
-        where: { id },
-        select: userSummarySelect,
-      });
-      const follow = await this.prisma.follow.findUnique({
-        where: {
-          followerId_followingId: { followerId: viewerId, followingId: id },
+    ids: string[],
+  ): Promise<Map<string, SearchItems[K]>> {
+    if (ids.length === 0) return new Map();
+    let items: Map<string, SearchItems[SearchType]>;
+    if (type === 'people') items = await this.loadPeople(viewerId, ids);
+    else if (type === 'places') items = await this.loadPlaces(viewerId, ids);
+    else if (type === 'trips')
+      items = await this.trips.findManyForViewer(viewerId, ids);
+    else items = await this.posts.findManyForViewer(viewerId, ids);
+    return items as Map<string, SearchItems[K]>;
+  }
+
+  private async loadPeople(
+    viewerId: string,
+    ids: string[],
+  ): Promise<Map<string, SearchPerson>> {
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: ids } },
+      select: {
+        ...userSummarySelect,
+        _count: { select: { followers: true, following: true } },
+        followers: {
+          where: { followerId: viewerId },
+          select: { followerId: true },
+          take: 1,
         },
-      });
-      const [followerCount, followingCount] = await Promise.all([
-        this.prisma.follow.count({ where: { followingId: id } }),
-        this.prisma.follow.count({ where: { followerId: id } }),
-      ]);
-      item = {
+      },
+    });
+    const people = await Promise.all(
+      users.map(async ({ _count, followers, ...user }) => ({
         ...(await toUserSummary(user, this.storage)),
-        followerCount,
-        followingCount,
-        isFollowing: Boolean(follow),
-      };
-    } else if (type === 'trips') item = await this.trips.findOne(viewerId, id);
-    else if (type === 'posts') item = await this.posts.findOne(viewerId, id);
-    else {
-      const place = await this.prisma.location.findUniqueOrThrow({
-        where: { id },
-      });
-      const postCount = await this.prisma.post.count({
+        followerCount: _count.followers,
+        followingCount: _count.following,
+        isFollowing: followers.length > 0,
+      })),
+    );
+    return new Map(people.map((person) => [person.id, person]));
+  }
+
+  private async loadPlaces(
+    viewerId: string,
+    ids: string[],
+  ): Promise<Map<string, SearchPlace>> {
+    const [places, counts] = await Promise.all([
+      this.prisma.location.findMany({ where: { id: { in: ids } } }),
+      this.prisma.post.groupBy({
+        by: ['locationId'],
         where: {
-          locationId: id,
+          locationId: { in: ids },
           trip: { AND: [visibleTripWhere(viewerId), { status: 'published' }] },
         },
-      });
-      item = { ...toLocation(place), postCount };
-    }
-    return item as SearchItems[K];
+        _count: { _all: true },
+      }),
+    ]);
+    const postCounts = new Map(
+      counts.map((row) => [row.locationId, row._count._all]),
+    );
+    return new Map(
+      places.map((place) => [
+        place.id,
+        { ...toLocation(place), postCount: postCounts.get(place.id) ?? 0 },
+      ]),
+    );
   }
 }

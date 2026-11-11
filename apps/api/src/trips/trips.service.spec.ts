@@ -140,6 +140,38 @@ describe('TripsService', () => {
     });
   });
 
+  describe('findManyForViewer', () => {
+    it('loads every id in one query and leaves out drafts you cannot see', async () => {
+      const published = makeTrip({ status: 'published' });
+      const othersDraft = makeTrip({
+        id: '22222222-2222-4222-8222-222222222222',
+      });
+      prisma.trip.findMany.mockResolvedValue([published, othersDraft]);
+
+      const trips = await service.findManyForViewer('user_other', [
+        published.id,
+        othersDraft.id,
+        '33333333-3333-4333-8333-333333333333',
+      ]);
+
+      expect(prisma.trip.findMany).toHaveBeenCalledTimes(1);
+      expect(prisma.trip.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id: {
+              in: [
+                published.id,
+                othersDraft.id,
+                '33333333-3333-4333-8333-333333333333',
+              ],
+            },
+          },
+        }),
+      );
+      expect([...trips.keys()]).toEqual([published.id]);
+    });
+  });
+
   describe('findOne', () => {
     it('uses the first photo of the first post as the cover', async () => {
       prisma.trip.findUnique.mockResolvedValue(

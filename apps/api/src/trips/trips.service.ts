@@ -106,6 +106,22 @@ export class TripsService {
     return this.toResponse(trip);
   }
 
+  // Several trips in one query, keyed by id, for callers that already have
+  // the ids (search). Trips the viewer can't see, or that no longer exist,
+  // are left out rather than thrown.
+  async findManyForViewer(
+    viewerId: string,
+    ids: string[],
+  ): Promise<Map<string, TripResponse>> {
+    const trips = await this.prisma.trip.findMany({
+      where: { id: { in: ids } },
+      include: tripInclude(viewerId),
+    });
+    const visible = trips.filter((trip) => canViewTrip(viewerId, trip));
+    const items = await Promise.all(visible.map((t) => this.toResponse(t)));
+    return new Map(items.map((item) => [item.id, item]));
+  }
+
   // Loads a trip the user wants to change. A trip they can't see is a 404, so
   // drafts don't leak; one they can see but don't own is a 403.
   async getOwnedTrip(userId: string, id: string): Promise<Trip> {
