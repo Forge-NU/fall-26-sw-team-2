@@ -373,6 +373,22 @@ describeDatabase('Advanced search HTTP + PostgreSQL', () => {
       }),
     ]);
   });
+  it('leaves out users who have not finished onboarding', async () => {
+    // The Clerk webhook creates the row before onboarding picks a username.
+    await prisma.user.create({
+      data: {
+        id: 'onboarding-user',
+        email: 'onboarding@example.com',
+        username: null,
+        firstName: 'Onboarding',
+        lastName: 'Pending',
+      },
+    });
+    const page = await service.page('search-viewer', 'people', {
+      q: 'Onboarding Pending',
+    });
+    expect(page.items.map((item) => item.id)).not.toContain('onboarding-user');
+  });
   it('continues from the sort key when the cursor row has been deleted', async () => {
     await prisma.user.createMany({
       data: [1, 2, 3].map((n) => ({

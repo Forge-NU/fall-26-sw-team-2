@@ -47,6 +47,8 @@ export function buildSearchSql(
   let source: Prisma.Sql;
   const published = Prisma.sql`t.status = ${publishedStatus}::trip_status`;
   if (type === 'people') {
+    // Users without a username have not finished onboarding (the Clerk webhook
+    // creates the row first), so they have no profile to show yet.
     const match = matching(
       [
         Prisma.sql`u.username`,
@@ -56,7 +58,7 @@ export function buildSearchSql(
       ],
       query.q,
     );
-    source = Prisma.sql`SELECT u.id::text AS id, ${match.score} AS score, u.created_at AS newest FROM "User" u WHERE ${match.where}`;
+    source = Prisma.sql`SELECT u.id::text AS id, ${match.score} AS score, u.created_at AS newest FROM "User" u WHERE u.username IS NOT NULL AND ${match.where}`;
   } else if (type === 'places') {
     const match = matching(
       [Prisma.sql`l.name`, Prisma.sql`l.city`, Prisma.sql`l.region`],
