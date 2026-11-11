@@ -91,7 +91,6 @@ const styles = StyleSheet.create({
   stat: {
     flexDirection: "row",
     alignItems: "center",
-    flexWrap: "wrap",
     gap: Spacing.one,
     paddingVertical: Spacing.two,
   },
