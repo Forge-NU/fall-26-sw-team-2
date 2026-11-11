@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient, type InfiniteData, type QueryKey } from '@tanstack/react-query';
-import type { FollowListUser, FollowStatus, PaginatedResponse, UserResponse , SearchPage } from 'shared-types';
+import type { FollowListUser, FollowStatus, PaginatedResponse, SearchPage, UserResponse } from 'shared-types';
 
 import { followUser, unfollowUser } from '@/api/profiles';
 import { queryKeys } from '@/api/query-keys';
