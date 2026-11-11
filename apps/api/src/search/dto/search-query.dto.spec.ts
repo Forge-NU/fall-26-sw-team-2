@@ -43,6 +43,10 @@ describe('Search query validation', () => {
     { q: 'Li', minRating: '6' },
     { q: 'Li', minRating: '' },
     { q: 'Li', radiusKm: 'NaN' },
+    { q: 'Li', lat: '', lng: '', radiusKm: '10' },
+    { q: 'Li', lat: ' ', lng: '0' },
+    { q: 'Li', radiusKm: '' },
+    { q: 'Li', limit: '' },
     { q: 'Li', limit: '51' },
     { q: 'Li', cursor: 'abc' },
   ])('rejects invalid query %j', async (input) => {
