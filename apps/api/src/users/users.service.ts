@@ -9,12 +9,13 @@ import { findUserMediaKeys } from './user-media';
 import { clerkClient } from '../auth/clerk.client';
 import { UpdateMeDto } from './dto/update-me.dto';
 import { CreateProfileDto } from './dto/create-profile.dto';
-import { PaginationDto } from '../common/decorators/pagination.dto';
 import {
-  decodeCursor,
-  buildPaginatedResponse,
-} from '../common/utils/pagination.helper';
-import { Prisma } from '../generated/prisma/client';
+  PaginationQueryDto,
+  buildPage,
+  keyset,
+  pageLimit,
+} from '../common/pagination';
+import { Prisma, User } from '../generated/prisma/client';
 import { deleteUserRows, DELETE_USER_TX_OPTIONS } from './delete-user-rows';
 import { StorageService } from '../storage/storage.service';
 import { isOwnAvatarKey } from '../common/avatar';
@@ -33,6 +34,12 @@ function rethrowClerkUsernameError(e: unknown): never {
   }
   throw e;
 }
+
+const USERS = keyset<
+  User,
+  Prisma.UserWhereInput,
+  Prisma.UserOrderByWithRelationInput
+>([{ field: 'id', direction: 'asc', type: 'string' }]);
 
 @Injectable()
 export class UsersService {
@@ -205,28 +212,14 @@ export class UsersService {
     }, DELETE_USER_TX_OPTIONS);
   }
 
-  async listUsers(pagination: PaginationDto) {
-    const { cursor, limit = 20 } = pagination;
-
-    const where = cursor
-      ? {
-          id: {
-            gt: decodeCursor(cursor),
-          },
-        }
-      : {};
-
+  async listUsers(query: PaginationQueryDto) {
+    const limit = pageLimit(query);
     const users = await this.prisma.user.findMany({
-      where,
+      where: USERS.after(USERS.decode(query.cursor, 'users')),
+      orderBy: USERS.orderBy,
       take: limit + 1,
-      orderBy: {
-        id: 'asc',
-      },
     });
 
-    const hasMore = users.length > limit;
-    const items = hasMore ? users.slice(0, -1) : users;
-
-    return buildPaginatedResponse(items, hasMore, (user) => user.id);
+    return buildPage(users, limit, (user) => USERS.cursor('users', user));
   }
 }

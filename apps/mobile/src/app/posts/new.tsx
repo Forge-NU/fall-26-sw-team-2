@@ -26,8 +26,7 @@ import { deleteDraft, getDraft, listDrafts, newDraftId, type DraftPhoto, type Po
 import { defaultVisitedOn, POST_LIMITS, suggestTrip, validatePostForm, type PostFormErrors } from '@/lib/post-form';
 import { isDraftInFlight, submitPostDraft, type UploadProgress } from '@/lib/post-upload';
 import { charCount } from '@/lib/trip-form';
-import { todayLocalIso } from '@/utils/local-date';
-import { formatWeekdayDate, tripDayNumber, tripDays } from '@/utils/trip-dates';
+import { formatWeekdayDate, todayLocalIso, tripDayNumber, tripDays } from '@/utils/local-date';
 
 type Params = { tripId?: string; visitedOn?: string; draftId?: string };
 
@@ -163,15 +162,17 @@ export default function NewPostScreen() {
     photo.s3Key ? ('uploaded' as const) : failedDraft ? ('failed' as const) : uploading ? ('pending' as const) : undefined;
 
   return (
-    <Screen>
-      <ScreenHeader
-        title="Add post"
-        left={{
-          icon: 'close',
-          label: 'Close',
-          onPress: () => (photos.length > 0 && !failedDraft && !uploading ? setConfirmClose(true) : close()),
-        }}
-      />
+    <Screen
+      header={
+        <ScreenHeader
+          title="Add post"
+          left={{
+            icon: 'x',
+            label: 'Close',
+            onPress: () => (photos.length > 0 && !failedDraft && !uploading ? setConfirmClose(true) : close()),
+          }}
+        />
+      }>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>

@@ -5,7 +5,7 @@ import { AppText } from '@/components/ui/app-text';
 import { BottomSheet } from '@/components/bottom-sheet';
 import { Icon } from '@/components/icon';
 import { Palette, Radii } from '@/constants/theme';
-import { formatRange } from '@/utils/dates';
+import { formatDateRange } from '@/utils/local-date';
 
 // The fields the chooser shows, so callers can pass a full TripResponse
 export type ChooserTrip = Pick<TripResponse, 'id' | 'title' | 'startDate' | 'endDate' | 'status'>;
@@ -62,7 +62,7 @@ export function TripChooserSheet({
                     {trip.title}
                   </AppText>
                   <AppText variant="caption" color="placeholderGray">
-                    {formatRange(trip.startDate, trip.endDate)} · {tripStatusLabel(trip)}
+                    {formatDateRange(trip.startDate, trip.endDate)} · {tripStatusLabel(trip)}
                   </AppText>
                   <AppText variant="caption" color="placeholderGray">
                     {describe(trip)}

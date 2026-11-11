@@ -8,7 +8,8 @@ import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { formatDateOnly, todayUtc } from '../common/dates';
-import { StoriesService, decodeFeedCursor } from './stories.service';
+import { StoriesService } from './stories.service';
+import { decodeCursor, encodeCursor } from '../common/pagination';
 import { CreateStoryDto } from './dto/create-story.dto';
 
 const ownerId = 'user_owner';
@@ -445,10 +446,20 @@ describe('StoriesService', () => {
       const page = await service.listFeed(ownerId, { limit: 1 });
 
       expect(page.items).toHaveLength(1);
-      expect(decodeFeedCursor(page.nextCursor!)).toEqual({
-        latest,
-        ownerId,
-      });
+      expect(
+        decodeCursor(page.nextCursor!, `stories-feed:${ownerId}`, [
+          'date',
+          'string',
+        ]),
+      ).toEqual([latest, ownerId]);
+    });
+
+    it("rejects another viewer's feed cursor", async () => {
+      const cursor = encodeCursor(`stories-feed:${otherId}`, [dbNow, ownerId]);
+      await expect(service.listFeed(ownerId, { cursor })).rejects.toThrow(
+        'Invalid cursor',
+      );
+      expect(prisma.$queryRaw).not.toHaveBeenCalled();
     });
 
     it('returns an empty page without a second query', async () => {

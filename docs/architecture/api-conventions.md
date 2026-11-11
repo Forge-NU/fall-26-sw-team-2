@@ -47,61 +47,65 @@ app.useGlobalFilters(new HttpExceptionFilter());
 
 ## Cursor-Based Pagination
 
-All list endpoints use cursor-based pagination for efficient data retrieval.
+Every list endpoint uses the helper in `apps/api/src/common/pagination.ts` (API-2, #90). Don't write another one.
 
-### Request Parameters
+### Request and response
 
-Use the `PaginationDto` class:
+- Query: `?cursor=<nextCursor from the last page>&limit=<1-50, default 20>`, validated by `PaginationQueryDto`.
+- Response: `PaginatedResponse<T>` from `shared-types`, `{ "items": [...], "nextCursor": "..." | null }`. `nextCursor` is `null` on the last page.
+- A cursor is opaque to clients. A malformed cursor, or one from a different list, returns 400 `Invalid cursor`, and the app should reload from the first page.
 
-```typescript
-import { PaginationDto } from '../common/decorators/pagination.dto';
+### How cursors work
 
-@Get('users')
-async listUsers(@Query() pagination: PaginationDto) {
-  // pagination.cursor?: string - base64-encoded cursor
-  // pagination.limit?: number - defaults to 20, max 100
-}
-```
+A cursor is base64url JSON holding two things:
 
-### Response Shape
+- **The list it belongs to**, including whatever the list is filtered by, e.g. `trips:${userId}` or `posts:${tripId}`. A cursor from another list is rejected instead of starting from a meaningless position.
+- **The sort key of the last row on the page**, ending with the row's id. The next page is a keyset, the rows after that key in the list's order: `WHERE (a, b, id) > (A, B, ID)`, written as `(a > A) OR (a = A AND b > B) OR (a = A AND b = B AND id > ID)`, with `<` for descending fields.
 
-Use the `PaginatedResponse<T>` type from `shared-types`:
-
-```typescript
-import { PaginatedResponse } from 'shared-types';
-
-{
-  "items": [...],
-  "nextCursor": "dXNlcl80NTY=" // null if no more results
-}
-```
+Because the cursor holds values rather than a reference to a row, it keeps working if that row is deleted, and it can page any order, including ones on non-unique columns like a rating, a date or a relevance score. The order has to end with a unique column (normally `id`) so it's total, and the sort columns can't be nullable.
 
 ### Implementation
 
-In your service:
+Define the order once with `keyset()`, then use it for the `orderBy`, the filter and the cursor:
 
 ```typescript
-import { decodeCursor, buildPaginatedResponse } from '../common/utils/pagination.helper';
+import { PaginationQueryDto, buildPage, keyset, pageLimit } from '../common/pagination';
 
-async listUsers(pagination: PaginationDto) {
-  const { cursor, limit = 20 } = pagination;
+// A user's trips, newest first
+const USER_TRIPS = keyset<
+  TripWithDetails,
+  Prisma.TripWhereInput,
+  Prisma.TripOrderByWithRelationInput
+>([
+  { field: 'startDate', direction: 'desc', type: 'date' },
+  { field: 'id', direction: 'desc', type: 'string' },
+]);
 
-  const where = cursor
-    ? { id: { gt: decodeCursor(cursor) } }
-    : {};
-
-  const users = await this.prisma.user.findMany({
-    where,
-    take: limit + 1, // Fetch one extra to determine if there's a next page
-    orderBy: { id: 'asc' },
+async listForUser(userId: string, query: PaginationQueryDto) {
+  const list = `trips:${userId}`;
+  const limit = pageLimit(query);
+  const trips = await this.prisma.trip.findMany({
+    where: {
+      ownerId: userId,
+      ...USER_TRIPS.after(USER_TRIPS.decode(query.cursor, list)), // 400 if invalid
+    },
+    orderBy: USER_TRIPS.orderBy,
+    take: limit + 1, // the extra row says there's another page
   });
 
-  const hasMore = users.length > limit;
-  const items = hasMore ? users.slice(0, -1) : users;
-
-  return buildPaginatedResponse(items, hasMore, (user) => user.id);
+  const page = buildPage(trips, limit, (trip) => USER_TRIPS.cursor(list, trip));
+  return {
+    items: await Promise.all(page.items.map((trip) => this.toResponse(trip))),
+    nextCursor: page.nextCursor,
+  };
 }
 ```
+
+`after()` returns an `OR`, so if the list's own filter also has an `OR`, combine them with `AND: [filter, after]` instead of spreading.
+
+For a query Prisma can't express (like the stories feed, which pages through a `GROUP BY` in SQL), use `decodeCursor(cursor, list, types)` and `encodeCursor(list, key)` directly with the same keyset comparison in SQL, and `buildPage` for the page.
+
+The FYP feed (#59) is the one exception: it uses a ranking-session cursor on purpose.
 
 ## Shared Types Package
 
@@ -343,7 +347,7 @@ describe('PostsController', () => {
 This endpoint demonstrates all the conventions together:
 
 - Uses `@CurrentUser()` for auth
-- Uses `PaginationDto` for pagination
+- Uses `PaginationQueryDto` and the shared pagination helper
 - Returns `PaginatedResponse<UserSummary>` using shared types
 - Uses response mapper to avoid duplication
 - Relies on global exception filter for error handling
@@ -354,9 +358,9 @@ This endpoint demonstrates all the conventions together:
 @UseGuards(ClerkAuthGuard)
 async listUsers(
   @CurrentUser() userId: string,
-  @Query() pagination: PaginationDto,
+  @Query() query: PaginationQueryDto,
 ): Promise<PaginatedResponse<UserSummary>> {
-  const result = await this.usersService.listUsers(pagination);
+  const result = await this.usersService.listUsers(query);
 
   return {
     items: result.items.map(mapUserToResponse),
@@ -374,7 +378,7 @@ When adding a new endpoint:
 - [ ] Implement service method
 - [ ] Create response mapper (if response is complex/repeated)
 - [ ] Use `@CurrentUser()` for authenticated endpoints
-- [ ] Use `PaginationDto` for list endpoints
+- [ ] Use `PaginationQueryDto` and the helper in `common/pagination.ts` for list endpoints
 - [ ] Return typed responses from `shared-types`
 - [ ] Don't handle Prisma errors (let the global filter handle them)
 - [ ] Add unit tests

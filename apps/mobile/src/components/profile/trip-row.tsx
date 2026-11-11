@@ -1,11 +1,11 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import type { TripResponse } from 'shared-types';
 
-import { formatDateRange } from '@/components/content/format-date';
 import { Icon } from '@/components/icon';
 import { AppText } from '@/components/ui/app-text';
 import { Media } from '@/components/ui/media';
 import { Palette, Radii, Spacing } from '@/constants/theme';
+import { formatDateRange } from '@/utils/local-date';
 
 /**
  * One itinerary on a profile: cover, destination, spot count. Drafts get a coral badge.
