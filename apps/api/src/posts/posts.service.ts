@@ -130,6 +130,22 @@ export class PostsService {
     return this.toResponse(post);
   }
 
+  // Several posts in one query, keyed by id, for callers that already have
+  // the ids (search). Posts the viewer can't see, or that no longer exist,
+  // are left out rather than thrown.
+  async findManyForViewer(
+    viewerId: string,
+    ids: string[],
+  ): Promise<Map<string, PostResponse>> {
+    const posts = await this.prisma.post.findMany({
+      where: { id: { in: ids } },
+      include: postInclude(viewerId),
+    });
+    const visible = posts.filter((post) => canViewTrip(viewerId, post.trip));
+    const items = await Promise.all(visible.map((p) => this.toResponse(p)));
+    return new Map(items.map((item) => [item.id, item]));
+  }
+
   async update(
     userId: string,
     id: string,
