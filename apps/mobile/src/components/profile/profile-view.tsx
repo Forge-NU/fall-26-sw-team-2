@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState, type ReactNode } from 'react';
-import { FlatList, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { PostResponse, TripResponse } from 'shared-types';
 
@@ -34,9 +34,10 @@ export function ProfileView({ userId: routeUserId }: { userId?: string }) {
   const [tab, setTab] = useState<ProfileTab>('itineraries');
   const currentUser = useCurrentUser();
   const signOut = useSignOut();
-  // Two tiles and the gap between them span the screen. A fixed size, not
+  // Two tiles and the gap between them span the list. A fixed size, not
   // flex: 1, so a lone tile in the last row stays half width.
-  const tileSize = (useWindowDimensions().width - Spacing.half) / 2;
+  const [gridWidth, setGridWidth] = useState(0);
+  const tileSize = gridWidth > 0 ? (gridWidth - Spacing.half) / 2 : 0;
   // Opening your own profile from a list still counts as your own
   const isOwn = !routeUserId || routeUserId === currentUser.id;
   const userId = isOwn ? currentUser.id : routeUserId;
@@ -135,6 +136,7 @@ export function ProfileView({ userId: routeUserId }: { userId?: string }) {
       {tab === 'posts' ? (
         <FlatList
           key="posts"
+          onLayout={(event) => setGridWidth(event.nativeEvent.layout.width)}
           data={uniqueById(posts.items)}
           keyExtractor={(post) => post.id}
           numColumns={2}
@@ -213,7 +215,7 @@ function PostTile({ post, size }: { post: PostResponse; size: number }) {
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={postTileLabel(post)}
-      // TODO(POST-3 #43): open the post itself at /posts/[id] once it exists
+      // TODO: open the post itself at /posts/[id] once POST-3 (#43) adds it
       onPress={() => router.push({ pathname: '/trips/[id]', params: { id: post.tripId } })}
       style={[styles.gridCell, { width: size, height: size }]}>
       <Media

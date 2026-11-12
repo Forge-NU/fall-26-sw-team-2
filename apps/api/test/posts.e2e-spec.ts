@@ -393,6 +393,7 @@ describe('Posts (e2e)', () => {
         .expect(400);
     });
   });
+
   describe('GET /api/users/:userId/posts', () => {
     let profile: User;
     let published: Trip;
