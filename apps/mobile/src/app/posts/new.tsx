@@ -248,6 +248,7 @@ export default function NewPostScreen() {
           <Section label="Location" error={errors.location}>
             <LocationPicker
               label=""
+              trip={trip}
               value={location}
               onChange={(next) => {
                 setLocation(next);

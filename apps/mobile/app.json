@@ -37,7 +37,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Yuji uses your location to show places near you on the map."
+          "locationWhenInUsePermission": "Yuji uses your location to show places near you on the map and to start a dropped pin where you are."
         }
       ],
       [

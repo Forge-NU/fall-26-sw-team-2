@@ -13,7 +13,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { PlaceSuggestion } from 'shared-types';
 
 import { newSearchSessionToken, resolveLocation, retrievePlace } from '@/api/locations';
+import { DropPinSheet } from '@/components/location/drop-pin-sheet';
 import { AppText } from '@/components/ui/app-text';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useToast } from '@/components/ui/toast-provider';
@@ -28,6 +30,7 @@ import {
   locationSubtitle,
   type PickedLocation,
 } from '@/lib/picked-location';
+import type { PinStartTrip } from '@/lib/pin-start';
 
 // The pure parts live in lib/picked-location.ts; re-exported for the callers
 export { CUSTOM_LOCATION_MAX, locationName, toLocationFields, type PickedLocation } from '@/lib/picked-location';
@@ -38,17 +41,22 @@ export type LocationPickerProps = {
   label?: string;
   placeholder?: string;
   error?: string;
+  // The post's or story's trip. Without location permission, a dropped pin
+  // starts at its destination. null for a story without a trip.
+  trip?: PinStartTrip | null;
 };
 
 // Location field + search sheet, shared by the post composer (#42) and the
-// story composer (#24). Searches Mapbox, or lets the user type a custom name,
-// then resolves the pick through LOC-1 so the value is ready to send.
+// story composer (#24). Searches Mapbox, or takes the typed name as a dropped
+// pin (#94 LOC-2) or just a name, then resolves the pick through LOC-1 so the
+// value is ready to send.
 export function LocationPicker({
   value,
   onChange,
   label = 'Location',
   placeholder = 'Add a place',
   error,
+  trip = null,
 }: LocationPickerProps) {
   const [open, setOpen] = useState(false);
   const a11yName = label || 'Location';
@@ -68,7 +76,7 @@ export function LocationPicker({
           accessibilityLabel={value ? `${a11yName}: ${locationName(value)}. Change` : `${a11yName}: ${placeholder}`}
           onPress={() => setOpen(true)}
           style={styles.fieldMain}>
-          <Ionicons name="location-outline" size={18} color={Palette.coral} />
+          <Ionicons name={value?.kind === 'pin' ? 'pin-outline' : 'location-outline'} size={18} color={Palette.coral} />
           <View style={styles.fieldText}>
             <AppText numberOfLines={1} style={!value && styles.placeholder}>
               {value ? locationName(value) : placeholder}
@@ -98,6 +106,7 @@ export function LocationPicker({
       ) : null}
       {open ? (
         <LocationSearchSheet
+          trip={trip}
           onClose={() => setOpen(false)}
           onPick={(picked) => {
             onChange(picked);
@@ -110,17 +119,20 @@ export function LocationPicker({
 }
 
 type LocationSearchSheetProps = {
+  trip: PinStartTrip | null;
   onPick: (value: PickedLocation) => void;
   onClose: () => void;
 };
 
 type Row = { type: 'custom'; name: string } | { type: 'place'; place: PlaceSuggestion };
 
-function LocationSearchSheet({ onPick, onClose }: LocationSearchSheetProps) {
+function LocationSearchSheet({ trip, onPick, onClose }: LocationSearchSheetProps) {
   const { showToast } = useToast();
   const [query, setQuery] = useState('');
   const [sessionToken] = useState(newSearchSessionToken);
   const [resolvingKey, setResolvingKey] = useState<string | null>(null);
+  // The name being dropped as a pin, while the pin screen is open
+  const [pinName, setPinName] = useState<string | null>(null);
   const { suggestions, searching, error } = usePlaceSearch(query, sessionToken);
 
   const typed = query.trim();
@@ -153,6 +165,10 @@ function LocationSearchSheet({ onPick, onClose }: LocationSearchSheetProps) {
       animationType="slide"
       presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : 'fullScreen'}
       onRequestClose={onClose}>
+      {/* Inside this modal, so it opens on top of it */}
+      {pinName !== null ? (
+        <DropPinSheet name={pinName} trip={trip} onPick={onPick} onClose={() => setPinName(null)} />
+      ) : null}
       <SafeAreaView edges={['top', 'bottom']} style={styles.sheet}>
         <View style={styles.sheetContent}>
           <ScreenHeader
@@ -194,43 +210,34 @@ function LocationSearchSheet({ onPick, onClose }: LocationSearchSheetProps) {
               ) : undefined
             }
             renderItem={({ item }) => {
-              const key = item.type === 'custom' ? 'custom' : item.place.mapboxId;
-              const disabled = item.type === 'custom' && customTooLong;
+              if (item.type === 'custom') {
+                return (
+                  <CustomRow
+                    name={item.name}
+                    tooLong={customTooLong}
+                    resolving={resolvingKey === 'custom'}
+                    busy={resolvingKey !== null}
+                    onDropPin={() => setPinName(item.name)}
+                    onJustName={() => void pick(item)}
+                  />
+                );
+              }
+              const key = item.place.mapboxId;
               return (
                 <Pressable
                   accessibilityRole="button"
-                  disabled={disabled}
                   onPress={() => void pick(item)}
                   style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-                  <Ionicons
-                    name={item.type === 'custom' ? 'create-outline' : 'location-outline'}
-                    size={18}
-                    color={item.type === 'custom' ? Palette.coral : Palette.black}
-                  />
+                  <Ionicons name="location-outline" size={18} color={Palette.black} />
                   <View style={styles.rowText}>
-                    {item.type === 'custom' ? (
-                      <>
-                        <AppText variant="label" numberOfLines={1}>
-                          Use “{item.name}”
-                        </AppText>
-                        <AppText variant="caption" style={styles.secondary}>
-                          {disabled
-                            ? `Custom names can be up to ${CUSTOM_LOCATION_MAX} characters`
-                            : "Custom location. It won't show on the map."}
-                        </AppText>
-                      </>
-                    ) : (
-                      <>
-                        <AppText variant="label" numberOfLines={1}>
-                          {item.place.name}
-                        </AppText>
-                        {item.place.description ? (
-                          <AppText variant="caption" numberOfLines={1} style={styles.secondary}>
-                            {item.place.description}
-                          </AppText>
-                        ) : null}
-                      </>
-                    )}
+                    <AppText variant="label" numberOfLines={1}>
+                      {item.place.name}
+                    </AppText>
+                    {item.place.description ? (
+                      <AppText variant="caption" numberOfLines={1} style={styles.secondary}>
+                        {item.place.description}
+                      </AppText>
+                    ) : null}
                   </View>
                   {resolvingKey === key ? <ActivityIndicator color={Palette.coral} /> : null}
                 </Pressable>
@@ -240,6 +247,54 @@ function LocationSearchSheet({ onPick, onClose }: LocationSearchSheetProps) {
         </View>
       </SafeAreaView>
     </Modal>
+  );
+}
+
+type CustomRowProps = {
+  name: string;
+  tooLong: boolean;
+  resolving: boolean;
+  busy: boolean;
+  onDropPin: () => void;
+  onJustName: () => void;
+};
+
+// The typed name, as a pin (shows on the map) or just a name (doesn't)
+function CustomRow({ name, tooLong, resolving, busy, onDropPin, onJustName }: CustomRowProps) {
+  return (
+    <View style={styles.row}>
+      <Ionicons name="create-outline" size={18} color={Palette.coral} />
+      <View style={styles.rowText}>
+        <AppText variant="label" numberOfLines={1}>
+          Use “{name}”
+        </AppText>
+        <AppText variant="caption" style={styles.secondary}>
+          {tooLong
+            ? `Custom names can be up to ${CUSTOM_LOCATION_MAX} characters`
+            : 'Drop a pin to put it on the map, or use just the name.'}
+        </AppText>
+        {tooLong ? null : (
+          <View style={styles.customActions}>
+            <Button
+              title="Drop a pin"
+              size="compact"
+              disabled={busy}
+              accessibilityLabel={`Drop a pin for ${name}`}
+              onPress={onDropPin}
+            />
+            <Button
+              title="Just the name"
+              size="compact"
+              variant="teal"
+              loading={resolving}
+              disabled={busy}
+              accessibilityLabel={`Use just the name ${name}`}
+              onPress={onJustName}
+            />
+          </View>
+        )}
+      </View>
+    </View>
   );
 }
 
@@ -283,6 +338,7 @@ const styles = StyleSheet.create({
     borderRadius: Radii.medium,
   },
   rowText: { flex: 1, minWidth: 0 },
+  customActions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two, paddingTop: Spacing.two },
   separator: { height: 1, backgroundColor: Palette.peach },
   hint: { paddingVertical: Spacing.three, textAlign: 'center', color: Palette.placeholderGray },
   pressed: { backgroundColor: Palette.peach },

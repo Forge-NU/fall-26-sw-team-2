@@ -11,20 +11,24 @@ export function useTrip(id: string) {
   return useQuery({ queryKey: queryKeys.trip(id), queryFn: () => getTrip(id) });
 }
 
+// Every page of a trip's posts. Shared by useTripPosts and anything that reads
+// the same cache entry with queryClient.fetchQuery.
+export async function fetchAllTripPosts(tripId: string): Promise<PostResponse[]> {
+  const items: PostResponse[] = [];
+  let cursor: string | null = null;
+  do {
+    const page = await getTripPosts(tripId, cursor);
+    items.push(...page.items);
+    cursor = page.nextCursor;
+  } while (cursor);
+  return items;
+}
+
 // The trip page groups posts by day, so it loads every page up front
 export function useTripPosts(tripId: string) {
   return useQuery({
     queryKey: queryKeys.tripPosts(tripId),
-    queryFn: async () => {
-      const items: PostResponse[] = [];
-      let cursor: string | null = null;
-      do {
-        const page = await getTripPosts(tripId, cursor);
-        items.push(...page.items);
-        cursor = page.nextCursor;
-      } while (cursor);
-      return items;
-    },
+    queryFn: () => fetchAllTripPosts(tripId),
   });
 }
 

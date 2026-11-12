@@ -5,7 +5,7 @@ import type { PickedPhoto } from '@/lib/media/pick-photo';
 
 export const STORY_TEXT_MAX = 200;
 
-// What #86's LocationPicker returns: a Mapbox location row or a custom name
+// What #86's LocationPicker returns: a Mapbox place, a dropped pin (#94) or a custom name
 export type StoryLocation = PickedLocation;
 
 // What the composer hands to the upload queue.

@@ -126,6 +126,7 @@ export function StoryComposer({ onDismiss, onPosted }: { onDismiss: () => void; 
           <LocationPicker
             label=""
             placeholder="Add a location"
+            trip={trip}
             value={composer.location}
             onChange={composer.setLocation}
           />
