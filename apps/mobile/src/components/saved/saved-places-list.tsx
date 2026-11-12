@@ -1,22 +1,32 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import type { ReactElement } from 'react';
+import { FlatList, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { AREA_BY_ID } from '@/components/explore/mock-data';
-import { colors, radius } from '@/components/explore/explore-theme';
+import { ListEmpty } from '@/components/content/list-states';
+import { Icon } from '@/components/icon';
 import { savedPlaces, useSavedPlaces } from '@/components/saved/saved-places';
-import { EmptyState } from '@/components/ui/empty-state';
+import { AppText } from '@/components/ui/app-text';
+import { IconButton } from '@/components/ui/icon-button';
+import { Palette, Radii, Spacing } from '@/constants/theme';
+
+type SavedPlacesListProps = {
+  /** Shown above the list, like the Trips and Posts tabs' intro line */
+  header?: ReactElement;
+  contentContainerStyle?: StyleProp<ViewStyle>;
+};
 
 /** List of places saved from the Maps tab. */
-export function SavedPlacesList() {
+export function SavedPlacesList({ header, contentContainerStyle }: SavedPlacesListProps) {
   const places = useSavedPlaces();
 
   return (
     <FlatList
       data={places}
       keyExtractor={(p) => p.id}
-      contentContainerStyle={places.length === 0 ? styles.emptyWrap : styles.list}
+      ListHeaderComponent={header}
+      contentContainerStyle={contentContainerStyle}
       ListEmptyComponent={
-        <EmptyState
+        <ListEmpty
           icon="bookmark-outline"
           title="No saved places yet"
           description="Tap Save place on any spot in Maps and it shows up here."
@@ -25,27 +35,27 @@ export function SavedPlacesList() {
       renderItem={({ item }) => (
         <View style={styles.row}>
           <View style={styles.icon}>
-            <MaterialCommunityIcons name="map-marker-outline" size={22} color={colors.forest} />
+            <Icon name="map-pin" size={Spacing.four} />
           </View>
           <View style={styles.text}>
-            <Text style={styles.name} numberOfLines={1}>
+            <AppText variant="label" numberOfLines={1}>
               {item.name}
-            </Text>
-            <Text style={styles.meta} numberOfLines={1}>
+            </AppText>
+            <AppText variant="caption" color="placeholderGray" numberOfLines={1}>
               {item.type} · {item.neighborhood}, {AREA_BY_ID[item.areaId].name}
-            </Text>
+            </AppText>
           </View>
           <View style={styles.rating}>
-            <MaterialCommunityIcons name="star" size={14} color={colors.star} />
-            <Text style={styles.ratingText}>{item.stats.global.rating.toFixed(1)}</Text>
+            <Icon name="star" size={Spacing.three} color="coral" />
+            <AppText variant="label">{item.stats.global.rating.toFixed(1)}</AppText>
           </View>
-          <Pressable
-            onPress={() => savedPlaces.remove(item.id)}
-            hitSlop={10}
+          <IconButton
+            icon="bookmark"
+            selectedIcon="bookmark-filled"
+            selected
             accessibilityLabel={`Remove ${item.name} from saved`}
-          >
-            <MaterialCommunityIcons name="bookmark" size={24} color={colors.coral} />
-          </Pressable>
+            onPress={() => savedPlaces.remove(item.id)}
+          />
         </View>
       )}
     />
@@ -53,29 +63,27 @@ export function SavedPlacesList() {
 }
 
 const styles = StyleSheet.create({
-  list: { padding: 16, gap: 10 },
-  emptyWrap: { flexGrow: 1, justifyContent: 'center', alignItems: 'center' },
+  // Same card as a trip row on a profile
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    padding: 14,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.line,
+    gap: Spacing.two,
+    paddingVertical: Spacing.two,
+    paddingLeft: Spacing.three,
+    paddingRight: Spacing.one,
+    backgroundColor: Palette.white,
+    borderColor: Palette.peach,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: Radii.pill,
   },
   icon: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.sm,
+    width: Spacing.five + Spacing.two,
+    height: Spacing.five + Spacing.two,
+    borderRadius: Radii.medium,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.sageIcon,
+    backgroundColor: Palette.lightTeal,
   },
-  text: { flex: 1, gap: 2 },
-  name: { fontSize: 16, fontWeight: '600', color: colors.text },
-  meta: { fontSize: 13, color: colors.textMuted },
-  rating: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  ratingText: { fontSize: 14, fontWeight: '700', color: colors.forest },
+  text: { flex: 1, minWidth: 0, gap: Spacing.half },
+  rating: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one },
 });

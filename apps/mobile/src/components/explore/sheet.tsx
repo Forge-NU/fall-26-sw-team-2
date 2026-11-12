@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, PanResponder, StyleSheet, View } from 'react-native';
 
-import { colors, radius, shadow } from '@/components/explore/explore-theme';
+import { MapTokens } from '@/constants/map-tokens';
+import { ShadowTokens } from '@/constants/shadow-tokens';
+import { SheetTokens } from '@/constants/sheet-tokens';
+import { Palette, Radii, Spacing } from '@/constants/theme';
 
 interface Props {
   /** Owned by the screen so map controls can move with the sheet. */
@@ -92,26 +95,32 @@ export function Sheet({ height, snapPoints, snapIndex, contentKey, onDismiss, fo
 }
 
 const styles = StyleSheet.create({
+  // Same corners, handle and background as BottomSheet, but it stays open over the map
   sheet: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
     overflow: 'hidden',
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    backgroundColor: colors.cream,
-    ...shadow,
+    borderTopLeftRadius: SheetTokens.radius,
+    borderTopRightRadius: SheetTokens.radius,
+    backgroundColor: SheetTokens.background,
+    ...ShadowTokens.floating,
   },
-  grabZone: { height: 28, alignItems: 'center', justifyContent: 'center' },
-  grabber: { width: 44, height: 5, borderRadius: 3, backgroundColor: '#D6D2CA' },
+  grabZone: { height: MapTokens.handleZone, alignItems: 'center', justifyContent: 'center' },
+  grabber: {
+    width: SheetTokens.handle.width,
+    height: SheetTokens.handle.height,
+    borderRadius: Radii.circle,
+    backgroundColor: SheetTokens.handle.color,
+  },
   body: { flex: 1 },
   footer: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 16,
+    paddingHorizontal: SheetTokens.paddingHorizontal,
+    paddingTop: Spacing.two,
+    paddingBottom: Spacing.three,
     borderTopWidth: 1,
-    borderTopColor: colors.line,
-    backgroundColor: colors.cream,
+    borderTopColor: Palette.peach,
+    backgroundColor: SheetTokens.background,
   },
 });

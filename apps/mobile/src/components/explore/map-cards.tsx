@@ -2,7 +2,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, radius, shadow } from '@/components/explore/explore-theme';
+import { ShadowTokens } from '@/constants/shadow-tokens';
+import { Palette, Radii, Spacing, Typography } from '@/constants/theme';
 import type { AroundItem } from '@/hooks/use-explore';
 
 interface AroundProps {
@@ -24,12 +25,12 @@ export function AroundCard({ title, subtitle, items, onSelect }: AroundProps) {
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
       >
-        <MaterialCommunityIcons name="account-multiple-outline" size={30} color={colors.text} />
+        <MaterialCommunityIcons name="account-multiple-outline" size={30} color={Palette.black} />
         <View style={styles.headerText}>
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.subtitle}>{subtitle}</Text>
         </View>
-        <MaterialCommunityIcons name={open ? 'chevron-down' : 'chevron-up'} size={26} color={colors.text} />
+        <MaterialCommunityIcons name={open ? 'chevron-down' : 'chevron-up'} size={26} color={Palette.black} />
       </Pressable>
       {open && (
         <View style={styles.list}>
@@ -41,7 +42,7 @@ export function AroundCard({ title, subtitle, items, onSelect }: AroundProps) {
                 <Text style={styles.rowName} numberOfLines={1}>
                   {it.name}
                 </Text>
-                <MaterialCommunityIcons name="star" size={14} color={colors.star} />
+                <MaterialCommunityIcons name="star" size={14} color={Palette.coral} />
                 <Text style={styles.rowRating}>{it.rating.toFixed(1)}</Text>
               </Pressable>
             ))
@@ -53,13 +54,13 @@ export function AroundCard({ title, subtitle, items, onSelect }: AroundProps) {
 }
 
 const styles = StyleSheet.create({
-  card: { padding: 18, borderRadius: radius.lg, backgroundColor: colors.surface, ...shadow },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  headerText: { flex: 1, gap: 2 },
-  title: { fontSize: 19, fontWeight: '600', color: colors.text },
-  subtitle: { fontSize: 15, color: colors.textMuted },
-  list: { marginTop: 14, paddingTop: 8, borderTopWidth: 1, borderTopColor: colors.line },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 10 },
-  rowName: { flex: 1, fontSize: 16, color: colors.text },
-  rowRating: { fontSize: 15, fontWeight: '700', color: colors.forest },
+  card: { padding: Spacing.three, borderRadius: Radii.pill, backgroundColor: Palette.white, ...ShadowTokens.floating },
+  header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
+  headerText: { flex: 1, gap: Spacing.half },
+  title: { ...Typography.subheading, color: Palette.black },
+  subtitle: { ...Typography.label, fontFamily: Typography.body.fontFamily, color: Palette.placeholderGray },
+  list: { marginTop: Spacing.three, paddingTop: Spacing.two, borderTopWidth: 1, borderTopColor: Palette.peach },
+  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one, paddingVertical: Spacing.two },
+  rowName: { flex: 1, ...Typography.body, color: Palette.black },
+  rowRating: { ...Typography.label, color: Palette.black },
 });

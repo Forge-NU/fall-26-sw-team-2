@@ -2,7 +2,9 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, radius, shadow } from '@/components/explore/explore-theme';
+import { Button } from '@/components/ui/button';
+import { ShadowTokens } from '@/constants/shadow-tokens';
+import { Palette, Radii, Spacing, Typography } from '@/constants/theme';
 import type { CategoryFilter } from '@/components/explore/types';
 
 const OPTIONS: { value: CategoryFilter; label: string }[] = [
@@ -34,17 +36,13 @@ export function FiltersMenu({ value, onApply }: Props) {
             accessibilityState={{ checked: active }}
           >
             <Text style={[styles.label, active && styles.labelActive]}>{o.label}</Text>
-            {active && <MaterialCommunityIcons name="check" size={22} color={colors.coral} />}
+            {active && <MaterialCommunityIcons name="check" size={22} color={Palette.coral} />}
           </Pressable>
         );
       })}
       <View style={styles.actions}>
-        <Pressable style={styles.reset} onPress={() => onApply('all')}>
-          <Text style={styles.resetText}>Reset</Text>
-        </Pressable>
-        <Pressable style={styles.apply} onPress={() => onApply(pending)}>
-          <Text style={styles.applyText}>Apply filters</Text>
-        </Pressable>
+        <Button title="Reset" variant="teal" onPress={() => onApply('all')} style={styles.reset} />
+        <Button title="Apply filters" filled onPress={() => onApply(pending)} style={styles.apply} />
       </View>
     </View>
   );
@@ -52,44 +50,26 @@ export function FiltersMenu({ value, onApply }: Props) {
 
 const styles = StyleSheet.create({
   menu: {
-    padding: 14,
-    borderRadius: radius.lg,
-    backgroundColor: colors.cream,
+    padding: Spacing.three,
+    borderRadius: Radii.pill,
+    backgroundColor: Palette.warmWhite,
     borderWidth: 1,
-    borderColor: colors.line,
-    ...shadow,
+    borderColor: Palette.peach,
+    ...ShadowTokens.floating,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 4,
-    height: 52,
+    paddingHorizontal: Spacing.two,
+    minHeight: Spacing.six - Spacing.two,
     borderBottomWidth: 1,
-    borderBottomColor: '#DCE5DA',
+    borderBottomColor: Palette.peach,
   },
-  rowActive: { backgroundColor: '#F3F6F1' },
-  label: { fontSize: 17, color: colors.text },
-  labelActive: { fontWeight: '700', color: colors.forest },
-  actions: { flexDirection: 'row', gap: 12, marginTop: 18 },
-  reset: {
-    flex: 1,
-    height: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.surface,
-  },
-  resetText: { fontSize: 16, fontWeight: '600', color: colors.forest },
-  apply: {
-    flex: 2.3,
-    height: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.md,
-    backgroundColor: colors.forest,
-  },
-  applyText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+  rowActive: { backgroundColor: Palette.peach },
+  label: { ...Typography.body, color: Palette.black },
+  labelActive: { fontFamily: Typography.label.fontFamily },
+  actions: { flexDirection: 'row', gap: Spacing.two, marginTop: Spacing.three },
+  reset: { flex: 1, minWidth: 0 },
+  apply: { flex: 2, minWidth: 0 },
 });

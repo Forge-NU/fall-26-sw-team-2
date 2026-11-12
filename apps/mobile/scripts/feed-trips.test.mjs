@@ -3,6 +3,7 @@ import { test } from 'node:test';
 
 import { feedTrips, itineraryToFeedTrip, itineraryToTrip } from '../src/data/feed-trips.ts';
 import { Itineraries } from '../src/data/mock.ts';
+import { formatCount } from '../src/utils/format-count.ts';
 
 const lisbon = Itineraries.find((itinerary) => itinerary.id === 'lisbon');
 
@@ -61,4 +62,11 @@ test('day previews carry the day number and its date', () => {
 test('feedTrips filters by tab', () => {
   assert.deepEqual(feedTrips('fyp').map((card) => card.trip.id), ['lisbon', 'copenhagen']);
   assert.deepEqual(feedTrips('local').map((card) => card.trip.id), ['lisbon']);
+});
+
+test('formatCount shortens thousands', () => {
+  assert.equal(formatCount(950), '950');
+  assert.equal(formatCount(1000), '1k');
+  assert.equal(formatCount(1250), '1.3k');
+  assert.equal(formatCount(12400), '12k');
 });

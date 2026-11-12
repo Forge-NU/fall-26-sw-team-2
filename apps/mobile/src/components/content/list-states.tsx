@@ -22,7 +22,8 @@ type List = Pick<
 >;
 
 type ListEmptyProps = {
-  list: List;
+  /** Leave off for lists that don't load, like places saved on the device */
+  list?: List;
   title: string;
   description?: string;
   icon?: ComponentProps<typeof EmptyState>["icon"];
@@ -32,7 +33,7 @@ type ListEmptyProps = {
 
 /** What a list shows with no rows: skeletons, the first-load error, or empty. */
 export function ListEmpty({ list, title, description, icon, cards }: ListEmptyProps) {
-  if (list.isPending) {
+  if (list?.isPending) {
     return (
       <View style={styles.skeletons}>
         {[0, 1, 2].map((i) =>
@@ -48,7 +49,7 @@ export function ListEmpty({ list, title, description, icon, cards }: ListEmptyPr
       </View>
     );
   }
-  if (list.isError) {
+  if (list?.isError) {
     return (
       <EmptyState
         icon="cloud-offline-outline"
