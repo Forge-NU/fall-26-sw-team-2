@@ -1,5 +1,5 @@
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 
 import { getErrorMessage } from '@/api/client';
 import { AppText } from '@/components/ui/app-text';
@@ -19,11 +19,14 @@ type EmptyProps = {
   title: string;
   description?: string;
   icon?: ComponentProps<typeof EmptyState>['icon'];
+  /** Shown on first load instead of the default row skeletons, e.g. for a grid. */
+  skeleton?: ReactNode;
 };
 
 /** What a profile list shows with no rows: skeletons, the first-load error, or empty. */
-export function ListEmpty({ list, title, description, icon }: EmptyProps) {
+export function ListEmpty({ list, title, description, icon, skeleton }: EmptyProps) {
   if (list.isPending) {
+    if (skeleton) return skeleton;
     return (
       <View style={styles.skeletons}>
         {[0, 1, 2, 3].map((i) => (

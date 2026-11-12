@@ -8,10 +8,10 @@ import type { PostResponse, TripResponse } from 'shared-types';
 import { getErrorMessage } from '@/api/client';
 import { getFollowStatus, getMyProfile, getProfile, listUserPosts, listUserTrips } from '@/api/profiles';
 import { queryKeys } from '@/api/query-keys';
+import { PostGridSkeleton, PostTile } from '@/components/content/post-tile';
 import { Icon } from '@/components/icon';
 import { AppText } from '@/components/ui/app-text';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Media } from '@/components/ui/media';
 import { IconButton } from '@/components/ui/icon-button';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { BottomTabInset, Palette, Spacing } from '@/constants/theme';
@@ -141,11 +141,20 @@ export function ProfileView({ userId: routeUserId }: { userId?: string }) {
           keyExtractor={(post) => post.id}
           numColumns={2}
           columnWrapperStyle={styles.gridRow}
-          renderItem={({ item }) => <PostTile post={item} size={tileSize} />}
+          renderItem={({ item }) => (
+            <PostTile
+              post={item}
+              size={tileSize}
+              // TODO: open the post itself at /posts/[id] once POST-3 (#43) adds it
+              onPress={() => router.push({ pathname: '/trips/[id]', params: { id: item.tripId } })}
+              style={styles.gridCell}
+            />
+          )}
           ListHeaderComponent={header}
           ListEmptyComponent={
             <ListEmpty
               list={posts}
+              skeleton={<PostGridSkeleton size={tileSize} />}
               icon="images-outline"
               title="No posts yet"
               description={isOwn ? 'Photos you add to a trip show up here.' : undefined}
@@ -209,36 +218,6 @@ function Separator() {
   return <View style={styles.separator} />;
 }
 
-// One square in the Posts grid: the post's first photo
-function PostTile({ post, size }: { post: PostResponse; size: number }) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={postTileLabel(post)}
-      // TODO: open the post itself at /posts/[id] once POST-3 (#43) adds it
-      onPress={() => router.push({ pathname: '/trips/[id]', params: { id: post.tripId } })}
-      style={[styles.gridCell, { width: size, height: size }]}>
-      <Media
-        seed={post.id}
-        url={post.media.find((media) => media.mediaType === 'image')?.url}
-        style={styles.gridMedia}
-      />
-    </Pressable>
-  );
-}
-
-const TILE_LABEL_MAX = 80;
-
-// Short enough for a screen reader to read out on every tile: the place, else
-// the start of the caption (which can be up to 2200 characters)
-function postTileLabel(post: PostResponse): string {
-  const place = post.location?.name ?? post.customLocationName;
-  if (place) return `Post at ${place}`;
-  if (!post.caption) return 'Post';
-  const chars = [...post.caption];
-  return chars.length > TILE_LABEL_MAX ? `${chars.slice(0, TILE_LABEL_MAX).join('').trimEnd()}…` : post.caption;
-}
-
 export function BackBar({ title, onBack, right }: { title?: string; onBack?: () => void; right?: ReactNode }) {
   return (
     <View style={styles.backBar}>
@@ -276,7 +255,6 @@ const styles = StyleSheet.create({
   separator: { height: Spacing.two },
   gridRow: { gap: Spacing.half },
   gridCell: { marginBottom: Spacing.half },
-  gridMedia: { flex: 1 },
   topBar: { paddingHorizontal: Spacing.three },
   backBar: {
     height: 44,
