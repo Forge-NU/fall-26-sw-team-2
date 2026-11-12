@@ -14,6 +14,9 @@ export type ScreenProps = {
   // Wrap the content in a ScrollView. Leave off for screens with their own FlatList.
   scroll?: boolean;
   edges?: Edge[];
+  // Turn off the 16px side gutters for screens whose rows run edge to edge,
+  // like the feed's tab bar and stories bar. Those rows pad themselves.
+  gutters?: boolean;
   // Shows `loadingFallback`, or a few skeleton rows
   loading?: boolean;
   loadingFallback?: ReactNode;
@@ -36,6 +39,7 @@ export function Screen({
   header,
   scroll = false,
   edges = ['top', 'bottom'],
+  gutters = true,
   loading = false,
   loadingFallback,
   error,
@@ -84,7 +88,7 @@ export function Screen({
 
   return (
     <SafeAreaView edges={edges} style={styles.safeArea}>
-      <View style={styles.content}>
+      <View style={[styles.content, !gutters && styles.flush]}>
         {header}
         {body}
       </View>
@@ -115,6 +119,7 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.three,
     gap: Spacing.three,
   },
+  flush: { paddingHorizontal: 0 },
   body: { flex: 1, gap: Spacing.three },
   scroll: { flex: 1 },
   scrollContent: { flexGrow: 1, gap: Spacing.three, paddingBottom: Spacing.three },
