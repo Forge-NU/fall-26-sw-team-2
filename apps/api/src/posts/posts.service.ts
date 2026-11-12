@@ -20,6 +20,7 @@ import { canViewTrip, visibleTripWhere } from '../trips/trip-rules';
 import { lockTripForShare } from '../trips/trip-locks';
 import { toLocation } from '../locations/locations.service';
 import { refreshLocationRatings } from '../locations/location-ratings';
+import { assertCanAttachLocation } from '../locations/custom-locations';
 import { CreatePostDto } from './dto/create-post.dto';
 import { MediaItemDto } from './dto/media-item.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
@@ -60,8 +61,10 @@ const SAVED_POSTS = keyset<
   { field: 'postId', direction: 'desc', type: 'string' },
 ]);
 
+// A dropped pin is a locations row, so a post there can be rated. A custom
+// name has no place to rate.
 const CUSTOM_LOCATION_RATING =
-  'Only posts at a Mapbox place can be rated, not a custom location';
+  "A post with only a custom location name can't be rated. Pick a place or drop a pin.";
 
 @Injectable()
 export class PostsService {
@@ -82,9 +85,6 @@ export class PostsService {
     if (dto.rating != null && dto.customLocationName != null) {
       throw new BadRequestException(CUSTOM_LOCATION_RATING);
     }
-    if (dto.locationId) {
-      await this.assertLocationExists(dto.locationId);
-    }
 
     assertMediaDurations(dto.media);
     await this.assertMediaKeys(userId, dto.media);
@@ -96,6 +96,10 @@ export class PostsService {
         const trip = await this.lockedTrip(tx, dto.tripId);
         const visitedOn = parseDateOnly(dto.visitedOn);
         assertWithinTrip(trip, visitedOn);
+        // In the transaction, so a pin can't go on two posts at once
+        if (dto.locationId) {
+          await assertCanAttachLocation(tx, userId, dto.locationId);
+        }
 
         const created = await tx.post.create({
           data: {
@@ -169,9 +173,6 @@ export class PostsService {
     if (dto.rating != null && dto.customLocationName !== undefined) {
       throw new BadRequestException(CUSTOM_LOCATION_RATING);
     }
-    if (dto.locationId) {
-      await this.assertLocationExists(dto.locationId);
-    }
     if (dto.media) {
       assertMediaDurations(dto.media);
       await this.assertMediaKeys(userId, dto.media, id);
@@ -189,6 +190,12 @@ export class PostsService {
         // removed keys and the old location and rating are worked out from
         // what's actually there
         const current = await this.lockPost(tx, id);
+        // This post can keep its own pin
+        if (dto.locationId) {
+          await assertCanAttachLocation(tx, userId, dto.locationId, {
+            postId: id,
+          });
+        }
 
         const locationChanged =
           dto.locationId !== undefined || dto.customLocationName !== undefined;
@@ -199,8 +206,8 @@ export class PostsService {
         if (dto.rating != null && nextLocationId == null) {
           throw new BadRequestException(CUSTOM_LOCATION_RATING);
         }
-        // The rating was for the place, so switching to a custom location
-        // (which can't be rated) clears it
+        // The rating was for the place, so switching to a custom name (which
+        // can't be rated) clears it
         const nextRating =
           dto.customLocationName !== undefined
             ? null
@@ -227,6 +234,8 @@ export class PostsService {
           await tx.postMedia.deleteMany({ where: { postId: id } });
         }
 
+        // Moving off a pin deletes it (the delete_unused_custom_location
+        // trigger, in this transaction)
         const edited = await tx.post.update({
           where: { id },
           data: {
@@ -267,8 +276,9 @@ export class PostsService {
     return this.toResponse(updated);
   }
 
-  // Hard delete. Media rows cascade; their S3 objects are deleted after the
-  // rows are gone.
+  // Hard delete. Media rows cascade, and a pin on the post is deleted by the
+  // delete_unused_custom_location trigger. The S3 objects are deleted after
+  // the rows are gone.
   async remove(userId: string, id: string): Promise<void> {
     const post = await this.getOwnedPost(userId, id);
 
@@ -399,16 +409,6 @@ export class PostsService {
     }
 
     return post;
-  }
-
-  private async assertLocationExists(locationId: string) {
-    const location = await this.prisma.location.findUnique({
-      where: { id: locationId },
-      select: { id: true },
-    });
-    if (!location) {
-      throw new BadRequestException('Location not found');
-    }
   }
 
   // Keys come from the upload endpoint (#38), which puts every post upload

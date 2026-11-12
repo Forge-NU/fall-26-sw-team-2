@@ -49,6 +49,7 @@ describe('UsersService', () => {
       findMany: jest.fn(),
     },
     post: { groupBy: jest.fn() },
+    location: { deleteMany: jest.fn() },
     $queryRaw: jest.fn(),
     $executeRaw: jest.fn(),
     // Runs the callback against this same mock, like an interactive transaction.
@@ -464,6 +465,33 @@ describe('UsersService', () => {
       expect(mockPrismaService.user.deleteMany).toHaveBeenCalledWith({
         where: { id: 'user_123' },
       });
+    });
+
+    // Their attached pins go with their posts and stories (a trigger, covered
+    // in test/custom-locations.e2e-spec.ts)
+    it('deletes the pins they dropped but never used, before the user row', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+      const order: string[] = [];
+      mockPrismaService.location.deleteMany.mockImplementation(() => {
+        order.push('pins');
+        return Promise.resolve({ count: 1 });
+      });
+      mockPrismaService.user.deleteMany.mockImplementation(() => {
+        order.push('user');
+        return Promise.resolve({ count: 1 });
+      });
+
+      await service.deleteAccount('user_123');
+
+      expect(mockPrismaService.location.deleteMany).toHaveBeenCalledWith({
+        where: {
+          createdBy: 'user_123',
+          provider: 'custom',
+          posts: { none: {} },
+          stories: { none: {} },
+        },
+      });
+      expect(order).toEqual(['pins', 'user']);
     });
 
     it('recomputes the places their posts rated, then deletes from Clerk, in one transaction', async () => {

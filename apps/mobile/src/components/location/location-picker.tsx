@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { PlaceSuggestion, ResolveLocationResponse } from 'shared-types';
+import type { PlaceSuggestion } from 'shared-types';
 
 import { newSearchSessionToken, resolveLocation, retrievePlace } from '@/api/locations';
 import { AppText } from '@/components/ui/app-text';
@@ -21,22 +21,16 @@ import { MIN_PLACE_QUERY, usePlaceSearch } from '@/hooks/use-place-search';
 import { InputTokens } from '@/constants/input-tokens';
 import { Palette } from '@/constants/palette';
 import { MaxContentWidth, Radii, Spacing, Theme } from '@/constants/theme';
+import {
+  CUSTOM_LOCATION_MAX,
+  isCustomNameTooLong,
+  locationName,
+  locationSubtitle,
+  type PickedLocation,
+} from '@/lib/picked-location';
 
-// What the picker returns: a shared Mapbox location row, or a custom name
-export type PickedLocation = ResolveLocationResponse;
-
-export const CUSTOM_LOCATION_MAX = 100;
-
-export function locationName(value: PickedLocation): string {
-  return value.kind === 'mapbox' ? value.location.name : value.name;
-}
-
-// The location fields for POST /api/posts and POST /api/stories
-export function toLocationFields(
-  value: PickedLocation,
-): { locationId: string } | { customLocationName: string } {
-  return value.kind === 'mapbox' ? { locationId: value.location.id } : { customLocationName: value.name };
-}
+// The pure parts live in lib/picked-location.ts; re-exported for the callers
+export { CUSTOM_LOCATION_MAX, locationName, toLocationFields, type PickedLocation } from '@/lib/picked-location';
 
 export type LocationPickerProps = {
   value: PickedLocation | null;
@@ -58,12 +52,7 @@ export function LocationPicker({
 }: LocationPickerProps) {
   const [open, setOpen] = useState(false);
   const a11yName = label || 'Location';
-  const subtitle =
-    value?.kind === 'mapbox'
-      ? [value.location.city, value.location.countryCode].filter(Boolean).join(', ')
-      : value
-        ? 'Custom location'
-        : null;
+  const subtitle = value ? locationSubtitle(value) : null;
 
   return (
     <View style={styles.container}>
@@ -135,7 +124,7 @@ function LocationSearchSheet({ onPick, onClose }: LocationSearchSheetProps) {
   const { suggestions, searching, error } = usePlaceSearch(query, sessionToken);
 
   const typed = query.trim();
-  const customTooLong = [...typed].length > CUSTOM_LOCATION_MAX;
+  const customTooLong = isCustomNameTooLong(typed);
   const rows: Row[] = [
     ...(typed ? [{ type: 'custom' as const, name: typed }] : []),
     ...suggestions.map((place) => ({ type: 'place' as const, place })),

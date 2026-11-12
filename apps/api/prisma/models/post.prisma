@@ -1,7 +1,11 @@
 // A post's author is always its trip's owner, so there's no author_id.
 // Check constraints (added in the migrations): exactly one of location_id and
 // custom_location_name is set; rating is 1 to 5, and only set when location_id
-// is (a custom location has no shared place to average into).
+// is (a custom name has no place to average into; a dropped pin does, and its
+// rating is this post's).
+// location_id can point at a custom pin (#94 LOC-2), which only this post
+// uses. A trigger deletes the pin when the post is deleted or moves to
+// another location (see location.prisma).
 model Post {
   id                 String   @id @default(uuid()) @db.Uuid
   tripId             String   @map("trip_id") @db.Uuid

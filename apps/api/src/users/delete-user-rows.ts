@@ -3,12 +3,15 @@ import {
   ratedLocationIds,
   refreshLocationRatings,
 } from '../locations/location-ratings';
+import { deleteUnusedPinsOf } from '../locations/custom-locations';
 import { lockOwnerTripsForUpdate } from '../trips/trip-locks';
 
 // Deletes the user's row, for DELETE /api/me and Clerk's user.deleted webhook.
 // The delete cascades to their trips and posts, so the places those posts
 // rated are recomputed in the same transaction. The trips are locked first so
-// no post goes in between reading the places and deleting.
+// no post goes in between reading the places and deleting. Pins on their
+// posts and stories go with them (the delete_unused_custom_location trigger),
+// and pins they dropped but never used are deleted here.
 export async function deleteUserRows(
   tx: Prisma.TransactionClient,
   userId: string,
@@ -17,6 +20,7 @@ export async function deleteUserRows(
   const locationIds = await ratedLocationIds(tx, {
     trip: { ownerId: userId },
   });
+  await deleteUnusedPinsOf(tx, userId);
   await tx.user.deleteMany({ where: { id: userId } });
   await refreshLocationRatings(tx, locationIds);
 }

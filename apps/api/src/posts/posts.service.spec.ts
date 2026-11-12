@@ -257,10 +257,10 @@ describe('PostsService', () => {
       expect(prisma.post.findUniqueOrThrow).not.toHaveBeenCalled();
     });
 
-    it('rejects a rating on a custom location', async () => {
+    it('rejects a rating on a custom name', async () => {
       await expect(
         service.create(ownerId, createDto({ rating: 4 })),
-      ).rejects.toThrow('Only posts at a Mapbox place can be rated');
+      ).rejects.toThrow("can't be rated");
       expect(prisma.post.create).not.toHaveBeenCalled();
     });
 
@@ -519,20 +519,20 @@ describe('PostsService', () => {
         expect(prisma.$executeRaw.mock.calls[0]).toContainEqual([locationId]);
       });
 
-      it('rejects a rating sent with a custom location', async () => {
+      it('rejects a rating sent with a custom name', async () => {
         await expect(
           service.update(ownerId, postId, {
             customLocationName: 'Home',
             rating: 3,
           }),
-        ).rejects.toThrow('Only posts at a Mapbox place can be rated');
+        ).rejects.toThrow("can't be rated");
       });
 
-      it('rejects a rating on a post that has a custom location', async () => {
+      it('rejects a rating on a post that has a custom name', async () => {
         // The locked row has no location_id (the default mock)
         await expect(
           service.update(ownerId, postId, { rating: 3 }),
-        ).rejects.toThrow('Only posts at a Mapbox place can be rated');
+        ).rejects.toThrow("can't be rated");
         expect(prisma.post.update).not.toHaveBeenCalled();
       });
 
