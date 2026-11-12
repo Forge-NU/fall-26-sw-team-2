@@ -13,7 +13,7 @@ import { useFollow } from '@/hooks/use-follow';
 import { useInfiniteList } from '@/hooks/use-infinite-list';
 import { useCurrentUser } from '@/lib/current-user';
 import { uniqueById } from '@/lib/follow-cache';
-import { ListEmpty, ListFooter } from './list-states';
+import { ListEmpty, ListFooter } from '@/components/content/list-states';
 import { BackBar } from './profile-view';
 
 type FollowListViewProps = {
