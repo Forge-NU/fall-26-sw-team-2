@@ -34,8 +34,8 @@ Model: `apps/api/prisma/models/story.prisma`. Migration: `20261017050559_add_sto
 | `id` | UUID | No | `uuid()` | Primary key |
 | `owner_id` | String | No | | FK → `User.id`, cascade |
 | `trip_id` | UUID | Yes | | FK → `trips.id`, cascade. Only an active trip, checked by the API |
-| `location_id` | UUID | Yes | | FK → `locations.id`, restrict |
-| `custom_location_name` | VARCHAR(100) | Yes | | A name with no Mapbox place, as on posts |
+| `location_id` | UUID | Yes | | FK → `locations.id`, restrict. A Mapbox place or a dropped pin |
+| `custom_location_name` | VARCHAR(100) | Yes | | A name with no pin, as on posts |
 | `s3_key` | String | No | | Unique. Under `users/{ownerId}/stories/` |
 | `text` | VARCHAR(200) | Yes | | |
 | `keep_on_trip` | Boolean | No | `false` | "Add to trip" |
@@ -46,6 +46,8 @@ Model: `apps/api/prisma/models/story.prisma`. Migration: `20261017050559_add_sto
 Check constraints (raw SQL at the end of the migration):
 - `stories_keep_on_trip_check`: `NOT keep_on_trip OR trip_id IS NOT NULL`. Only a story with a trip can be kept.
 - `stories_location_check`: `location_id IS NULL OR custom_location_name IS NULL`. At most one kind of location.
+
+Trigger `stories_delete_unused_custom_location`: after a story is deleted (by the owner, the cleanup job, or a cascade from its trip or owner), deletes its location if it's a dropped pin no post or story uses any more (#94 LOC-2, [Dropped pins](locations.md#dropped-pins)).
 
 Indexes:
 - `(owner_id, expires_at)`: active stories from the viewer and the users they follow, for the stories bar.
@@ -65,7 +67,7 @@ Columns are `timestamp without time zone` in UTC, the same as the rest of the sc
 |---|---|
 | `stories.owner_id` → `User` | Cascade |
 | `stories.trip_id` → `trips` | Cascade (stories on a deleted trip are deleted, not unlinked) |
-| `stories.location_id` → `locations` | Restrict (locations are shared and never deleted) |
+| `stories.location_id` → `locations` | Restrict. Mapbox places are shared and never deleted. A dropped pin goes with its story (the trigger above). |
 
 Cascades remove rows, not S3 objects. Every delete that removes stories has to delete their objects too:
 - `DELETE /api/stories/:id` and the cleanup job do this.
@@ -166,6 +168,8 @@ Stories kept on a trip, including ones that have expired, ordered by `storyDate`
 
 `SKIP LOCKED` means two runs at once never pick the same rows, so an overlapping schedule is safe.
 
+The same run then calls `StoriesCleanupService.deleteUnusedPins()`, which deletes dropped pins (#94 LOC-2) over 24 hours old that no post or story uses, in batches of 1,000 with `FOR UPDATE SKIP LOCKED`. These are pins from a composer that was abandoned. A pin on an expired story is already gone by then, deleted with the story by the trigger. Pins have no S3 objects.
+
 ### Running it
 
 - **Locally:** `npm run stories:cleanup:dev` (reads `apps/api/.env`). Without `S3_BUCKET_NAME`, it deletes rows and logs that it skipped S3.
@@ -182,7 +186,7 @@ Nothing in AWS is needed to build or test this. To run the cleanup in production
 3. **IAM:**
    - The task role needs `s3:DeleteObject` on `arn:aws:s3:::<media bucket>/users/*`.
    - The scheduler's execution role needs `ecs:RunTask` on the task definition, and `iam:PassRole` for the task role and the task execution role.
-4. **Logs:** the task writes `Deleted N expired stories`, and any S3 keys it failed to delete, to the task's CloudWatch log group.
+4. **Logs:** the task writes `Deleted N expired stories`, `Deleted N unused pins`, and any S3 keys it failed to delete, to the task's CloudWatch log group.
 
 Running hourly means a non-kept story's object can outlive the story by up to an hour. The story itself still disappears on time, because reads filter on `expires_at`.
 

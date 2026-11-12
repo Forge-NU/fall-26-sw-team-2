@@ -88,6 +88,7 @@ erDiagram
         char country_code "nullable"
         int rating_count
         int rating_sum
+        string created_by FK "nullable, pins only"
         timestamp created_at
         timestamp updated_at
     }
@@ -146,8 +147,8 @@ status = 'draft' AND start_date <= today AND today <= end_date
 |---|---|---|---|---|---|
 | `id` | UUID | No | Generated | Primary key | |
 | `trip_id` | UUID | No | | FK `trips.id`, on delete cascade | |
-| `location_id` | UUID | Yes | `NULL` | FK `locations.id`, on delete restrict | Set for a Mapbox place |
-| `custom_location_name` | Varchar(100) | Yes | `NULL` | | Set for a custom location the user typed |
+| `location_id` | UUID | Yes | `NULL` | FK `locations.id`, on delete restrict | Set for a Mapbox place or a dropped pin |
+| `custom_location_name` | Varchar(100) | Yes | `NULL` | | Set for a custom name the user typed, without a pin |
 | `caption` | Varchar(2200) | Yes | `NULL` | | |
 | `visited_on` | Date | No | | | The day it happened. Must fall within the trip's dates (checked by the API). |
 | `rating` | Smallint | Yes | `NULL` | 1 to 5, only with `location_id` | Optional star rating of the place. See [Place ratings](#place-ratings). |
@@ -157,7 +158,9 @@ status = 'draft' AND start_date <= today AND today <= end_date
 Check constraints:
 - `posts_location_check`: exactly one of `location_id` and `custom_location_name` is set, `(location_id IS NULL) <> (custom_location_name IS NULL)`.
 - `posts_rating_check`: `rating BETWEEN 1 AND 5`.
-- `posts_rating_location_check`: `rating IS NULL OR location_id IS NOT NULL`. A custom location has no shared place to average into, so it can't be rated.
+- `posts_rating_location_check`: `rating IS NULL OR location_id IS NOT NULL`. A custom name has no place to average into, so it can't be rated. A dropped pin is a `locations` row, so it can.
+
+Trigger `posts_delete_unused_custom_location`: after a post is deleted or its `location_id` changes, deletes the old location if it's a dropped pin (`provider = 'custom'`) that no post or story uses any more. See [Dropped pins](locations.md#dropped-pins).
 
 The database doesn't check that `visited_on` is within the trip's dates, because the trip's dates can change. The API checks it when a post is created or edited, and rejects a trip date change that would leave a post outside the new dates.
 
@@ -185,16 +188,19 @@ Check constraint `post_media_position_check`: `position BETWEEN 0 AND 29`, which
 
 ### locations
 
-A shared row for a Mapbox place. Two posts tagged at the same place share one row, which is what lets the map and place search group posts by place. Rows are deduplicated by `(provider, provider_place_id)`. We store `provider` so a second provider later doesn't cause ID collisions.
+Two kinds of row:
 
-Custom locations (a name the user typed when search had no result) are stored on the post as `custom_location_name`, not as a row here. That way a location never belongs to one user and is never deleted.
+- **Mapbox place** (`provider = 'mapbox'`): shared. Two posts tagged at the same place share one row, which is what lets the map and place search group posts by place. Rows are deduplicated by `(provider, provider_place_id)`. We store `provider` so a second provider later doesn't cause ID collisions. Never deleted.
+- **Dropped pin** (`provider = 'custom'`, #94 LOC-2): a spot the user placed on a map, with the name they typed. Never deduplicated (`provider_place_id` is a generated UUID), owned by `created_by`, and used by one post or story. Deleted once that post or story stops using it, or by the cleanup job if nothing used it within 24 hours. See [Dropped pins](locations.md#dropped-pins).
+
+A custom name without a pin is stored on the post as `custom_location_name`, not as a row here.
 
 | Field | Type | Nullable | Default | Constraints | Description |
 |---|---|---|---|---|---|
 | `id` | UUID | No | Generated | Primary key | |
-| `provider` | Varchar(20) | No | | Unique with `provider_place_id` | `mapbox` for now |
-| `provider_place_id` | String | No | | Unique with `provider` | Mapbox's ID for the place |
-| `name` | String | No | | | Display name, e.g. "Pastéis de Belém" |
+| `provider` | Varchar(20) | No | | Unique with `provider_place_id`, `mapbox` or `custom` | |
+| `provider_place_id` | String | No | | Unique with `provider` | Mapbox's ID for the place, or a generated UUID for a pin |
+| `name` | String | No | | | Display name, e.g. "Pastéis de Belém", or the name typed for a pin |
 | `address` | String | Yes | `NULL` | | Formatted address |
 | `latitude` | Decimal(9,6) | No | | -90 to 90 | |
 | `longitude` | Decimal(9,6) | No | | -180 to 180 | |
@@ -203,18 +209,19 @@ Custom locations (a name the user typed when search had no result) are stored on
 | `country_code` | Char(2) | Yes | `NULL` | | ISO 3166-1 alpha-2 |
 | `rating_count` | Integer | No | `0` | | Rated posts here in published trips. Derived, see [Place ratings](#place-ratings). |
 | `rating_sum` | Integer | No | `0` | | Sum of those ratings. The average is `rating_sum / rating_count`. |
+| `created_by` | String | Yes | `NULL` | FK `users.id`, on delete set null | Who dropped the pin. Only set on pins. |
 | `created_at` | Timestamp | No | Current timestamp | | |
 | `updated_at` | Timestamp | No | Current timestamp | | |
 
-Check constraints: `locations_latitude_check` and `locations_longitude_check` for the ranges above, and `locations_rating_totals_check` (`rating_count >= 0 AND rating_sum BETWEEN rating_count AND 5 * rating_count`), which catches a broken recompute.
+Check constraints: `locations_latitude_check` and `locations_longitude_check` for the ranges above, `locations_rating_totals_check` (`rating_count >= 0 AND rating_sum BETWEEN rating_count AND 5 * rating_count`), which catches a broken recompute, `locations_provider_check` (`provider IN ('mapbox', 'custom')`), and `locations_created_by_check` (`created_by IS NULL OR provider = 'custom'`).
 
-Indexes: `(provider, provider_place_id)` unique, `(latitude, longitude)` for map bounding-box queries. We can move to PostGIS later if we need radius search.
+Indexes: `(provider, provider_place_id)` unique, `(latitude, longitude)` for map bounding-box queries, `(created_by)`, and `(created_at) WHERE provider = 'custom'` for the cleanup job. We can move to PostGIS later if we need radius search.
 
 Mapbox's storage terms are recorded in [DOC-1](../product/mvp-decisions.md#locations): storing POI coordinates isn't allowed as-is, and that decision is still open. If the outcome is that we can't store coordinates, this table changes. Rows are created by `POST /api/locations/resolve` ([`locations.md`](locations.md)).
 
 ### Place ratings
 
-RATE-1. A post can rate the Mapbox place it's tagged at, 1 to 5 stars. A place's rating is the average of the ratings on posts there in **published** trips, since drafts are hidden from everyone but the owner. There are no standalone reviews and no trip ratings.
+RATE-1. A post can rate the Mapbox place or dropped pin it's tagged at, 1 to 5 stars. A pin only ever has its one post, so its rating is that post's. A place's rating is the average of the ratings on posts there in **published** trips, since drafts are hidden from everyone but the owner. There are no standalone reviews and no trip ratings.
 
 The totals are stored on the location (`rating_count`, `rating_sum`), so search can filter on a minimum rating with `rating_sum >= min * rating_count` (#93 SRCH-3) without averaging posts on every query.
 
@@ -252,7 +259,8 @@ There are no soft deletes. Deleting a row deletes everything under it through `O
 | `trips.owner_id` → `users` | Cascade |
 | `posts.trip_id` → `trips` | Cascade |
 | `post_media.post_id` → `posts` | Cascade |
-| `posts.location_id` → `locations` | Restrict (locations are shared and never deleted) |
+| `posts.location_id` → `locations` | Restrict. Mapbox places are shared and never deleted. A dropped pin is deleted by the `posts_delete_unused_custom_location` trigger once its post is gone. |
+| `locations.created_by` → `users` | Set null (the pin itself goes with its post or story) |
 
 So deleting an account deletes the user's trips, which deletes their posts and media rows. Stories (#23), likes and saves (#49), and comments (#50) add their own cascades to `trips` and `posts`.
 
@@ -357,7 +365,8 @@ These are in `shared-types`: trips and posts in `content.ts`, `LocationResponse`
 ```
 
 - Exactly one of `location` and `customLocationName` is set.
-- `rating` is this post's 1 to 5 star rating of its place. It's always `null` with a custom location.
+- `rating` is this post's 1 to 5 star rating of its place. It's always `null` with a `customLocationName`.
+- `location.provider` is `mapbox` for a Mapbox place and `custom` for a dropped pin.
 - `media` is in carousel order.
 - Media URLs are presigned S3 GET URLs that expire after an hour. Locally, with no `S3_BUCKET_NAME` set, they point at `https://media.invalid/<key>`, which never loads.
 - `likeCount`, `saveCount`, `likedByMe` and `savedByMe` come from #49 ([`likes-and-saves.md`](likes-and-saves.md)). The flags are for the user making the request. `commentCount` (every comment, replies included) comes from #50 ([`comments.md`](comments.md)).
@@ -467,7 +476,7 @@ The app only calls this after every upload has succeeded.
 Response `201`: `Post`.
 
 Errors:
-- `400` for validation, a `visitedOn` outside the trip's dates, a location that doesn't exist, a `rating` outside 1 to 5 or with a custom location, or an invalid or already-used media key.
+- `400` for validation, a `visitedOn` outside the trip's dates, a location that doesn't exist, a dropped pin someone else dropped or another post or story already uses, a `rating` outside 1 to 5 or with a `customLocationName`, or an invalid or already-used media key.
 - `403` if the trip is published but belongs to someone else.
 - `404` if the trip doesn't exist, or it's someone else's draft.
 
@@ -482,7 +491,7 @@ Errors: `404` if the post doesn't exist, or its trip is a draft and the viewer i
 Trip owner only. Any of:
 - `visitedOn`, `caption` (send `null` to clear it)
 - `locationId` or `customLocationName` (sending one replaces the other, and sending both is a 400)
-- `rating` (1 to 5, or `null` to clear it). Moving the post to another Mapbox place keeps its rating. Switching to a `customLocationName` clears it, and sending a `rating` with a `customLocationName`, or rating a post that has one, is a 400.
+- `rating` (1 to 5, or `null` to clear it). Moving the post to another Mapbox place or pin keeps its rating. Moving it off a dropped pin deletes the pin. Switching to a `customLocationName` clears it, and sending a `rating` with a `customLocationName`, or rating a post that has one, is a 400.
 - `media`, which replaces the whole list. Items that are left out are deleted, including their S3 objects.
 
 A post can't be moved to another trip.

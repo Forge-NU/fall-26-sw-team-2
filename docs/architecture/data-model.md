@@ -199,6 +199,7 @@ Only the rules that cross features are listed here. Column types and lengths fol
   - `address`, `city`, `region`, and `country_code` are optional.
   - Index `(latitude, longitude)` for map bounding-box queries. We can move to PostGIS later if we need radius search.
 - **Suggestion (Christian):** keep rows to Mapbox places only, with custom names stored on the post or story (see [posts](#posts)). Then a location never belongs to one user and is never deleted.
+- **Changed in #94 (LOC-2):** a dropped pin is also a `locations` row (`provider = 'custom'`), owned by one user and deleted with its post or story. A custom name without a pin still goes on the post or story. See [`locations.md`](locations.md#dropped-pins).
 - Storage terms are pending #37 (LOC-1). If Mapbox doesn't allow storing coordinates permanently, this table changes.
 
 ### stories
@@ -256,7 +257,7 @@ There are no soft deletes. Deleting a row deletes everything under it through `O
 | `trip_saves.trip_id` → `trips` | Cascade |
 | `comments.parent_comment_id` → `comments` | Cascade (deleting a comment deletes its replies) |
 | `comments.reply_to_user_id` → `users` | Set null (the exception to the cascade rule: the @mention isn't owned by the mentioned user, so the reply stays) |
-| `posts.location_id`, `stories.location_id` → `locations` | Restrict (locations are shared and never deleted) |
+| `posts.location_id`, `stories.location_id` → `locations` | Restrict. Mapbox places are shared and never deleted; a dropped pin (#94) is deleted by a trigger once its post or story is gone. |
 
 ### S3 objects
 
