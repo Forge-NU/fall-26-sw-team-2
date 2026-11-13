@@ -245,6 +245,8 @@ function EditProfileForm({ profile }: { profile: UserResponse }) {
             />
           </View>
 
+          {/* Pushes Delete account to the bottom of the screen, away from Save */}
+          <View style={styles.flex} />
           <Pressable
             accessibilityRole="button"
             disabled={busy}
@@ -275,7 +277,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Palette.warmWhite },
   flex: { flex: 1 },
   centered: { alignSelf: 'center', marginTop: Spacing.six },
-  // Grows so Delete account sits at the bottom, away from Save
+  // Grows so the spacer can push Delete account to the bottom
   content: { flexGrow: 1, padding: Spacing.three, gap: Spacing.four },
   avatarBlock: { alignItems: 'center', gap: Spacing.two },
   avatarButton: { position: 'relative' },
@@ -301,7 +303,6 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
   },
   delete: {
-    marginTop: 'auto',
     alignSelf: 'center',
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
