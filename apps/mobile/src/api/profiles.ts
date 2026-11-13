@@ -47,6 +47,18 @@ export const updateMe = withMock<[body: UpdateMeRequest], UserResponse>({
   },
 });
 
+/**
+ * Deletes the signed-in user's account and everything they own, including their
+ * media and Clerk user (ACCT-1, #29). Sign out afterwards: the session is gone.
+ */
+export const deleteMe = withMock<[], void>({
+  live: true,
+  real: () => apiRequest('DELETE', '/api/me'),
+  mock: async () => {
+    await mockDelay();
+  },
+});
+
 export const getProfile = withMock<[id: string, signal?: AbortSignal], UserResponse>({
   live: true,
   real: (id, signal) => apiGet(`/api/users/id/${encodeURIComponent(id)}`, undefined, { signal }),

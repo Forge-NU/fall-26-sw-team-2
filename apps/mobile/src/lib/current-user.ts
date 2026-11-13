@@ -6,8 +6,8 @@ export type CurrentUser = UserSummary & { username: string };
 
 export type CurrentUserState = {
   user: CurrentUser;
-  /** Undefined in mock mode, where there's no session to end. */
-  signOut?: () => Promise<void>;
+  /** Ends the session and clears cached data. In mock mode it shows a mock signed-out screen. */
+  signOut: () => Promise<void>;
   /** Replaces the user after they edit their profile, so every screen shows the change. */
   setUser: (user: UserResponse) => void;
 };
@@ -20,7 +20,7 @@ export function useCurrentUser(): CurrentUser {
   return useCurrentUserState().user;
 }
 
-export function useSignOut(): (() => Promise<void>) | undefined {
+export function useSignOut(): () => Promise<void> {
   return useCurrentUserState().signOut;
 }
 
