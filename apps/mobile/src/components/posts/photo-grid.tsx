@@ -1,9 +1,9 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Image } from 'expo-image';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui/app-text';
+import { Media } from '@/components/ui/media';
 import { Palette } from '@/constants/palette';
 import { Radii, Spacing } from '@/constants/theme';
 
@@ -35,7 +35,7 @@ export function PhotoGrid({ photos, max, adding = false, disabled = false, onAdd
     <View style={styles.grid} onLayout={(event) => setWidth(event.nativeEvent.layout.width)}>
       {photos.map((photo, index) => (
         <View key={`${photo.uri}-${index}`} style={[styles.cell, cellSize]}>
-          <Image source={{ uri: photo.uri }} style={styles.image} contentFit="cover" accessibilityIgnoresInvertColors />
+          <Media seed={photo.uri} url={photo.uri} style={[StyleSheet.absoluteFill, styles.photo]} />
           {index === 0 ? (
             <View style={styles.cover}>
               <AppText variant="caption" style={styles.coverText}>
@@ -86,7 +86,7 @@ export function PhotoGrid({ photos, max, adding = false, disabled = false, onAdd
   );
 }
 
-const GAP = 6;
+const GAP = Spacing.two;
 
 const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: GAP },
@@ -95,12 +95,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: Palette.peach,
   },
-  image: { width: '100%', height: '100%' },
+  // Let the cell's peach show instead of Media's per-photo tint
+  photo: { backgroundColor: 'transparent' },
   cover: {
     position: 'absolute',
     left: Spacing.one,
     bottom: Spacing.one,
-    paddingHorizontal: Spacing.one + 2,
+    paddingHorizontal: Spacing.two,
     borderRadius: Radii.pill,
     backgroundColor: Palette.coral,
   },

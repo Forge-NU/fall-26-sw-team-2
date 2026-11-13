@@ -12,7 +12,7 @@ import { UserRow } from "./user-row";
 import { StatRow, type Stat } from "./stat-row";
 import { CardLink } from "./card-link";
 import { ShareAction } from "./share-action";
-import { formatDateRange } from "./format-date";
+import { formatDateRange } from "@/utils/local-date";
 
 type TripSummary = Pick<
   TripResponse,

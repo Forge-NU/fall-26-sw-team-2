@@ -1,9 +1,9 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Image } from 'expo-image';
 import { StyleSheet, View } from 'react-native';
 import type { PostResponse } from 'shared-types';
 
 import { AppText } from '@/components/ui/app-text';
+import { Media } from '@/components/ui/media';
 import { Palette } from '@/constants/palette';
 import { Radii, Spacing, Typography } from '@/constants/theme';
 
@@ -44,14 +44,16 @@ export function DayPosts({ posts }: { posts: PostResponse[] }) {
   );
 }
 
+// TODO(#43 POST-3): open post detail on press once that screen exists
 function PostRow({ post }: { post: PostResponse }) {
   const cover = post.media[0];
   const count = post.media.length;
 
   return (
     <View style={styles.row} accessible accessibilityLabel={`${postPlaceName(post)}. ${post.caption ?? ''}`}>
+      {/* A plain tile when there are no photos, so it doesn't read as a failed image */}
       {cover ? (
-        <Image source={{ uri: cover.url }} style={styles.thumb} contentFit="cover" transition={150} />
+        <Media seed={post.id} url={cover.url} iconSize={Spacing.three} style={styles.thumb} />
       ) : (
         <View style={[styles.thumb, styles.thumbEmpty]} />
       )}

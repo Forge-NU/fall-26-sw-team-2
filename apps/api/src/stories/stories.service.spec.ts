@@ -8,7 +8,8 @@ import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { formatDateOnly, todayUtc } from '../common/dates';
-import { StoriesService, decodeFeedCursor } from './stories.service';
+import { StoriesService } from './stories.service';
+import { decodeCursor, encodeCursor } from '../common/pagination';
 import { CreateStoryDto } from './dto/create-story.dto';
 
 const ownerId = 'user_owner';
@@ -56,6 +57,7 @@ function makeStory(overrides: Record<string, unknown> = {}) {
     createdAt: new Date('2026-10-13T12:00:00Z'),
     owner,
     location: null,
+    trip: null,
     ...overrides,
   };
 }
@@ -445,10 +447,20 @@ describe('StoriesService', () => {
       const page = await service.listFeed(ownerId, { limit: 1 });
 
       expect(page.items).toHaveLength(1);
-      expect(decodeFeedCursor(page.nextCursor!)).toEqual({
-        latest,
-        ownerId,
-      });
+      expect(
+        decodeCursor(page.nextCursor!, `stories-feed:${ownerId}`, [
+          'date',
+          'string',
+        ]),
+      ).toEqual([latest, ownerId]);
+    });
+
+    it("rejects another viewer's feed cursor", async () => {
+      const cursor = encodeCursor(`stories-feed:${otherId}`, [dbNow, ownerId]);
+      await expect(service.listFeed(ownerId, { cursor })).rejects.toThrow(
+        'Invalid cursor',
+      );
+      expect(prisma.$queryRaw).not.toHaveBeenCalled();
     });
 
     it('returns an empty page without a second query', async () => {
@@ -481,6 +493,49 @@ describe('StoriesService', () => {
           cursor: Buffer.from('["not a date","x"]').toString('base64url'),
         }),
       ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('linked trip', () => {
+    const dbNow = new Date('2026-10-14T00:00:00Z');
+    const linked = (status: string) =>
+      makeStory({
+        tripId,
+        trip: { id: tripId, title: 'Sintra and the coast', ownerId, status },
+      });
+
+    async function feedTrip(viewerId: string, status: string) {
+      prisma.$queryRaw.mockResolvedValue([
+        { owner_id: ownerId, latest: dbNow, now: dbNow },
+      ]);
+      prisma.story.findMany.mockResolvedValue([linked(status)]);
+      const page = await service.listFeed(viewerId, {});
+      return page.items[0].stories[0];
+    }
+
+    it('shows the owner their draft trip', async () => {
+      const story = await feedTrip(ownerId, 'draft');
+      expect(story.trip).toEqual({ id: tripId, title: 'Sintra and the coast' });
+    });
+
+    it("hides someone else's draft trip but keeps tripId", async () => {
+      const story = await feedTrip(otherId, 'draft');
+      expect(story.trip).toBeNull();
+      expect(story.tripId).toBe(tripId);
+    });
+
+    it('shows a published trip to everyone', async () => {
+      const story = await feedTrip(otherId, 'published');
+      expect(story.trip).toEqual({ id: tripId, title: 'Sintra and the coast' });
+    });
+
+    it('is null without a trip', async () => {
+      prisma.$queryRaw.mockResolvedValue([
+        { owner_id: ownerId, latest: dbNow, now: dbNow },
+      ]);
+      prisma.story.findMany.mockResolvedValue([makeStory()]);
+      const page = await service.listFeed(otherId, {});
+      expect(page.items[0].stories[0].trip).toBeNull();
     });
   });
 

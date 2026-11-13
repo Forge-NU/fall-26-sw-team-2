@@ -3,7 +3,7 @@ import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/ui/app-text';
 import { Button } from '@/components/ui/button';
 import { Palette } from '@/constants/palette';
-import { Radii, Spacing, Typography } from '@/constants/theme';
+import { Radii, Spacing, Theme, Typography } from '@/constants/theme';
 
 export type ConfirmDialogProps = {
   visible: boolean;
@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing.four,
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    backgroundColor: Theme.colors.scrim,
   },
   card: {
     width: '100%',

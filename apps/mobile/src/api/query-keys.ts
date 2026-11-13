@@ -11,4 +11,6 @@ export const queryKeys = {
   profile: (userId: string) => ['users', userId, 'profile'] as const,
   followStatus: (userId: string) => ['users', userId, 'follow-status'] as const,
   followList: (userId: string, list: 'followers' | 'following') => ['users', userId, list] as const,
+  storiesFeed: ['stories', 'feed'] as const,
+  tripStories: (tripId: string) => ['trips', tripId, 'stories'] as const,
 };

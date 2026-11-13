@@ -52,9 +52,9 @@ export interface ApiErrorResponse {
   timestamp: string;
 }
 
-export type { TripStatus, TripResponse, ActiveTripsResponse, CreateTripRequest, UpdateTripRequest, MediaType, MediaResponse, PostResponse, CreatePostRequest, CreatePostMedia } from './content.js';
+export type { TripStatus, TripResponse, ActiveTripsResponse, CreateTripRequest, UpdateTripRequest, MediaType, MediaResponse, PostResponse, CreatePostRequest, CreatePostMedia, LikeStatusResponse, PostLikerResponse, SaveStatusResponse, CommentResponse, CreateCommentRequest } from './content.js';
 export type { LocationRating, LocationResponse, PlaceSuggestion, ResolveLocationRequest, ResolveLocationResponse } from './locations.js';
-export type { StoryResponse, StoryGroup, StoriesFeedResponse, TripStoriesResponse, CreateStoryRequest } from './stories.js';
+export type { StoryResponse, StoryTrip, StoryGroup, StoriesFeedResponse, TripStoriesResponse, CreateStoryRequest } from './stories.js';
 export type { FollowListUser, FollowListPage, FollowStatus, FollowCounts } from './follows.js';
 
 /**
@@ -80,3 +80,5 @@ export interface CreateUploadResponse {
   /** ISO timestamp, 15 minutes after the request */
   expiresAt: string;
 }
+
+export type { SearchType, SearchSort, SearchRequest, SearchPerson, SearchPlace, SearchItems, SearchPreview, SearchPage, SearchResponse } from './search.js';

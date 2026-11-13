@@ -1,78 +1,86 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import type { PostResponse, TripResponse } from 'shared-types';
+import type { PostResponse, StoryResponse, TripResponse } from 'shared-types';
 
+import { StatRow } from '@/components/content/stat-row';
+import { UserRow } from '@/components/content/user-row';
 import { PostDraftsBanner } from '@/components/posts/post-drafts-banner';
 import { DayPosts } from '@/components/trips/day-posts';
-import { TripError, TripLoading } from '@/components/trips/trip-states';
+import { DayStories } from '@/components/trips/day-stories';
+import { tripErrorState } from '@/components/trips/trip-error-state';
 import { AppText } from '@/components/ui/app-text';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Media } from '@/components/ui/media';
 import { Pill, type PillState } from '@/components/ui/pill';
+import { IconButton } from '@/components/ui/icon-button';
 import { Screen } from '@/components/ui/screen';
-import { IconButton, ScreenHeader } from '@/components/ui/screen-header';
+import { ScreenHeader } from '@/components/ui/screen-header';
 import { Palette } from '@/constants/palette';
 import { Radii, Spacing, Typography } from '@/constants/theme';
+import { useTripStories } from '@/hooks/use-stories';
 import { useTrip, useTripPosts } from '@/hooks/use-trips';
 import { useCurrentUser } from '@/lib/current-user';
+import { storiesOnDay } from '@/lib/stories';
 import { isActiveTrip } from '@/lib/trips';
-import { todayLocalIso } from '@/utils/local-date';
 import {
   formatDate,
   formatDateRange,
   formatWeekdayDate,
+  todayLocalIso,
   tripDayCount,
   tripDayNumber,
   tripDays,
-} from '@/utils/trip-dates';
+} from '@/utils/local-date';
 
 export default function TripScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const trip = useTrip(id);
   const posts = useTripPosts(id);
+  // Not part of loading or errors: the page works without its stories
+  const stories = useTripStories(id);
   const user = useCurrentUser();
 
   const isOwner = trip.data?.owner.id === user.id;
+  const error = trip.error ?? posts.error;
+  const refetch = () => {
+    void trip.refetch();
+    void posts.refetch();
+    void stories.refetch();
+  };
 
   return (
-    <Screen>
-      <ScreenHeader
-        left={{ icon: 'arrow-back', label: 'Back', onPress: () => router.back() }}
-        right={
-          isOwner ? (
-            <IconButton
-              icon="create-outline"
-              label="Edit trip"
-              onPress={() => router.push({ pathname: '/trips/[id]/edit', params: { id } })}
-            />
-          ) : null
-        }
-      />
-      {trip.isPending || posts.isPending ? (
-        <TripLoading />
-      ) : trip.isError || posts.isError ? (
-        <TripError
-          error={trip.error ?? posts.error}
-          onRetry={() => {
-            void trip.refetch();
-            void posts.refetch();
-          }}
+    <Screen
+      loading={trip.isPending || posts.isPending}
+      error={error}
+      onRetry={refetch}
+      errorState={tripErrorState(error)}
+      header={
+        <ScreenHeader
+          left={{ icon: 'arrow-left', label: 'Back', onPress: () => router.back() }}
+          right={
+            isOwner ? (
+              <IconButton
+                icon="pencil"
+                accessibilityLabel="Edit trip"
+                onPress={() => router.push({ pathname: '/trips/[id]/edit', params: { id } })}
+              />
+            ) : null
+          }
         />
-      ) : (
+      }>
+      {trip.data && posts.data ? (
         <TripBody
           trip={trip.data}
           posts={posts.data}
+          stories={stories.data ?? []}
           isOwner={isOwner}
           refreshing={trip.isRefetching || posts.isRefetching}
-          onRefresh={() => {
-            void trip.refetch();
-            void posts.refetch();
-          }}
+          onRefresh={refetch}
         />
-      )}
+      ) : null}
     </Screen>
   );
 }
@@ -80,23 +88,36 @@ export default function TripScreen() {
 type TripBodyProps = {
   trip: TripResponse;
   posts: PostResponse[];
+  /** Kept stories ("Add to trip"), including ones that left the stories bar */
+  stories: StoryResponse[];
   isOwner: boolean;
   refreshing: boolean;
   onRefresh: () => void;
 };
 
-function TripBody({ trip, posts, isOwner, refreshing, onRefresh }: TripBodyProps) {
+function TripBody({ trip, posts, stories, isOwner, refreshing, onRefresh }: TripBodyProps) {
   const today = todayLocalIso();
   const days = tripDays(trip.startDate, trip.endDate);
   const active = isActiveTrip(trip, today);
-  const [selectedDay, setSelectedDay] = useState(() => defaultDay(trip, posts, today));
+  // Null until the user picks a day, so the default can use stories that load after the page
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const fallbackDay = defaultDay(trip, posts, stories, today);
   // The trip's dates can change under the selection after an edit
-  const day = days.includes(selectedDay) ? selectedDay : days[0];
+  const day = [selectedDay, fallbackDay].find((d): d is string => d !== null && days.includes(d)) ?? days[0];
   const dayPosts = posts.filter((post) => post.visitedOn === day);
+  const dayStories = storiesOnDay(stories, day);
   const places = new Set(posts.map((post) => post.location?.id ?? post.customLocationName)).size;
 
   const addPost = () =>
     router.push({ pathname: '/posts/new', params: { tripId: trip.id, visitedOn: day } });
+
+  const dayCount = tripDayCount(trip.startDate, trip.endDate);
+  // Likes and saves join these once INT-3 (#51) lands
+  const stats = [
+    { key: 'posts', label: posts.length === 1 ? 'post' : 'posts', count: posts.length },
+    { key: 'places', label: places === 1 ? 'place' : 'places', count: places },
+    { key: 'days', label: dayCount === 1 ? 'day' : 'days', count: dayCount },
+  ];
 
   return (
     <>
@@ -110,16 +131,21 @@ function TripBody({ trip, posts, isOwner, refreshing, onRefresh }: TripBodyProps
           </AppText>
           <Pill {...statusPill(trip, active, today)} />
         </View>
+        {/* Not tappable yet: profiles live inside the Profile tab, and this page is
+            outside the tabs, so linking there either stacks a second tab bar or
+            closes this page. Needs profiles pushable from any screen first. */}
+        <UserRow user={trip.owner} />
         <AppText variant="label" style={styles.muted}>
           {trip.destination} · {formatDateRange(trip.startDate, trip.endDate)}
         </AppText>
         {trip.description ? <AppText variant="label" style={styles.description}>{trip.description}</AppText> : null}
+        <StatRow items={stats} />
 
         {isOwner ? <PostDraftsBanner tripId={trip.id} /> : null}
 
         <Cover trip={trip} />
 
-        {posts.length === 0 ? (
+        {posts.length === 0 && stories.length === 0 ? (
           <EmptyState
             icon="images-outline"
             title="No posts yet"
@@ -156,18 +182,15 @@ function TripBody({ trip, posts, isOwner, refreshing, onRefresh }: TripBodyProps
               </AppText>
             </View>
 
+            {dayStories.length > 0 ? <DayStories tripId={trip.id} day={day} stories={dayStories} /> : null}
+
             {dayPosts.length > 0 ? (
               <DayPosts posts={dayPosts} />
-            ) : (
+            ) : dayStories.length > 0 ? null : (
               <AppText variant="label" style={[styles.muted, styles.center]}>
                 Nothing on this day yet.
               </AppText>
             )}
-
-            <AppText variant="caption" style={[styles.muted, styles.center]}>
-              {tripDayCount(trip.startDate, trip.endDate)} days · {posts.length}{' '}
-              {posts.length === 1 ? 'post' : 'posts'} · {places} {places === 1 ? 'place' : 'places'}
-            </AppText>
           </>
         )}
       </ScrollView>
@@ -201,13 +224,9 @@ function TripBody({ trip, posts, isOwner, refreshing, onRefresh }: TripBodyProps
 function Cover({ trip }: { trip: TripResponse }) {
   if (trip.coverImageUrl) {
     return (
-      <Image
-        source={{ uri: trip.coverImageUrl }}
-        style={styles.cover}
-        contentFit="cover"
-        transition={150}
-        accessibilityLabel={`${trip.title} cover photo`}
-      />
+      <View accessible accessibilityRole="image" accessibilityLabel={`${trip.title} cover photo`}>
+        <Media seed={trip.id} url={trip.coverImageUrl} style={styles.cover} />
+      </View>
     );
   }
   return (
@@ -229,10 +248,11 @@ function statusPill(trip: TripResponse, active: boolean, today: string): { label
   return { label: 'In progress', state: 'default' };
 }
 
-// Today on an active trip, otherwise the first day with posts
-function defaultDay(trip: TripResponse, posts: PostResponse[], today: string): string {
+// Today on an active trip, otherwise the first day with posts or stories
+function defaultDay(trip: TripResponse, posts: PostResponse[], stories: StoryResponse[], today: string): string {
   if (isActiveTrip(trip, today)) return today;
-  return posts[0]?.visitedOn ?? trip.startDate;
+  const firstDays = [posts[0]?.visitedOn, stories[0]?.storyDate].filter((d): d is string => Boolean(d));
+  return firstDays.sort()[0] ?? trip.startDate;
 }
 
 const styles = StyleSheet.create({
@@ -251,7 +271,7 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
   },
   empty: { alignSelf: 'center' },
-  days: { gap: 6 },
+  days: { gap: Spacing.two },
   dayHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   actions: { gap: Spacing.two },
   fullWidth: { width: '100%' },

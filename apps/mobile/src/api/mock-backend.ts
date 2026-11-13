@@ -12,8 +12,12 @@ import type {
   PostResponse,
   ResolveLocationRequest,
   ResolveLocationResponse,
+  StoriesFeedResponse,
+  StoryGroup,
   StoryResponse,
   TripResponse,
+  TripStoriesResponse,
+  UserSummary,
   UpdateTripRequest,
 } from 'shared-types';
 
@@ -31,6 +35,7 @@ export const me: CurrentUser = {
 
 const trips: TripResponse[] = [];
 const posts: PostResponse[] = [];
+const stories: StoryResponse[] = [];
 let seeded = false;
 let nextId = 1;
 
@@ -52,6 +57,8 @@ function mockTrip(title: string, destination: string, startDate: string, endDate
     publishedAt: null,
     postCount: 0,
     coverImageUrl: null,
+    saveCount: 0,
+    savedByMe: false,
     createdAt: now,
     updatedAt: now,
   };
@@ -98,6 +105,11 @@ function mockPost(
       height: 1200,
       durationMs: null,
     })),
+    likeCount: 0,
+    saveCount: 0,
+    commentCount: 0,
+    likedByMe: false,
+    savedByMe: false,
     createdAt: now,
     updatedAt: now,
   };
@@ -147,6 +159,97 @@ function seed() {
 
   trips.push(lisbon, copenhagen, kyoto);
   trips.forEach(refreshDerived);
+
+  seedStories(lisbon, copenhagen, pena);
+}
+
+const HOUR_MS = 60 * 60 * 1000;
+const STORY_LIFETIME_MS = 24 * HOUR_MS;
+
+const maya: UserSummary = { id: 'user_maya', username: 'maya.chen', firstName: 'Maya', lastName: 'Chen', avatarUrl: null };
+const priya: UserSummary = { id: 'user_priya', username: 'priya.k', firstName: 'Priya', lastName: 'Kumar', avatarUrl: null };
+
+type MockStory = {
+  owner: UserSummary;
+  hoursAgo: number;
+  photoId: number; // picsum.photos image ID
+  text?: string;
+  location?: LocationResponse | string;
+  trip?: TripResponse;
+  /** The trip on someone else's draft, which the API hides (only tripId is sent) */
+  hiddenTripId?: string;
+  keepOnTrip?: boolean;
+  storyDate?: string;
+};
+
+function mockStory(story: MockStory): StoryResponse {
+  const createdAt = new Date(Date.now() - story.hoursAgo * HOUR_MS);
+  return {
+    id: mockId('story'),
+    owner: story.owner,
+    tripId: story.trip?.id ?? story.hiddenTripId ?? null,
+    trip: story.trip ? { id: story.trip.id, title: story.trip.title } : null,
+    text: story.text ?? null,
+    location: typeof story.location === 'object' ? story.location : null,
+    customLocationName: typeof story.location === 'string' ? story.location : null,
+    imageUrl: `https://picsum.photos/id/${story.photoId}/900/1600`,
+    keepOnTrip: story.keepOnTrip ?? false,
+    storyDate: story.storyDate ?? todayLocalIso(),
+    expiresAt: new Date(createdAt.getTime() + STORY_LIFETIME_MS).toISOString(),
+    createdAt: createdAt.toISOString(),
+  };
+}
+
+// The stories bar: Maya on a draft trip (link hidden), Priya on a published
+// trip, and the mock user's own kept story. Plus an expired kept story, which
+// only shows on the Lisbon trip page.
+function seedStories(lisbon: TripResponse, copenhagen: TripResponse, pena: LocationResponse) {
+  const today = todayLocalIso();
+  stories.push(
+    mockStory({ owner: maya, hoursAgo: 5, photoId: 1036, text: 'Golden hour in Alfama', location: 'Miradouro de Santa Luzia', hiddenTripId: 'trip-maya-draft' }),
+    mockStory({ owner: maya, hoursAgo: 2, photoId: 1043, hiddenTripId: 'trip-maya-draft' }),
+    mockStory({ owner: priya, hoursAgo: 8, photoId: 1015, text: 'Still thinking about this view', trip: copenhagen }),
+    mockStory({ owner: priya, hoursAgo: 7, photoId: 1067 }),
+    mockStory({ owner: me, hoursAgo: 1, photoId: 1040, text: 'Made it to the top', location: pena, trip: lisbon, keepOnTrip: true }),
+    mockStory({ owner: me, hoursAgo: 30, photoId: 1047, text: 'First tram of the trip', location: 'Tram 28', trip: lisbon, keepOnTrip: true, storyDate: addDays(today, -1) }),
+  );
+}
+
+function isActiveStory(story: StoryResponse): boolean {
+  return new Date(story.expiresAt).getTime() > Date.now();
+}
+
+// Everyone in the mocks is followed, so every active story shows
+export async function mockGetStoriesFeed(): Promise<StoriesFeedResponse> {
+  await mockDelay();
+  seed();
+  const byOwner = new Map<string, StoryGroup>();
+  const active = stories.filter(isActiveStory).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  for (const story of active) {
+    const group = byOwner.get(story.owner.id) ?? { owner: story.owner, stories: [] };
+    group.stories.push(story);
+    byOwner.set(story.owner.id, group);
+  }
+  const latest = (group: StoryGroup) => group.stories[group.stories.length - 1].createdAt;
+  const items = [...byOwner.values()].sort((a, b) => latest(b).localeCompare(latest(a)));
+  return { items, nextCursor: null };
+}
+
+export async function mockGetTripStories(tripId: string): Promise<TripStoriesResponse> {
+  await mockDelay();
+  findOwnTrip(tripId);
+  const items = stories
+    .filter((story) => story.tripId === tripId && story.keepOnTrip)
+    .sort((a, b) => a.storyDate.localeCompare(b.storyDate) || a.createdAt.localeCompare(b.createdAt));
+  return { items, nextCursor: null };
+}
+
+export async function mockDeleteStory(id: string): Promise<void> {
+  await mockDelay();
+  seed();
+  const index = stories.findIndex((story) => story.id === id && story.owner.id === me.id);
+  if (index === -1) mockError(404, 'Story not found');
+  stories.splice(index, 1);
 }
 
 function findOwnTrip(id: string): TripResponse {
@@ -286,6 +389,11 @@ export async function mockCreatePost(body: CreatePostRequest): Promise<PostRespo
       height: item.height ?? null,
       durationMs: item.durationMs ?? null,
     })),
+    likeCount: 0,
+    saveCount: 0,
+    commentCount: 0,
+    likedByMe: false,
+    savedByMe: false,
     createdAt: now,
     updatedAt: now,
   };
@@ -354,6 +462,7 @@ export async function mockResolveLocation(body: ResolveLocationRequest): Promise
 
 export async function mockCreateStory(body: CreateStoryRequest): Promise<StoryResponse> {
   await mockDelay();
+  seed();
   if (body.keepOnTrip && !body.tripId) {
     mockError(400, 'keepOnTrip requires tripId');
   }
@@ -367,17 +476,21 @@ export async function mockCreateStory(body: CreateStoryRequest): Promise<StoryRe
     mockError(400, "storyDate must be within the trip's dates");
   }
   const createdAt = new Date();
-  return {
+  const story: StoryResponse = {
     id: mockId('story'),
     owner: me,
     tripId: body.tripId ?? null,
-    text: body.text ?? null,
-    location: null,
+    trip: trip ? { id: trip.id, title: trip.title } : null,
+    text: body.text || null,
+    location: (body.locationId && resolvedLocations.get(body.locationId)) || null,
     customLocationName: body.customLocationName ?? null,
-    imageUrl: `https://media.invalid/${body.s3Key}`,
+    // The mock upload has no real object behind the key, so show a stand-in photo
+    imageUrl: `https://picsum.photos/id/${MOCK_UPLOAD_PHOTO_IDS[nextId % MOCK_UPLOAD_PHOTO_IDS.length]}/900/1600`,
     keepOnTrip: body.keepOnTrip ?? false,
     storyDate,
-    expiresAt: new Date(createdAt.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+    expiresAt: new Date(createdAt.getTime() + STORY_LIFETIME_MS).toISOString(),
     createdAt: createdAt.toISOString(),
   };
+  stories.push(story);
+  return story;
 }
