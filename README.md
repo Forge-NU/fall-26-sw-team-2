@@ -14,7 +14,7 @@ Today, travel apps tend to serve one of two purposes: plan the details of a trip
 - Frontend: Expo (React Native)
 - Backend: NestJS
 - Database: AWS RDS, S3
-- Infra/Deploy: Expo Application Services, GitHub Actions, AWS ECS Fargate
+- Infra/Deploy: Expo Application Services, GitHub Actions, AWS ECS Fargate (CDK in `infra/`, see [docs/process/deployment.md](docs/process/deployment.md))
 
 ## Getting Started
 **Prerequisite:** Node 24 (pinned in `.nvmrc`). With [nvm](https://github.com/nvm-sh/nvm), run `nvm install && nvm use` from the repo root.

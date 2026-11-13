@@ -169,20 +169,18 @@ Stories kept on a trip, including ones that have expired, ordered by `storyDate`
 ### Running it
 
 - **Locally:** `npm run stories:cleanup:dev` (reads `apps/api/.env`). Without `S3_BUCKET_NAME`, it deletes rows and logs that it skipped S3.
-- **Built:** `npm run build`, then `npm run stories:cleanup` (`node dist/stories/cleanup.main`). This expects the environment variables to be set already, as they are in ECS.
+- **Built:** `npm run build`, then `npm run stories:cleanup` (`node dist/src/stories/cleanup.main.js`). This expects the environment variables to be set already, as they are in ECS.
 
 The script starts only `PrismaModule`, `StorageModule`, and the cleanup service. It doesn't start the HTTP server or need Clerk.
 
-### AWS setup (for #34 INF-1)
+### In AWS
 
-Nothing in AWS is needed to build or test this. To run the cleanup in production:
-
-1. **Task:** reuse the API's ECS task definition, overriding the container command with `["node", "dist/stories/cleanup.main"]`. It needs the same `DATABASE_URL`, `AWS_REGION`, and `S3_BUCKET_NAME` as the API.
-2. **Schedule:** an EventBridge Scheduler schedule, `rate(1 hour)`, targeting ECS `RunTask` on the API's cluster with the Fargate launch type, in the same subnets and security groups as the API (it has to reach RDS).
-3. **IAM:**
-   - The task role needs `s3:DeleteObject` on `arn:aws:s3:::<media bucket>/users/*`.
-   - The scheduler's execution role needs `ecs:RunTask` on the task definition, and `iam:PassRole` for the task role and the task execution role.
-4. **Logs:** the task writes `Deleted N expired stories`, and any S3 keys it failed to delete, to the task's CloudWatch log group.
+`YujiStagingApi` (`infra/lib/api-stack.ts`) runs it hourly: an EventBridge Scheduler
+schedule starts a Fargate task from the API image with the command
+`node dist/src/stories/cleanup.main.js`, in the API's subnets and security group so it can
+reach RDS. Its task role can only `s3:DeleteObject` under `users/*`. It writes
+`Deleted N expired stories`, and any S3 keys it failed to delete, to the
+`YujiStagingApi-StoriesCleanupLogs` log group. See [deployment.md](../process/deployment.md).
 
 Running hourly means a non-kept story's object can outlive the story by up to an hour. The story itself still disappears on time, because reads filter on `expires_at`.
 

@@ -116,16 +116,16 @@ const s3Key = await uploadPhoto(photo.uri, 'post', {
 - **Mocks:** with `EXPO_PUBLIC_API_MOCKS=all` in `.env`, `createUpload` and `putObject` fake the URL and the upload, with progress. Never set that in a build. Set `EXPO_PUBLIC_MOCK_UPLOAD_FAILURE_RATE=1` to make every upload fail.
 - The S3 PUT uses `XMLHttpRequest`, not the API client: `fetch` can't report upload progress, and an `Authorization` header would make S3 reject the request.
 
-## Bucket setup (INF-1, #34)
+## Bucket setup
 
-The code needs no changes once the bucket exists. Set these on the API:
+On staging the bucket is `yuji-media-<account>`, created by `YujiStagingData` (`infra/lib/data-stack.ts`), and the API's task role has exactly the permissions below (see [deployment.md](../process/deployment.md)). The API reads:
 
 - `S3_BUCKET_NAME`: the media bucket.
 - `AWS_REGION`: the bucket's region.
 
 The API's credentials (the ECS task role on staging, or your AWS profile locally) need `s3:PutObject`, `s3:GetObject`, and `s3:DeleteObject` on `arn:aws:s3:::<bucket>/users/*`, plus `s3:ListBucket` on `arn:aws:s3:::<bucket>` (limited to the `users/` prefix with an `s3:prefix` condition) so account deletion can find everything under `users/{userId}/`. A presigned URL can only do what the credentials that signed it can do.
 
-The bucket stays private. The app uploads from native code, so the bucket doesn't need CORS for uploads. It only needs CORS if the app's web build uploads too.
+The bucket stays private. The app uploads from native code, which doesn't need CORS; the staging bucket allows CORS GET and PUT anyway so the web build can upload too.
 
 ## Orphaned uploads
 

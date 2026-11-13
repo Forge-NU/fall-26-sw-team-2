@@ -10,9 +10,13 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   // The Expo web build (npm start, then w) runs on another origin. The mobile
-  // app doesn't need CORS, so it stays off in production.
+  // app doesn't need CORS, so in production it's only on for the origins
+  // CORS_ORIGIN_PATTERN matches (staging allows the EAS Hosting web previews).
+  const corsOriginPattern = process.env.CORS_ORIGIN_PATTERN;
   if (process.env.NODE_ENV !== 'production') {
     app.enableCors();
+  } else if (corsOriginPattern) {
+    app.enableCors({ origin: new RegExp(corsOriginPattern) });
   }
 
   app.useGlobalPipes(
