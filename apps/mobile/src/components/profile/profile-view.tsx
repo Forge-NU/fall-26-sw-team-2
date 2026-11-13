@@ -8,10 +8,10 @@ import type { PostResponse, TripResponse } from 'shared-types';
 import { getErrorMessage } from '@/api/client';
 import { getFollowStatus, getMyProfile, getProfile, listUserPosts, listUserTrips } from '@/api/profiles';
 import { queryKeys } from '@/api/query-keys';
+import { PostGridSkeleton, PostTile } from '@/components/content/post-tile';
 import { Icon } from '@/components/icon';
 import { AppText } from '@/components/ui/app-text';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Media } from '@/components/ui/media';
 import { IconButton } from '@/components/ui/icon-button';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { BottomTabInset, Palette, Spacing } from '@/constants/theme';
@@ -34,6 +34,10 @@ export function ProfileView({ userId: routeUserId }: { userId?: string }) {
   const [tab, setTab] = useState<ProfileTab>('itineraries');
   const currentUser = useCurrentUser();
   const signOut = useSignOut();
+  // Two tiles and the gap between them span the list. A fixed size, not
+  // flex: 1, so a lone tile in the last row stays half width.
+  const [gridWidth, setGridWidth] = useState(0);
+  const tileSize = gridWidth > 0 ? (gridWidth - Spacing.half) / 2 : 0;
   // Opening your own profile from a list still counts as your own
   const isOwn = !routeUserId || routeUserId === currentUser.id;
   const userId = isOwn ? currentUser.id : routeUserId;
@@ -132,14 +136,17 @@ export function ProfileView({ userId: routeUserId }: { userId?: string }) {
       {tab === 'posts' ? (
         <FlatList
           key="posts"
+          onLayout={(event) => setGridWidth(event.nativeEvent.layout.width)}
           data={uniqueById(posts.items)}
           keyExtractor={(post) => post.id}
           numColumns={2}
           columnWrapperStyle={styles.gridRow}
           renderItem={({ item }) => (
-            <Media
-              seed={item.id}
-              url={item.media.find((media) => media.mediaType === 'image')?.url}
+            <PostTile
+              post={item}
+              size={tileSize}
+              // TODO: open the post itself at /posts/[id] once POST-3 (#43) adds it
+              onPress={() => router.push({ pathname: '/trips/[id]', params: { id: item.tripId } })}
               style={styles.gridCell}
             />
           )}
@@ -147,6 +154,7 @@ export function ProfileView({ userId: routeUserId }: { userId?: string }) {
           ListEmptyComponent={
             <ListEmpty
               list={posts}
+              skeleton={<PostGridSkeleton size={tileSize} />}
               icon="images-outline"
               title="No posts yet"
               description={isOwn ? 'Photos you add to a trip show up here.' : undefined}
@@ -246,7 +254,7 @@ const styles = StyleSheet.create({
   tabIndicator: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 3, backgroundColor: Palette.teal },
   separator: { height: Spacing.two },
   gridRow: { gap: Spacing.half },
-  gridCell: { flex: 1, aspectRatio: 1, marginBottom: Spacing.half },
+  gridCell: { marginBottom: Spacing.half },
   topBar: { paddingHorizontal: Spacing.three },
   backBar: {
     height: 44,

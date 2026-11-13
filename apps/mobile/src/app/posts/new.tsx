@@ -148,6 +148,7 @@ export default function NewPostScreen() {
     void queryClient.invalidateQueries({ queryKey: queryKeys.tripPosts(trip.id) });
     void queryClient.invalidateQueries({ queryKey: queryKeys.trip(trip.id) });
     void queryClient.invalidateQueries({ queryKey: queryKeys.userTrips(user.id) });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.userPosts(user.id) });
     showToast({ message: 'Post added', variant: 'success' });
     close();
   };

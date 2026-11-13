@@ -90,6 +90,8 @@ export function useDeleteTrip(id: string) {
         trips?.filter((trip) => trip.id !== id),
       );
       void queryClient.invalidateQueries({ queryKey: queryKeys.userTrips(user.id) });
+      // Its posts go with it
+      void queryClient.invalidateQueries({ queryKey: queryKeys.userPosts(user.id) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.activeTrips });
     },
   });

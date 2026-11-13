@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { PostSave, Prisma, Trip } from '../generated/prisma/client';
+import { Post, PostSave, Prisma, Trip } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { formatDateOnly, parseDateOnly } from '../common/dates';
@@ -58,6 +58,17 @@ const SAVED_POSTS = keyset<
 >([
   { field: 'createdAt', direction: 'desc', type: 'date' },
   { field: 'postId', direction: 'desc', type: 'string' },
+]);
+
+// One user's posts on their profile: newest visit first, then newest added
+const USER_POSTS = keyset<
+  Post,
+  Prisma.PostWhereInput,
+  Prisma.PostOrderByWithRelationInput
+>([
+  { field: 'visitedOn', direction: 'desc', type: 'date' },
+  { field: 'createdAt', direction: 'desc', type: 'date' },
+  { field: 'id', direction: 'desc', type: 'string' },
 ]);
 
 const CUSTOM_LOCATION_RATING =
@@ -320,6 +331,43 @@ export class PostsService {
 
     const page = buildPage(posts, limit, (post) =>
       TRIP_POSTS.cursor(list, post),
+    );
+    return {
+      items: await Promise.all(page.items.map((post) => this.toResponse(post))),
+      nextCursor: page.nextCursor,
+    };
+  }
+
+  // A user's posts for the Posts tab on their profile, newest first. Same
+  // visibility as their trips list: other people only see posts in published
+  // trips, and the user also sees the posts in their own drafts.
+  async listForUser(
+    viewerId: string,
+    userId: string,
+    query: PaginationQueryDto,
+  ): Promise<PaginatedResponse<PostResponse>> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const list = `user-posts:${userId}`;
+    const limit = pageLimit(query);
+    const posts = await this.prisma.post.findMany({
+      where: {
+        trip: { ownerId: userId, ...visibleTripWhere(viewerId) },
+        ...USER_POSTS.after(USER_POSTS.decode(query.cursor, list)),
+      },
+      orderBy: USER_POSTS.orderBy,
+      include: postInclude(viewerId),
+      take: limit + 1,
+    });
+
+    const page = buildPage(posts, limit, (post) =>
+      USER_POSTS.cursor(list, post),
     );
     return {
       items: await Promise.all(page.items.map((post) => this.toResponse(post))),

@@ -43,6 +43,16 @@ export class PostsController {
     return this.postsService.listForTrip(userId, tripId, query);
   }
 
+  // The Posts tab on a profile. Posts in drafts are only included on your own.
+  @Get('users/:userId/posts')
+  listForUser(
+    @CurrentUser() viewerId: string,
+    @Param('userId') userId: string,
+    @Query() query: PaginationQueryDto,
+  ) {
+    return this.postsService.listForUser(viewerId, userId, query);
+  }
+
   @Get('posts/:id')
   findOne(
     @CurrentUser() userId: string,
