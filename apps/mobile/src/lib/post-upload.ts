@@ -4,8 +4,9 @@
 import type { PostResponse } from 'shared-types';
 
 import { ApiError } from '@/api/client';
+import { resolveLocation } from '@/api/locations';
 import { createPost } from '@/api/posts';
-import { toLocationFields } from '@/components/location/location-picker';
+import { isExpiredPinError, toLocationFields, type PickedLocation } from '@/lib/picked-location';
 import { uploadPhoto } from '@/lib/media/upload-photo';
 import { deleteDraft, saveDraft, type PostDraft } from '@/lib/post-drafts';
 import { RETRY_DELAYS_MS } from '@/lib/retry';
@@ -76,12 +77,12 @@ export async function submitPostDraft(
     }
 
     onProgress({ current: total, uploaded: total, total, fraction: 1, creating: true });
-    try {
-      const post = await createPost({
+    const create = (location: PickedLocation) =>
+      createPost({
         tripId: draft.tripId,
         visitedOn: draft.visitedOn,
         caption: draft.caption.trim() || null,
-        ...toLocationFields(draft.location!),
+        ...toLocationFields(location),
         media: draft.photos.map((p) => ({
           s3Key: p.s3Key!,
           mediaType: 'image' as const,
@@ -89,6 +90,24 @@ export async function submitPostDraft(
           height: Math.round(p.height),
         })),
       });
+    try {
+      let post: PostResponse;
+      try {
+        post = await create(draft.location!);
+      } catch (error) {
+        const location = draft.location!;
+        if (!(error instanceof ApiError && isExpiredPinError(location, error.status, error.message))) throw error;
+        // The draft sat long enough for the unused pin to be cleaned up: drop it again
+        const pin = await resolveLocation({
+          kind: 'pin',
+          name: location.location.name,
+          latitude: location.location.latitude,
+          longitude: location.location.longitude,
+        });
+        draft = { ...draft, location: pin };
+        await saveDraft(draft);
+        post = await create(pin);
+      }
       await deleteDraft(draft.id);
       return { status: 'created', post };
     } catch (error) {

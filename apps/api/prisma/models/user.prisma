@@ -19,4 +19,6 @@ model User {
   tripSaves   TripSave[]
   comments    Comment[]  @relation("CommentAuthor")
   mentionedIn Comment[]  @relation("CommentReplyTo")
+  // Custom pins they dropped (#94 LOC-2)
+  pins        Location[]
 }

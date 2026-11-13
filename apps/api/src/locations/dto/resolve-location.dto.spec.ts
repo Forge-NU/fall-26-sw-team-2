@@ -165,4 +165,69 @@ describe('ResolveLocationDto', () => {
     const { fields } = await errorsFor({ ...mapbox, rating: 5 });
     expect(fields).toContain('rating');
   });
+
+  describe('pin', () => {
+    const pin = {
+      kind: 'pin',
+      name: 'Secret beach',
+      latitude: 38.68,
+      longitude: -9.32,
+    };
+
+    it('accepts a name and a point, and trims the name', async () => {
+      const { dto, fields } = await errorsFor({
+        ...pin,
+        name: '  Secret beach  ',
+      });
+      expect(fields).toEqual([]);
+      expect(dto.name).toBe('Secret beach');
+    });
+
+    it.each(['latitude', 'longitude'])(
+      'rejects a pin without %s',
+      async (field) => {
+        const body: Record<string, unknown> = { ...pin };
+        delete body[field];
+        const { fields } = await errorsFor(body);
+        expect(fields).toContain(field);
+      },
+    );
+
+    it.each([
+      ['latitude', 90.1],
+      ['longitude', -180.1],
+      ['latitude', '38.68'],
+    ])('rejects %s = %p', async (field, value) => {
+      const { fields } = await errorsFor({ ...pin, [field]: value });
+      expect(fields).toContain(field);
+    });
+
+    it.each(['', '   '])('rejects an empty name (%p)', async (name) => {
+      const { fields } = await errorsFor({ ...pin, name });
+      expect(fields).toContain('name');
+    });
+
+    // The same rule as a custom name
+    it('caps the name at 100 code points', async () => {
+      const ok = await errorsFor({ ...pin, name: 'a'.repeat(100) });
+      expect(ok.fields).toEqual([]);
+
+      const long = await errorsFor({ ...pin, name: 'a'.repeat(101) });
+      expect(long.fields).toContain('name');
+
+      const hearts = await errorsFor({ ...pin, name: '❤️'.repeat(60) });
+      expect(hearts.fields).toContain('name');
+    });
+
+    it.each([
+      ['mapboxId', 'dXJuOm1ieHBvaTpwYXN0ZWlz'],
+      ['address', 'R. de Belém'],
+      ['city', 'Lisbon'],
+      ['region', ''],
+      ['countryCode', 'PT'],
+    ])('rejects %s sent with a pin', async (field, value) => {
+      const { fields } = await errorsFor({ ...pin, [field]: value });
+      expect(fields).toContain('kind');
+    });
+  });
 });

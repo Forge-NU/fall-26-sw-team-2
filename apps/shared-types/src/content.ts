@@ -63,7 +63,7 @@ export type PostResponse = {
   visitedOn: string; // YYYY-MM-DD
   location: LocationResponse | null;
   customLocationName: string | null;
-  rating: number | null; // 1-5 stars for the place; always null with a custom location
+  rating: number | null; // 1-5 stars for the place; always null with only a customLocationName
   media: MediaResponse[]; // carousel order
   likeCount: number;
   saveCount: number;
@@ -78,12 +78,14 @@ export type PostResponse = {
 };
 
 // POST /api/posts. Exactly one of locationId and customLocationName, and a
-// rating only with a locationId.
+// rating only with a locationId. locationId can be a dropped pin from
+// POST /api/locations/resolve, if this user dropped it and no other post or
+// story uses it.
 export type CreatePostRequest = {
   tripId: string;
   visitedOn: string; // YYYY-MM-DD, within the trip's dates
   caption?: string | null; // up to 2,200 characters
-  locationId?: string;
+  locationId?: string; // a Mapbox place or a dropped pin
   customLocationName?: string; // 1-100 characters
   rating?: number | null; // 1-5 stars for the place
   media: CreatePostMedia[]; // 1-30, carousel order

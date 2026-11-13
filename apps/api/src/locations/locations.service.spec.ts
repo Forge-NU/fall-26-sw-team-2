@@ -10,8 +10,11 @@ describe('LocationsService', () => {
     location: {
       upsert: jest.fn(),
       findUniqueOrThrow: jest.fn(),
+      create: jest.fn(),
     },
   };
+
+  const userId = 'user_dropper';
 
   const mapboxDto: ResolveLocationRequest = {
     kind: 'mapbox',
@@ -75,7 +78,7 @@ describe('LocationsService', () => {
     it('creates the row if needed and never overwrites an existing one', async () => {
       mockPrismaService.location.upsert.mockResolvedValue(mockRow);
 
-      await expect(service.resolve(mapboxDto)).resolves.toEqual({
+      await expect(service.resolve(userId, mapboxDto)).resolves.toEqual({
         kind: 'mapbox',
         location: expectedLocation,
       });
@@ -100,8 +103,8 @@ describe('LocationsService', () => {
     it('reuses one row when the same place is selected twice', async () => {
       mockPrismaService.location.upsert.mockResolvedValue(mockRow);
 
-      const first = await service.resolve(mapboxDto);
-      const second = await service.resolve({
+      const first = await service.resolve(userId, mapboxDto);
+      const second = await service.resolve(userId, {
         ...mapboxDto,
         name: 'Pasteis de Belem (different spelling)',
       });
@@ -122,7 +125,7 @@ describe('LocationsService', () => {
       );
       mockPrismaService.location.findUniqueOrThrow.mockResolvedValue(mockRow);
 
-      await expect(service.resolve(mapboxDto)).resolves.toEqual({
+      await expect(service.resolve(userId, mapboxDto)).resolves.toEqual({
         kind: 'mapbox',
         location: expectedLocation,
       });
@@ -136,7 +139,7 @@ describe('LocationsService', () => {
       const error = new Error('Database unavailable');
       mockPrismaService.location.upsert.mockRejectedValue(error);
 
-      await expect(service.resolve(mapboxDto)).rejects.toThrow(error);
+      await expect(service.resolve(userId, mapboxDto)).rejects.toThrow(error);
       expect(
         mockPrismaService.location.findUniqueOrThrow,
       ).not.toHaveBeenCalled();
@@ -146,16 +149,96 @@ describe('LocationsService', () => {
   describe('resolve a custom location', () => {
     it('returns the name without a Mapbox ID or a database write', async () => {
       await expect(
-        service.resolve({
+        service.resolve(userId, {
           kind: 'custom',
           name: "Tia Rosa's kitchen",
         }),
       ).resolves.toEqual({ kind: 'custom', name: "Tia Rosa's kitchen" });
 
       expect(mockPrismaService.location.upsert).not.toHaveBeenCalled();
+      expect(mockPrismaService.location.create).not.toHaveBeenCalled();
       expect(
         mockPrismaService.location.findUniqueOrThrow,
       ).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('resolve a dropped pin', () => {
+    const pin: ResolveLocationRequest = {
+      kind: 'pin',
+      name: 'Secret beach',
+      latitude: 38.68,
+      longitude: -9.32,
+    };
+    const pinRow = (providerPlaceId: string) => ({
+      ...mockRow,
+      id: `pin-${providerPlaceId}`,
+      provider: 'custom',
+      providerPlaceId,
+      name: 'Secret beach',
+      address: null,
+      latitude: new Prisma.Decimal('38.68'),
+      longitude: new Prisma.Decimal('-9.32'),
+      city: null,
+      region: null,
+      countryCode: null,
+      ratingCount: 0,
+      ratingSum: 0,
+      createdBy: userId,
+    });
+
+    beforeEach(() => {
+      mockPrismaService.location.create.mockImplementation(
+        ({ data }: { data: { providerPlaceId: string } }) =>
+          Promise.resolve(pinRow(data.providerPlaceId)),
+      );
+    });
+
+    it('creates a custom row owned by the user, with a generated id', async () => {
+      const result = await service.resolve(userId, pin);
+
+      const [[{ data }]] = mockPrismaService.location.create.mock.calls as [
+        [{ data: Record<string, unknown> }],
+      ];
+      expect(data).toEqual({
+        provider: 'custom',
+        providerPlaceId: expect.stringMatching(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+        ) as unknown,
+        name: 'Secret beach',
+        latitude: 38.68,
+        longitude: -9.32,
+        createdBy: userId,
+      });
+      expect(result).toEqual({
+        kind: 'pin',
+        location: {
+          id: `pin-${data.providerPlaceId as string}`,
+          provider: 'custom',
+          providerPlaceId: data.providerPlaceId,
+          name: 'Secret beach',
+          address: null,
+          latitude: 38.68,
+          longitude: -9.32,
+          city: null,
+          region: null,
+          countryCode: null,
+          rating: null,
+        },
+      });
+      // created_by isn't part of the response
+      expect(result).not.toHaveProperty('location.createdBy');
+      expect(mockPrismaService.location.upsert).not.toHaveBeenCalled();
+    });
+
+    it('never reuses a row: the same pin twice makes two rows', async () => {
+      const first = await service.resolve(userId, pin);
+      const second = await service.resolve(userId, pin);
+
+      expect(mockPrismaService.location.create).toHaveBeenCalledTimes(2);
+      expect(first.kind === 'pin' && first.location.id).not.toBe(
+        second.kind === 'pin' && second.location.id,
+      );
     });
   });
 });

@@ -71,7 +71,7 @@ The owner can delete a trip after a confirmation prompt. This permanently delete
 A post is media within a trip, with a caption and a location.
 
 - Every post belongs to exactly one trip, and posts can't exist without a trip. A post's author is always its trip's owner.
-- Each post has one location. It's required, and it can be a Mapbox place or a custom name (see [Locations](#locations)).
+- Each post has one location. It's required, and it can be a Mapbox place, a dropped pin, or a custom name (see [Locations](#locations)).
 - Each post has a date (the day it happened). It's required, it must fall within the trip's dates, and it defaults to today if today is within them, otherwise to the trip's start date.
 - A trip shows its posts in date order, oldest first. Posts on the same date are shown in the order they were added.
 - Media: 1 to 30 photos or videos per post, in the order the user picked them (see [Media limits](#media-limits)).
@@ -83,8 +83,10 @@ Cut from the MVP: interest tags, tagging other users in posts, several locations
 
 ## Locations
 
-- A location is either a **Mapbox place** (picked from search, stored with its Mapbox ID, name, and coordinates) or a **custom location** (a name the user typed when search had no result).
-- Custom locations have no coordinates, so they show on the post but not on the map.
+- A location is a **Mapbox place** (picked from search, stored with its Mapbox ID, name, and coordinates) or a **custom location** (a name the user typed when search had no result).
+- A custom location is either a **dropped pin** or **just the name** (#94 LOC-2). For a pin, the user places it on a map, so it has coordinates: it shows on the map, labeled with its name, and counts in radius search, but not in place search. Just a name has no coordinates, so it shows on the post but not on the map or in radius search.
+- A dropped pin belongs to the one post or story it's on, and is deleted with it. Two pins are never merged, even at the same spot with the same name. The app tells the user "Anyone can see this pin." before they confirm it.
+- With location permission, the pin map starts where the user is. Without it, it starts at the trip's destination, and a story without a trip starts at the whole world.
 - Two posts tagged at the same Mapbox place share one location row. That shared row is what lets the map and place search group posts by place.
 - **Mapbox storage terms** (confirmed for #37 LOC-1, checked 2026-10-17):
   - **Search Box API:** results are for temporary use only and can't be stored. Storing them needs a separate agreement with Mapbox sales. ([Search Box API](https://docs.mapbox.com/api/search/search-box/))
@@ -136,10 +138,10 @@ Cut from the MVP: interest tags, tagging other users in posts, several locations
 
 ## Map and search
 
-- The map shows posts from published trips that have a Mapbox location, within the visible area.
+- The map shows posts from published trips that have a Mapbox place or a dropped pin, within the visible area. Posts with just a custom name aren't on it.
 - Tapping a location shows the published posts and trips tagged there.
 - People search matches usernames and first and last names.
-- Place search matches locations that have published posts.
+- Place search matches Mapbox places that have published posts. Dropped pins aren't places, so they're left out.
 - Searches need at least 2 characters.
 - Natural-language search is post-MVP.
 

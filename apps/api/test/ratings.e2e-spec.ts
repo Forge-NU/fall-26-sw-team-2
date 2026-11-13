@@ -318,7 +318,8 @@ describe('Place ratings (e2e)', () => {
       }
     });
 
-    it('rejects a rating on a post with a custom location', async () => {
+    // A dropped pin can be rated (test/custom-locations.e2e-spec.ts)
+    it('rejects a rating on a post with only a custom location name', async () => {
       const trip = await createTrip(owner, true);
 
       const res = await server()
@@ -333,7 +334,7 @@ describe('Place ratings (e2e)', () => {
         )
         .expect(400);
       expect((res.body as { message: string }).message).toMatch(
-        /Only posts at a Mapbox place can be rated/,
+        /only a custom location name can't be rated/,
       );
 
       // Already custom
