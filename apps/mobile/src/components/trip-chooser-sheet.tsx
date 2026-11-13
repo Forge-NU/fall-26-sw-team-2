@@ -4,7 +4,7 @@ import type { TripResponse } from 'shared-types';
 import { AppText } from '@/components/ui/app-text';
 import { BottomSheet } from '@/components/bottom-sheet';
 import { Icon } from '@/components/icon';
-import { Palette, Radii } from '@/constants/theme';
+import { Palette, Radii, Spacing } from '@/constants/theme';
 import { formatDateRange } from '@/utils/local-date';
 
 // The fields the chooser shows, so callers can pass a full TripResponse
@@ -105,18 +105,18 @@ export function TripChooserSheet({
 
 const styles = StyleSheet.create({
   content: {
-    gap: 16,
-    paddingBottom: 12,
+    gap: Spacing.three,
+    paddingBottom: Spacing.two + Spacing.one,
   },
   trips: {
-    gap: 8,
+    gap: Spacing.two,
   },
   trip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    padding: 12,
-    borderRadius: Radii.small,
+    gap: Spacing.two,
+    padding: Spacing.two + Spacing.one,
+    borderRadius: Radii.pill,
     borderWidth: 1,
     borderColor: Palette.lightPink,
     backgroundColor: Palette.warmWhite,
@@ -127,13 +127,13 @@ const styles = StyleSheet.create({
   },
   tripDetails: {
     flex: 1,
-    gap: 4,
+    gap: Spacing.one,
   },
   withoutTrip: {
     height: 54,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: Spacing.two,
     borderTopWidth: 1,
     borderBottomWidth: 1,
     borderColor: Palette.lightPink,
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
   createTrip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: Spacing.two,
   },
   grow: {
     flex: 1,

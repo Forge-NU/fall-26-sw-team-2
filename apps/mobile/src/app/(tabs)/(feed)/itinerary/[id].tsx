@@ -3,14 +3,15 @@ import { useState } from 'react';
 import { Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { UserRow } from '@/components/content/user-row';
 import { AppText } from '@/components/ui/app-text';
 import { Icon } from '@/components/icon';
 import { DayAtAGlance } from '@/components/itinerary/day-at-a-glance';
 import { DayMoments } from '@/components/itinerary/day-moments';
-import { PostAuthor } from '@/components/post-author';
 import { Avatar } from '@/components/ui/avatar';
 import { YujiLogo } from '@/components/yuji-header';
 import { Palette, Radii, Spacing } from '@/constants/theme';
+import { itineraryToTrip } from '@/data/feed-trips';
 import { getItinerary } from '@/data/mock';
 
 export default function ItineraryDayScreen() {
@@ -91,9 +92,10 @@ export default function ItineraryDayScreen() {
               </View>
             </View>
           )}
-          <PostAuthor
-            author={itinerary.author}
-            meta={`${itinerary.location} · ${itinerary.postedAgo}`}
+          <UserRow
+            user={itineraryToTrip(itinerary).owner}
+            subtitle={`${itinerary.location} · ${itinerary.postedAgo}`}
+            verified={itinerary.author.verified}
           />
         </View>
 

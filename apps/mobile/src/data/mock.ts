@@ -55,6 +55,8 @@ export type Itinerary = {
   location: string;
   postedAgo: string;
   postKind: string;
+  /** First day of the trip (yyyy-mm-dd); the last is worked out from `days`. */
+  startDate: string;
   stops: number;
   author: Traveler;
   participants: Traveler[];
@@ -109,6 +111,7 @@ export const Itineraries: Itinerary[] = [
     location: 'Lisbon, Portugal',
     postedAgo: '18m',
     postKind: 'Sharing itinerary',
+    startDate: '2026-10-12',
     stops: 24,
     author: Travelers.maya,
     participants: [Travelers.noah, Travelers.priya, Travelers.jordan, Travelers.sam],
@@ -236,6 +239,7 @@ export const Itineraries: Itinerary[] = [
     location: 'Copenhagen, Denmark',
     postedAgo: '1h',
     postKind: 'Weekend itinerary',
+    startDate: '2026-09-18',
     stops: 14,
     author: Travelers.priya,
     participants: [],

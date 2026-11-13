@@ -1,10 +1,14 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { colors, formatCount, radius } from '@/components/explore/explore-theme';
 import type { Area, Audience, Place, Stats } from '@/components/explore/types';
 import { Avatar } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { IconButton } from '@/components/ui/icon-button';
+import { Pill } from '@/components/ui/pill';
+import { MapTokens } from '@/constants/map-tokens';
+import { Palette, Radii, Spacing, Typography } from '@/constants/theme';
+import { formatCount } from '@/utils/format-count';
 
 interface BodyProps {
   place: Place;
@@ -62,9 +66,7 @@ export function PlaceDetailBody({ place, area, audience, onClose }: BodyProps) {
             {place.stats.friends.logs} friend logs · {formatCount(place.stats.global.logs)} global logs
           </Text>
         </View>
-        <Pressable onPress={onClose} style={styles.close} hitSlop={8} accessibilityLabel="Close">
-          <MaterialCommunityIcons name="close" size={20} color={colors.forest} />
-        </Pressable>
+        <IconButton icon="x" accessibilityLabel="Close" onPress={onClose} style={styles.close} />
       </View>
 
       {place.tip && (
@@ -115,21 +117,14 @@ export function PlaceDetailBody({ place, area, audience, onClose }: BodyProps) {
         <>
           <Text style={styles.section}>People who logged this</Text>
           <View style={styles.sortRow}>
-            {(['saves', 'reviews'] as const).map((key) => {
-              const active = key === sortBy;
-              return (
-                <Pressable
-                  key={key}
-                  onPress={() => setSortBy(key)}
-                  style={[styles.sortBtn, active && styles.sortBtnActive]}
-                  accessibilityState={{ selected: active }}
-                >
-                  <Text style={[styles.sortText, active && styles.sortTextActive]}>
-                    {key === 'saves' ? 'Most saves' : 'Most reviews'}
-                  </Text>
-                </Pressable>
-              );
-            })}
+            {(['saves', 'reviews'] as const).map((key) => (
+              <Pill
+                key={key}
+                label={key === 'saves' ? 'Most saves' : 'Most reviews'}
+                state={key === sortBy ? 'selected' : 'default'}
+                onPress={() => setSortBy(key)}
+              />
+            ))}
           </View>
           <View style={styles.people}>
             {people.map((pr) => (
@@ -172,116 +167,76 @@ interface ActionProps {
 export function PlaceActions({ saved, onLogVisit, onToggleSave }: ActionProps) {
   return (
     <View style={styles.actions}>
-      <Pressable
-        style={({ pressed }) => [styles.primary, pressed && { backgroundColor: colors.coralPressed }]}
-        onPress={onLogVisit}
-      >
-        <Text style={styles.primaryText}>+ Log a visit</Text>
-      </Pressable>
-      <Pressable
-        style={[styles.secondary, saved && styles.secondarySaved]}
+      <Button title="+ Log a visit" filled onPress={onLogVisit} style={styles.action} />
+      <Button
+        title={saved ? 'Saved' : 'Save place'}
+        variant="teal"
+        filled={saved}
         onPress={onToggleSave}
         accessibilityState={{ selected: saved }}
-      >
-        {saved && <MaterialCommunityIcons name="bookmark" size={18} color={colors.forest} />}
-        <Text style={styles.secondaryText}>{saved ? 'Saved' : 'Save place'}</Text>
-      </Pressable>
+        style={styles.action}
+      />
     </View>
   );
 }
 
+const muted = { ...Typography.label, fontFamily: Typography.body.fontFamily, color: Palette.placeholderGray };
+const small = { ...Typography.caption, fontFamily: Typography.body.fontFamily, color: Palette.placeholderGray };
+
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: 20, paddingBottom: 24, gap: 14 },
-  top: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  titleBlock: { flex: 1, gap: 4 },
-  title: { fontSize: 28, fontWeight: '700', color: colors.forest, letterSpacing: -0.4, lineHeight: 34 },
-  meta: { fontSize: 16, color: colors.textMuted, marginTop: 4 },
-  logs: { fontSize: 15, color: colors.forest },
-  close: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.sage,
-  },
-  tip: { padding: 14, gap: 4, borderRadius: radius.md, backgroundColor: colors.sage },
-  tipText: { fontSize: 15, color: colors.forest, lineHeight: 20 },
-  tipSource: { fontSize: 12, color: colors.textMuted },
+  content: { paddingHorizontal: Spacing.three, paddingBottom: Spacing.four, gap: Spacing.three },
+  top: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.two },
+  titleBlock: { flex: 1, gap: Spacing.one },
+  title: { ...Typography.heading, color: Palette.black },
+  meta: { ...Typography.body, color: Palette.placeholderGray },
+  logs: { ...Typography.label, color: Palette.black },
+  close: { marginRight: -Spacing.two },
+  tip: { padding: Spacing.three, gap: Spacing.one, borderRadius: Radii.pill, backgroundColor: Palette.lightTeal },
+  tipText: { ...Typography.label, fontFamily: Typography.body.fontFamily, color: Palette.black },
+  tipSource: small,
   ratingCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 20,
-    padding: 16,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-  },
-  ratingBig: { alignItems: 'center', minWidth: 76 },
-  ratingValue: { fontSize: 44, fontWeight: '700', color: colors.forest, letterSpacing: -1 },
-  ratingOutOf: { fontSize: 13, color: colors.textMuted },
-  bars: { flex: 1, gap: 3 },
-  barsLabel: { fontSize: 13, color: colors.textMuted, marginBottom: 2 },
-  barRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  barStar: { width: 10, fontSize: 11, color: colors.textMuted },
-  barTrack: { flex: 1, height: 6, borderRadius: 3, backgroundColor: colors.barTrack, overflow: 'hidden' },
-  barFill: { height: 6, borderRadius: 3, backgroundColor: colors.sageBar },
-  barCount: { width: 26, textAlign: 'right', fontSize: 11, color: colors.textMuted },
-  section: { fontSize: 18, fontWeight: '700', color: colors.forest, marginTop: 4 },
-  photos: { gap: 10 },
-  photo: { width: 160, height: 108, borderRadius: radius.md, backgroundColor: colors.barTrack },
-  photoSaves: { fontSize: 13, color: colors.textMuted, marginTop: 6 },
-  sortRow: { flexDirection: 'row', gap: 10 },
-  sortBtn: {
-    flex: 1,
-    height: 42,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.md,
+    gap: Spacing.four,
+    padding: Spacing.three,
+    borderRadius: Radii.pill,
+    backgroundColor: Palette.white,
     borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.surface,
+    borderColor: Palette.peach,
   },
-  sortBtnActive: { backgroundColor: colors.forest, borderColor: colors.forest },
-  sortText: { fontSize: 15, fontWeight: '600', color: colors.forest },
-  sortTextActive: { color: '#FFFFFF' },
-  people: { gap: 10 },
+  ratingBig: { alignItems: 'center', minWidth: MapTokens.ratingWidth },
+  ratingValue: { ...Typography.heading, fontSize: MapTokens.ratingSize, lineHeight: MapTokens.ratingLineHeight, color: Palette.black },
+  ratingOutOf: small,
+  bars: { flex: 1, gap: Spacing.half },
+  barsLabel: { ...small, marginBottom: Spacing.half },
+  barRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  barStar: { ...small, width: Spacing.three - Spacing.one },
+  barTrack: { flex: 1, height: MapTokens.barHeight, borderRadius: Radii.circle, backgroundColor: Palette.peach, overflow: 'hidden' },
+  barFill: { height: MapTokens.barHeight, borderRadius: Radii.circle, backgroundColor: Palette.teal },
+  barCount: { ...small, width: Spacing.four + Spacing.one, textAlign: 'right' },
+  section: { ...Typography.subheading, color: Palette.black, marginTop: Spacing.one },
+  photos: { gap: Spacing.two },
+  photo: { width: MapTokens.photo.width, height: MapTokens.photo.height, borderRadius: Radii.medium, backgroundColor: Palette.peach },
+  photoSaves: { ...small, marginTop: Spacing.one },
+  sortRow: { flexDirection: 'row', gap: Spacing.two },
+  people: { gap: Spacing.two },
   person: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    padding: 14,
-    borderRadius: radius.md,
-    backgroundColor: colors.sage,
+    gap: Spacing.two,
+    padding: Spacing.three,
+    borderRadius: Radii.pill,
+    backgroundColor: Palette.white,
+    borderWidth: 1,
+    borderColor: Palette.peach,
   },
-  personText: { flex: 1, gap: 4 },
-  personTop: { flexDirection: 'row', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' },
-  personName: { fontSize: 17, fontWeight: '700', color: colors.forest },
-  personStats: { fontSize: 14, color: colors.forest },
-  personTrip: { fontSize: 14, color: colors.textMuted },
-  quote: { fontSize: 15, color: colors.text, lineHeight: 21 },
-  visited: { fontSize: 13, color: colors.textMuted, marginTop: -6 },
-  actions: { flexDirection: 'row', gap: 12 },
-  primary: {
-    flex: 1,
-    height: 54,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.md,
-    backgroundColor: colors.coral,
-  },
-  primaryText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
-  secondary: {
-    flex: 1,
-    height: 54,
-    flexDirection: 'row',
-    gap: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.md,
-    borderWidth: 1.5,
-    borderColor: colors.line,
-    backgroundColor: colors.surface,
-  },
-  secondarySaved: { backgroundColor: colors.sage, borderColor: colors.sage },
-  secondaryText: { fontSize: 16, fontWeight: '600', color: colors.forest },
+  personText: { flex: 1, gap: Spacing.half },
+  personTop: { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.two, flexWrap: 'wrap' },
+  personName: { ...Typography.label, color: Palette.black },
+  personStats: { ...Typography.caption, color: Palette.black },
+  personTrip: muted,
+  quote: { ...Typography.label, fontFamily: Typography.body.fontFamily, color: Palette.black },
+  visited: { ...small, marginTop: -Spacing.two },
+  actions: { flexDirection: 'row', gap: Spacing.two },
+  action: { flex: 1, minWidth: 0 },
 });

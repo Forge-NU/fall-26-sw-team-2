@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/ui/app-text';
 import { Icon, IconName } from '@/components/icon';
-import { Palette, Radii } from '@/constants/theme';
+import { Palette, Radii, Spacing } from '@/constants/theme';
 
 export type ToolbarDestination = 'feed' | 'saved' | 'post' | 'maps' | 'profile';
 
@@ -29,7 +29,7 @@ const Icons: Record<ToolbarDestination, IconName> = {
 export function BottomToolbar({ children, style, ...props }: TabListProps) {
   const insets = useSafeAreaInsets();
   return (
-    <View {...props} style={[styles.toolbar, { paddingBottom: Math.max(insets.bottom, 8) }, style]}>
+    <View {...props} style={[styles.toolbar, { paddingBottom: Math.max(insets.bottom, Spacing.two) }, style]}>
       {children}
     </View>
   );
@@ -89,8 +89,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 12,
-    paddingHorizontal: 12,
+    paddingTop: Spacing.two + Spacing.one,
+    paddingHorizontal: Spacing.two + Spacing.one,
     backgroundColor: Palette.warmWhite,
     borderTopWidth: 1,
     borderTopColor: Palette.lightPink,
@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
   item: {
     width: 64,
     alignItems: 'center',
-    gap: 6,
+    gap: Spacing.one + Spacing.half,
   },
   label: {
     // Keeps long labels inside their slot so neighbours never overlap.
