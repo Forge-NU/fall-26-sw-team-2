@@ -3,6 +3,7 @@
 Status: Decided, for review
 Issue: #33 (DOC-1)
 Decided: 2026-10-11 and 2026-10-12
+Updated: 2026-11-13, shared trips, buckets, saved places and notifications (#129 DOC-3)
 
 ## Overview
 
@@ -27,13 +28,18 @@ Deleting an account deletes everything, permanently. Nothing is kept or anonymiz
 - the `users` row,
 - the user's trips, posts, and stories, and the S3 objects for all of their media and avatar,
 - their follows in both directions,
-- their likes, saves, and comments, including comments on other people's posts.
+- their likes, saves (including saved places), and comments, including comments on other people's posts,
+- their trip memberships, the invites they sent or received, their notifications, and the bucket places they added to other people's trips (see [Shared trips](#shared-trips)).
+
+Deleting an account deletes the user's own trips for everyone, including their collaborators. Ownership can't be transferred in the MVP.
 
 ## Visibility
 
 Everything is public. There are no private accounts, follower-only posts, or follow requests.
 
-"Public" applies to published content only. A trip and its posts stay hidden from everyone except the owner until the trip is published (see [Trips](#trips)).
+"Public" applies to published content only. A trip and its posts stay hidden from everyone except the owner and the trip's collaborators until the trip is published (see [Trips](#trips) and [Shared trips](#shared-trips)).
+
+Two things are never public: what you've saved (see [Saves](#saves)) and a trip's bucket, which only the trip's members can see, even after the trip is published.
 
 ## Trips
 
@@ -50,7 +56,7 @@ A trip is the main unit of content: a dated itinerary made of posts.
 
 A trip is either a **draft** or **published**.
 
-- **Draft:** only the owner can see the trip and its posts. It shows on the owner's own profile as in progress. No one else can like, save, or comment on it, because no one else can see it.
+- **Draft:** only the owner and the trip's collaborators can see the trip and its posts. It shows on the owner's own profile as in progress. No one but the owner can like, save, or comment on it, collaborators included.
 - **Published:** the owner taps Publish. From then on, the trip and all its posts are visible to everyone: in followers' feeds, on the owner's profile, on the map, and in search.
 - A trip needs at least one post before it can be published.
 - Publishing can't be undone in the MVP. There's no unpublish.
@@ -64,7 +70,53 @@ Only active trips can have stories linked to them (see [Stories](#stories)). Whi
 
 ### Deleting a trip
 
-The owner can delete a trip after a confirmation prompt. This permanently deletes the trip, all of its posts and their media (including the S3 objects), every story linked to it, and every like, save, and comment on it or its posts.
+The owner can delete a trip after a confirmation prompt. This permanently deletes the trip, all of its posts and their media (including the S3 objects), every story linked to it, and every like, save, and comment on it or its posts. It also deletes the trip's members, invites, bucket, and the notifications about it, for everyone on the trip.
+
+## Shared trips
+
+A trip's owner can invite other people to plan it with them. The people on a trip are its **members**: one **owner** (the person who created it) and up to 9 **collaborators**, so 10 people in all.
+
+Collaborators plan with the owner. They don't post: the trip's posts are still the owner's.
+
+### Roles
+
+| Action | Owner | Collaborator | Everyone else |
+|---|---|---|---|
+| See the trip, its posts and stories while it's a draft | Yes | Yes, read-only | No |
+| Like, save, or comment while it's a draft | Yes | No | No |
+| See the trip's bucket | Yes | Yes | No, even after publishing |
+| Add places to the bucket | Yes | Yes | No |
+| Edit the note on, or remove, a bucket place they added | Yes | Yes | No |
+| Remove any bucket place | Yes | No | No |
+| Edit the trip's details, add, edit, or delete posts | Yes | No | No |
+| Publish or delete the trip | Yes | No | No |
+| Invite people, cancel invites, remove collaborators | Yes | No | No |
+| Leave the trip | No | Yes | No |
+
+Once the trip is published, everyone sees it the way they see any published trip: as the owner's trip.
+
+### Invites
+
+- The owner can invite anyone by username. Following isn't required, because everything in Yuji is public.
+- The invite arrives in the invitee's notifications, where they accept or decline it. Accepting makes them a collaborator.
+- Declining doesn't notify the owner. The owner can invite the same person again later.
+- There's at most one pending invite per person per trip. Invites don't expire, and the owner can cancel a pending one.
+- Pending invites count toward the 10-person cap.
+- The owner gets a notification when someone accepts.
+
+### Bucket
+
+Every trip has a **bucket**: a list of places its members want to go. It's where a group collects ideas for a trip, kept apart from the trip's posts, which are what the owner shares publicly.
+
+- Each bucket place is a place, the member who added it, and an optional note of up to 280 characters.
+- A place can be in a bucket only once. A bucket holds at most 200 places.
+- Only places with a location row can be added: Mapbox places and dropped pins (#94 LOC-2), not custom names without a pin (see [Locations](#locations)).
+- The bucket is an unordered list. Bucket places aren't scheduled onto days of the trip.
+- When a collaborator leaves or is removed, the places they added stay in the bucket.
+
+### Planning list
+
+The Trips section of the Saved tab has a **Planning** list of the trips you own or have joined. Each one opens to its bucket. Trips you've joined don't show on your profile.
 
 ## Posts
 
@@ -76,7 +128,7 @@ A post is media within a trip, with a caption and a location.
 - A trip shows its posts in date order, oldest first. Posts on the same date are shown in the order they were added.
 - Media: 1 to 30 photos or videos per post, in the order the user picked them (see [Media limits](#media-limits)).
 - Caption: optional, up to 2,200 characters.
-- Only the trip's owner can add, edit, or delete posts in it. Deleting a post permanently deletes its media (including the S3 objects), likes, saves, and comments.
+- Only the trip's owner can add, edit, or delete posts in it. Collaborators on a shared trip can't (see [Shared trips](#shared-trips)). Deleting a post permanently deletes its media (including the S3 objects), likes, saves, and comments.
 - A post isn't created until every upload has succeeded. If an upload fails, the app keeps the post as a local draft with a Retry option.
 
 Cut from the MVP: interest tags, tagging other users in posts, several locations per post, and trip ratings.
@@ -116,8 +168,17 @@ Cut from the MVP: interest tags, tagging other users in posts, several locations
 
 ### Saves
 
-- Users can save whole trips and individual posts. Saving and unsaving are idempotent.
+- Users can save whole trips, individual posts, and places. Saving and unsaving are idempotent.
+- A saved place needs a location row: a Mapbox place or a dropped pin (#94 LOC-2). Custom names without a pin can't be saved.
+- Saving a place to your account is separate from adding it to a trip's bucket (see [Shared trips](#shared-trips)). Your saved places are your own, and a bucket belongs to the trip's members.
 - Saved items show in the Saved tab on your own profile. Only you can see what you've saved.
+
+### Notifications
+
+- Notifications live in an in-app inbox, opened from a bell in the header that shows an unread count. Opening the inbox marks everything as read.
+- The MVP has two kinds: a trip invite (with Accept and Decline) and "someone accepted your invite." An invite shows its current state, so one answered or cancelled elsewhere never offers Accept again.
+- You're never notified about your own actions.
+- There are no push notifications in the MVP.
 
 ### Comments
 
@@ -173,7 +234,11 @@ Cut from the MVP: interest tags, tagging other users in posts, several locations
 - Interest tags, tagging users in posts, and several locations per post
 - Trip ratings and leaderboards
 - Video stories and story viewer tracking
-- Notifications for likes, comments, and follows
+- Notifications for likes, comments, and follows (the inbox exists, but only for trip invites)
+- Push notifications
+- Collaborators adding their own posts to a shared trip
+- Scheduling bucket places onto days of a trip
+- Transferring a trip's ownership
 - Unpublishing a trip
 - Editing comments
 
@@ -198,4 +263,6 @@ These use cases in `SW TEAM 2 - Design Notebook` need to be updated to match thi
 - **Use Case 6 (Like, comment, save):**
   - Likes and comments are on posts.
   - Saves cover both trips and posts.
-  - Resolve the open issues: users can save both, comments have one level of replies, and there are no notifications in the MVP.
+  - Resolve the open issues: users can save both, comments have one level of replies, and there are no notifications for likes or comments in the MVP.
+  - Saves also cover places (see [Saves](#saves)).
+- **New use case (Plan a shared trip):** the owner invites collaborators, they accept from their notifications, and everyone adds places to the trip's bucket. The rules are in [Shared trips](#shared-trips) and [Notifications](#notifications).
