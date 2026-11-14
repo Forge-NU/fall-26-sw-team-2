@@ -128,12 +128,12 @@ The Trips section of the Saved tab has a **Planning** list of the trips you own 
 A post is media within a trip, with a caption and a location.
 
 - Every post belongs to exactly one trip, and posts can't exist without a trip. A post's author is always its trip's owner.
-- Each post has one location. It's required, and it can be a Mapbox place or a custom name (see [Locations](#locations)).
+- A post can have one location, and it's optional. It can be a Mapbox place, a custom name, or nothing (see [Locations](#locations)). A post with no location shows no location row, isn't on the map, and can't be rated. The owner can add, change, or remove it later.
 - Each post has a date (the day it happened). It's required, it must fall within the trip's dates, and it defaults to today if today is within them, otherwise to the trip's start date.
 - A trip shows its posts in date order, oldest first. Posts on the same date are shown in the order they were added.
 - Media: 1 to 30 photos or videos per post, in the order the user picked them (see [Media limits](#media-limits)).
 - Caption: optional, up to 2,200 characters.
-- Rating: optional, 1 to 5 stars, rating the post's place (#91 RATE-1, #92 RATE-2). Only a post with a Mapbox place or a dropped pin can be rated. A custom name without a pin can't, and switching to one clears the rating.
+- Rating: optional, 1 to 5 stars, rating the post's place (#91 RATE-1, #92 RATE-2). Only a post with a Mapbox place or a dropped pin can be rated. A custom name without a pin, or no location, can't, and switching to either clears the rating.
 - Only the trip's owner can add, edit, or delete posts in it. Collaborators on a shared trip can't (see [Shared trips](#shared-trips)). Deleting a post permanently deletes its media (including the S3 objects), likes, saves, and comments.
 - A post isn't created until every upload has succeeded. If an upload fails, the app keeps the post as a local draft with a Retry option.
 
@@ -282,6 +282,7 @@ These use cases in `SW TEAM 2 - Design Notebook` need to be updated to match thi
   - Add Publish to the basic flow.
   - Resolve the open issue: everything is public once published.
   - Set the limits: 30 photos or videos per post, and the file sizes in [Media limits](#media-limits).
+  - A post's location is optional (see [Posts](#posts)).
   - Posts can rate their place, 1 to 5 stars, and a custom location can have a dropped pin (see [Posts](#posts) and [Locations](#locations)).
   - The trip page shows a cover photo and no trip map (see [Trip page](#trip-page)).
 - **Use Case 5 (Post story):**
