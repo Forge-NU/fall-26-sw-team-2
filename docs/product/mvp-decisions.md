@@ -3,7 +3,7 @@
 Status: Decided, for review
 Issue: #33 (DOC-1)
 Decided: 2026-10-11 and 2026-10-12
-Updated: 2026-11-13, shared trips, buckets, saved places and notifications (#129 DOC-3)
+Updated: 2026-11-13, decisions since DOC-1 (#119 DOC-2) and shared trips, buckets, saved places and notifications (#129 DOC-3)
 
 ## Overview
 
@@ -62,6 +62,11 @@ A trip is either a **draft** or **published**.
 - Publishing can't be undone in the MVP. There's no unpublish.
 - After publishing, the owner can still edit the trip's details and add, edit, or delete posts. Changes show up right away.
 
+### Trip page
+
+- The trip page shows a cover photo: the first photo of the trip's first post. A trip with no posts shows its destination instead.
+- There's no map on the trip page in the MVP. The trip map from wireframe 02 is post-MVP.
+
 ### Active trip
 
 A trip is **active** when it's a draft **and** today falls between its start and end dates, inclusive. Publishing a trip ends its active period, even if the end date hasn't passed yet.
@@ -110,7 +115,7 @@ Every trip has a **bucket**: a list of places its members want to go. It's where
 
 - Each bucket place is a place, the member who added it, and an optional note of up to 280 characters.
 - A place can be in a bucket only once. A bucket holds at most 200 places.
-- Only places with a location row can be added: Mapbox places and dropped pins (#94 LOC-2), not custom names without a pin (see [Locations](#locations)).
+- Only Mapbox places can be added. Custom locations can't, with or without a dropped pin, because a pin belongs to the one post or story that made it (see [Locations](#locations)).
 - The bucket is an unordered list. Bucket places aren't scheduled onto days of the trip.
 - When a collaborator leaves or is removed, the places they added stay in the bucket.
 
@@ -128,6 +133,7 @@ A post is media within a trip, with a caption and a location.
 - A trip shows its posts in date order, oldest first. Posts on the same date are shown in the order they were added.
 - Media: 1 to 30 photos or videos per post, in the order the user picked them (see [Media limits](#media-limits)).
 - Caption: optional, up to 2,200 characters.
+- Rating: optional, 1 to 5 stars, rating the post's place (#91 RATE-1, #92 RATE-2). Only a post with a Mapbox place or a dropped pin can be rated. A custom name without a pin can't, and switching to one clears the rating.
 - Only the trip's owner can add, edit, or delete posts in it. Collaborators on a shared trip can't (see [Shared trips](#shared-trips)). Deleting a post permanently deletes its media (including the S3 objects), likes, saves, and comments.
 - A post isn't created until every upload has succeeded. If an upload fails, the app keeps the post as a local draft with a Retry option.
 
@@ -136,8 +142,13 @@ Cut from the MVP: interest tags, tagging other users in posts, several locations
 ## Locations
 
 - A location is either a **Mapbox place** (picked from search, stored with its Mapbox ID, name, and coordinates) or a **custom location** (a name the user typed when search had no result).
-- Custom locations have no coordinates, so they show on the post but not on the map.
+- A custom location can have a **dropped pin** (#94 LOC-2). The user places it on a map, and the app warns that anyone can see the pin.
+  - A pinned custom location gets coordinates, so it shows on the map, appears in post and trip distance filters, and can be rated.
+  - Each pin is its own location row and belongs to the one post or story that made it. Pins are never merged, and deleting the post or story, or changing its location, deletes the pin.
+  - Pins stay out of place search, saved places and trip buckets, because they're personal spots rather than shared places.
+- A custom name without a pin has no coordinates, so it shows on the post but not on the map, and it can't be rated.
 - Two posts tagged at the same Mapbox place share one location row. That shared row is what lets the map and place search group posts by place.
+- A place's rating is the average of the ratings on posts at that place in published trips, shown with how many ratings it has (#91 RATE-1).
 - **Mapbox storage terms** (confirmed for #37 LOC-1, checked 2026-10-17):
   - **Search Box API:** results are for temporary use only and can't be stored. Storing them needs a separate agreement with Mapbox sales. ([Search Box API](https://docs.mapbox.com/api/search/search-box/))
   - **Geocoding API:** results can be stored indefinitely only when requested with `permanent=true`. That needs a credit card on file (or an enterprise contract), is billed separately per 1,000 requests with no free tier, and is for our own use only (no redistribution). ([Geocoding API](https://docs.mapbox.com/api/search/geocoding/), [temporary vs. permanent](https://docs.mapbox.com/help/dive-deeper/understand-temporary-vs-permanent-geocoding/), [pricing](https://www.mapbox.com/pricing))
@@ -169,9 +180,9 @@ Cut from the MVP: interest tags, tagging other users in posts, several locations
 ### Saves
 
 - Users can save whole trips, individual posts, and places. Saving and unsaving are idempotent.
-- A saved place needs a location row: a Mapbox place or a dropped pin (#94 LOC-2). Custom names without a pin can't be saved.
+- Only Mapbox places can be saved. Custom locations can't, with or without a dropped pin (see [Locations](#locations)).
 - Saving a place to your account is separate from adding it to a trip's bucket (see [Shared trips](#shared-trips)). Your saved places are your own, and a bucket belongs to the trip's members.
-- Saved items show in the Saved tab on your own profile. Only you can see what you've saved.
+- Saved items show in the Saved tab in the bottom bar (see [Feed and navigation](#feed-and-navigation)), with sections for trips, posts and places. Only you can see what you've saved.
 
 ### Notifications
 
@@ -189,18 +200,33 @@ Cut from the MVP: interest tags, tagging other users in posts, several locations
 
 ## Feed and navigation
 
-- The tab bar is **Feed, Map, Create, Profile**. Saved is a tab inside your own profile, not its own tab.
+- The bottom bar is **Feed, Saved, Post, Map, Profile** (decided 2026-10-27, matching #81 and #51 INT-3).
+  - Saved is its own tab, not a tab inside your profile. There's one Saved, and the profile has no Saved tab.
+  - Post opens a chooser for a new post or a new story, instead of switching tabs.
+- The header has a notifications bell (see [Notifications](#notifications)). Its Leaderboard button stays hidden until leaderboards exist (#97 UI-3, see [Post-MVP](#post-mvp)).
 - The stories bar sits at the top of the feed and shows active stories from people you follow.
-- The feed has a **Friends** tab: published trips from people you follow, newest publish first. Each trip appears once, as a trip card, when it's published. Posts added to a trip after publishing show on that trip's card and page, but don't put the trip back at the top of the feed.
+- **Friends** is the only feed tab in the MVP: published trips from people you follow, newest publish first. Each trip appears once, as a trip card, when it's published. Posts added to a trip after publishing show on that trip's card and page, but don't put the trip back at the top of the feed.
 - There's no School tab, because we don't store schools.
-- The Local tab is post-MVP. The feed API accepts `local` but returns an empty page for now.
+- The FYP and Local tabs are post-MVP (#118 FEED-3, #59, #66). The feed API accepts `local` but returns an empty page for now.
 
 ## Map and search
 
-- The map shows posts from published trips that have a Mapbox location, within the visible area.
+- The map shows posts from published trips that have coordinates (a Mapbox place or a dropped pin), within the visible area.
 - Tapping a location shows the published posts and trips tagged there.
-- People search matches usernames and first and last names.
-- Place search matches locations that have published posts.
+- Search covers people, places, published trips and posts (#93 SRCH-3, #96 SRCH-4):
+  - **People** match on username and first and last name.
+  - **Places** are locations with posts in published trips, with their post count and rating. Dropped pins are left out.
+  - **Trips** are published trips, matched on title, destination and description.
+  - **Posts** are posts in published trips, matched on caption and location name.
+- Search results can be filtered:
+
+  | Filter | Applies to | Matches when |
+  |---|---|---|
+  | Dates | Trips, posts | The trip's dates overlap the range, or the post's date is inside it |
+  | Minimum rating | Places, posts | The place's average rating is at least this |
+  | Distance | Places, posts, trips | The location is within the distance. A trip matches if any of its posts' locations is. |
+
+- Results sort by relevance (the default) or newest.
 - Searches need at least 2 characters.
 - Natural-language search is post-MVP.
 
@@ -229,10 +255,11 @@ Cut from the MVP: interest tags, tagging other users in posts, several locations
 ## Post-MVP
 
 - Private accounts, follower-only content, and follow requests
-- The Local feed tab and the social algorithm (#5)
+- The FYP feed tab (#118 FEED-3), the Local feed tab, and the social algorithm (#5)
 - Natural-language search
 - Interest tags, tagging users in posts, and several locations per post
-- Trip ratings and leaderboards
+- Trip ratings and leaderboards. Post ratings of places are in the MVP (see [Posts](#posts)), and the header's Leaderboard button stays hidden until leaderboards exist.
+- A map on the trip page (wireframe 02)
 - Video stories and story viewer tracking
 - Notifications for likes, comments, and follows (the inbox exists, but only for trip invites)
 - Push notifications
@@ -255,6 +282,8 @@ These use cases in `SW TEAM 2 - Design Notebook` need to be updated to match thi
   - Add Publish to the basic flow.
   - Resolve the open issue: everything is public once published.
   - Set the limits: 30 photos or videos per post, and the file sizes in [Media limits](#media-limits).
+  - Posts can rate their place, 1 to 5 stars, and a custom location can have a dropped pin (see [Posts](#posts) and [Locations](#locations)).
+  - The trip page shows a cover photo and no trip map (see [Trip page](#trip-page)).
 - **Use Case 5 (Post story):**
   - Replace "Each story belongs to exactly one trip" with: linking a trip is optional, and only an active trip can be linked.
   - "No active trip" extension: the user can post without a trip, or quickly create a trip that includes today. Picking a trip that isn't active isn't allowed.
@@ -264,5 +293,6 @@ These use cases in `SW TEAM 2 - Design Notebook` need to be updated to match thi
   - Likes and comments are on posts.
   - Saves cover both trips and posts.
   - Resolve the open issues: users can save both, comments have one level of replies, and there are no notifications for likes or comments in the MVP.
-  - Saves also cover places (see [Saves](#saves)).
+  - Saves also cover places (see [Saves](#saves)), and saved items are in the Saved tab in the bottom bar, not on the profile.
+- **Search and feed use cases:** search covers people, places, published trips and posts with date, rating and distance filters, and Friends is the only feed tab (see [Map and search](#map-and-search) and [Feed and navigation](#feed-and-navigation)).
 - **New use case (Plan a shared trip):** the owner invites collaborators, they accept from their notifications, and everyone adds places to the trip's bucket. The rules are in [Shared trips](#shared-trips) and [Notifications](#notifications).
