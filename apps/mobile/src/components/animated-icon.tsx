@@ -5,12 +5,13 @@ import { StyleSheet, View } from 'react-native';
 import Animated, { Easing, Keyframe } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
+import { WORDMARK_ASPECT_RATIO } from '@/components/yuji-header';
 import { Theme } from '@/constants/theme';
 
 const DURATION = 600;
-// Same size as `imageWidth` for expo-splash-screen in app.json, so the native
-// splash and this overlay line up
-const LOGO_SIZE = 90;
+// Same width as `imageWidth` for expo-splash-screen in app.json, so the native
+// splash and this overlay line up. The height follows the wordmark's shape.
+const LOGO_WIDTH = 120;
 
 const fadeOut = new Keyframe({
   0: { opacity: 1 },
@@ -26,7 +27,13 @@ export function AnimatedSplashOverlay() {
 
   if (!visible) return null;
 
-  const logo = <Image style={styles.logo} source={require('@/assets/images/yuji/logo.png')} />;
+  const logo = (
+    <Image
+      style={styles.logo}
+      source={require('@/assets/images/yuji/wordmark.png')}
+      contentFit="contain"
+    />
+  );
 
   return animate ? (
     <Animated.View
@@ -60,5 +67,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 1000,
   },
-  logo: { width: LOGO_SIZE, height: LOGO_SIZE },
+  logo: { width: LOGO_WIDTH, height: LOGO_WIDTH / WORDMARK_ASPECT_RATIO },
 });
