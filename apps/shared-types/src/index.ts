@@ -56,6 +56,8 @@ export type { TripStatus, TripResponse, ActiveTripsResponse, CreateTripRequest, 
 export type { LocationRating, LocationResponse, PlaceSuggestion, ResolveLocationRequest, ResolveLocationResponse } from './locations.js';
 export type { StoryResponse, StoryTrip, StoryGroup, StoriesFeedResponse, TripStoriesResponse, CreateStoryRequest } from './stories.js';
 export type { FollowListUser, FollowListPage, FollowStatus, FollowCounts } from './follows.js';
+// STAND-IN until #131 COLLAB-1
+export type { TripInviteStatus, NotificationType, NotificationTrip, NotificationInvite, NotificationResponse, UnreadCountResponse } from './collaboration.js';
 
 /**
  * Photo uploads (MEDIA-1)

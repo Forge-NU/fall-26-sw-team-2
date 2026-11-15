@@ -166,8 +166,8 @@ function seed() {
 const HOUR_MS = 60 * 60 * 1000;
 const STORY_LIFETIME_MS = 24 * HOUR_MS;
 
-const maya: UserSummary = { id: 'user_maya', username: 'maya.chen', firstName: 'Maya', lastName: 'Chen', avatarUrl: null };
-const priya: UserSummary = { id: 'user_priya', username: 'priya.k', firstName: 'Priya', lastName: 'Kumar', avatarUrl: null };
+export const maya: UserSummary = { id: 'user_maya', username: 'maya.chen', firstName: 'Maya', lastName: 'Chen', avatarUrl: null };
+export const priya: UserSummary = { id: 'user_priya', username: 'priya.k', firstName: 'Priya', lastName: 'Kumar', avatarUrl: null };
 
 type MockStory = {
   owner: UserSummary;
@@ -259,14 +259,40 @@ function findOwnTrip(id: string): TripResponse {
   return trip;
 }
 
+// Only your own trips: collaborators can't post to a shared trip (#129 DOC-3)
 export async function mockGetActiveTrips(date: string): Promise<ActiveTripsResponse> {
   await mockDelay();
   seed();
   return {
     items: trips.filter(
-      (trip) => trip.status === 'draft' && isDateWithin(date, trip.startDate, trip.endDate),
+      (trip) =>
+        trip.owner.id === me.id && trip.status === 'draft' && isDateWithin(date, trip.startDate, trip.endDate),
     ),
   };
+}
+
+/** The mock user's own seeded trips, for other features' mocks */
+export function mockOwnTrips(): TripResponse[] {
+  seed();
+  return trips.filter((trip) => trip.owner.id === me.id);
+}
+
+/**
+ * Someone else's trip, for other features' mocks (the invites in
+ * api/notifications.ts). It opens on the trip page, but stays out of the mock
+ * user's own lists.
+ */
+export function mockOthersTrip(
+  owner: UserSummary,
+  title: string,
+  destination: string,
+  startDate: string,
+  endDate: string,
+): TripResponse {
+  seed();
+  const trip = { ...mockTrip(title, destination, startDate, endDate), owner };
+  trips.push(trip);
+  return trip;
 }
 
 export async function mockCreateTrip(body: CreateTripRequest): Promise<TripResponse> {
