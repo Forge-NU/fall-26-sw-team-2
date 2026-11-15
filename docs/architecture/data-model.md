@@ -174,10 +174,10 @@ Only the rules that cross features are listed here. Column types and lengths fol
 ### posts
 
 - `trip_id` is required (decided in #33).
-- Each post has one location (decided in #33).
+- Each post has at most one location, and it's optional (#33 said required; #143 POST-4 made it optional).
 - **Suggestion (Christian):** drop `author_id`. A post's author is always its trip's owner, so it can be read through `trips.owner_id`, and the two can never disagree.
 - **Suggestion (Christian):** store a custom location as a name on the post, not as a `locations` row:
-  - Exactly one of `location_id` and `custom_location_name` is set, enforced by the check constraint `(location_id IS NULL) <> (custom_location_name IS NULL)`.
+  - At most one of `location_id` and `custom_location_name` is set, enforced by the check constraint `NOT (location_id IS NOT NULL AND custom_location_name IS NOT NULL)`. It was exactly one until #143 POST-4.
   - That way a location row never belongs to one user, which keeps account deletion simple.
 - `visited_on` is required, and the API rejects one outside the trip's dates (decided in #33). The database doesn't check this, because the trip's dates can change.
   - Posts within a trip are ordered by `visited_on`, then `created_at`.

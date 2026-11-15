@@ -12,7 +12,7 @@ when the viewer owns them.
 | `type` | `people`, `places`, `trips` or `posts`. Omit for up to 3 results per type. |
 | `from`, `to` | Inclusive YYYY-MM-DD range: overlapping trips or posts visited within the range. |
 | `minRating` | Minimum place average, 1–5. Applies to places and posts. |
-| `lat`, `lng`, `radiusKm` | Distance filter. Requires both coordinates; applies to places, posts and trips with a post inside the radius. A post at a dropped pin (#94) has coordinates, so it counts; a post with only a custom name doesn't. |
+| `lat`, `lng`, `radiusKm` | Distance filter. Requires both coordinates; applies to places, posts and trips with a post inside the radius. A post at a dropped pin (#94) has coordinates, so it counts; a post with only a custom name, or no location (#143), doesn't. |
 | `sort` | `relevance` (default) or `newest`. |
 | `limit`, `cursor` | For a selected type: default 20, maximum 50. |
 
