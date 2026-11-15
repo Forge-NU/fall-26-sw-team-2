@@ -23,6 +23,7 @@ import { Radii, Spacing, Typography } from '@/constants/theme';
 import { useTripStories } from '@/hooks/use-stories';
 import { useTrip, useTripPosts } from '@/hooks/use-trips';
 import { useCurrentUser } from '@/lib/current-user';
+import { countPlaces } from '@/lib/post-location';
 import { storiesOnDay } from '@/lib/stories';
 import { isActiveTrip } from '@/lib/trips';
 import {
@@ -106,7 +107,8 @@ function TripBody({ trip, posts, stories, isOwner, refreshing, onRefresh }: Trip
   const day = [selectedDay, fallbackDay].find((d): d is string => d !== null && days.includes(d)) ?? days[0];
   const dayPosts = posts.filter((post) => post.visitedOn === day);
   const dayStories = storiesOnDay(stories, day);
-  const places = new Set(posts.map((post) => post.location?.id ?? post.customLocationName)).size;
+  // Posts with no location (#143 POST-4) don't count as a place
+  const places = countPlaces(posts);
 
   const addPost = () =>
     router.push({ pathname: '/posts/new', params: { tripId: trip.id, visitedOn: day } });
