@@ -17,6 +17,7 @@ import type {
   StoryResponse,
   TripResponse,
   TripStoriesResponse,
+  UpdatePostRequest,
   UserSummary,
   UpdateTripRequest,
 } from 'shared-types';
@@ -355,15 +356,13 @@ export async function mockCreatePost(body: CreatePostRequest): Promise<PostRespo
   if (!isDateWithin(body.visitedOn, trip.startDate, trip.endDate)) {
     mockError(400, "visitedOn must be within the trip's dates");
   }
-  if (Boolean(body.locationId) === Boolean(body.customLocationName)) {
-    mockError(400, 'Exactly one of locationId and customLocationName is required');
+  // Like the API (#143 POST-4): the location is optional, but not both kinds
+  if (body.locationId != null && body.customLocationName != null) {
+    mockError(400, 'Send at most one of locationId and customLocationName');
   }
-  if (body.rating != null && body.customLocationName) {
-    mockError(400, "A post with only a custom location name can't be rated. Pick a place or drop a pin.");
-  }
-  if (body.rating != null && (!Number.isInteger(body.rating) || body.rating < 1 || body.rating > 5)) {
-    mockError(400, 'rating must be a whole number from 1 to 5');
-  }
+  assertCustomName(body.customLocationName);
+  if (body.rating != null && body.locationId == null) mockCantRate(body.customLocationName);
+  assertRating(body.rating);
   if (body.caption && textLength(body.caption) > 2200) {
     mockError(400, 'caption must be at most 2200 characters');
   }
@@ -401,6 +400,94 @@ export async function mockCreatePost(body: CreatePostRequest): Promise<PostRespo
   posts.push(post);
   refreshDerived(trip);
   return post;
+}
+
+// The API's location and rating rules for posts (#143 POST-4)
+function assertCustomName(name: string | null | undefined) {
+  if (name == null) return;
+  const trimmed = name.trim();
+  if (!trimmed || textLength(trimmed) > 100) mockError(400, 'customLocationName must be 1 to 100 characters');
+}
+
+function assertRating(rating: number | null | undefined) {
+  if (rating != null && (!Number.isInteger(rating) || rating < 1 || rating > 5)) {
+    mockError(400, 'rating must be a whole number from 1 to 5');
+  }
+}
+
+function mockCantRate(customLocationName: string | null | undefined): never {
+  mockError(
+    400,
+    customLocationName != null
+      ? "A post with only a custom location name can't be rated. Pick a place or drop a pin."
+      : "A post with no location can't be rated. Pick a place or drop a pin.",
+  );
+}
+
+// PATCH /api/posts/:id. Like the API: either location field replaces the
+// other, both null removes it (a lone null is a 400), and moving to a custom
+// name or no location clears the rating. A pin the post moved off is deleted,
+// like the API's trigger. The mock doesn't keep place rating totals.
+export async function mockUpdatePost(id: string, body: UpdatePostRequest): Promise<PostResponse> {
+  await mockDelay();
+  const post = posts.find((p) => p.id === id);
+  if (!post) mockError(404, 'Post not found');
+  const trip = findOwnTrip(post.tripId);
+
+  const { locationId, customLocationName } = body;
+  if (locationId != null && customLocationName != null) {
+    mockError(400, 'Send only one of locationId and customLocationName');
+  }
+  if ((locationId === null && customLocationName === undefined) || (customLocationName === null && locationId === undefined)) {
+    mockError(400, 'To remove the location, send both locationId and customLocationName as null');
+  }
+  assertCustomName(customLocationName);
+  assertRating(body.rating);
+  if (body.visitedOn !== undefined && !isDateWithin(body.visitedOn, trip.startDate, trip.endDate)) {
+    mockError(400, "visitedOn must be within the trip's dates");
+  }
+  if (body.caption && textLength(body.caption) > 2200) {
+    mockError(400, 'caption must be at most 2200 characters');
+  }
+  if (body.media && (body.media.length < 1 || body.media.length > 30)) {
+    mockError(400, 'media must contain 1 to 30 items');
+  }
+
+  const locationChanged = locationId !== undefined || customLocationName !== undefined;
+  const nextLocation = locationId ? resolvedLocations.get(locationId) : undefined;
+  if (locationId && !nextLocation) mockError(400, 'Location not found');
+  if (nextLocation && nextLocation.id !== post.location?.id) assertPinUnused(nextLocation);
+  const hasPlace = locationChanged ? nextLocation != null : post.location != null;
+  if (body.rating != null && !hasPlace) {
+    mockCantRate(locationChanged ? customLocationName : post.customLocationName);
+  }
+
+  const oldLocation = post.location;
+  if (body.visitedOn !== undefined) post.visitedOn = body.visitedOn;
+  if (body.caption !== undefined) post.caption = body.caption?.trim() || null;
+  if (locationChanged) {
+    post.location = nextLocation ?? null;
+    post.customLocationName = customLocationName?.trim() ?? null;
+  }
+  if (body.rating !== undefined) post.rating = body.rating;
+  if (!post.location) post.rating = null;
+  if (body.media) {
+    post.media = body.media.map((item, i) => ({
+      id: mockId('media'),
+      mediaType: item.mediaType,
+      url: `https://picsum.photos/id/${MOCK_UPLOAD_PHOTO_IDS[i % MOCK_UPLOAD_PHOTO_IDS.length]}/900/1200`,
+      width: item.width ?? null,
+      height: item.height ?? null,
+      durationMs: item.durationMs ?? null,
+    }));
+  }
+  post.updatedAt = new Date().toISOString();
+
+  if (oldLocation?.provider === 'custom' && oldLocation.id !== post.location?.id) {
+    resolvedLocations.delete(oldLocation.id);
+  }
+  refreshDerived(trip);
+  return { ...post };
 }
 
 // Places the mock search knows about, with what /retrieve would return
