@@ -98,6 +98,25 @@ describe('Posts (e2e)', () => {
       expect(post.media[0].url).toMatch(/^https:\/\/s3\.test\/users\//);
     });
 
+    // #143 POST-4: the location is optional
+    it('creates a post with no location', async () => {
+      const post = await createPost({ locationId: undefined });
+      expect(post).toMatchObject({
+        location: null,
+        customLocationName: null,
+        rating: null,
+      });
+
+      const res = await request(app.getHttpServer())
+        .get(`/api/posts/${post.id}`)
+        .set(as(owner))
+        .expect(200);
+      expect(res.body).toMatchObject({
+        location: null,
+        customLocationName: null,
+      });
+    });
+
     it('creates a post with a custom location', async () => {
       const post = await createPost({
         locationId: undefined,
@@ -152,8 +171,9 @@ describe('Posts (e2e)', () => {
     it('rejects a date outside the trip, bad locations and bad media lists', async () => {
       const bad = [
         { visitedOn: '2026-09-17' },
-        { locationId: undefined },
         { customLocationName: 'Both set' },
+        { locationId: undefined, customLocationName: '   ' },
+        { locationId: undefined, rating: 4 },
         { locationId: '00000000-0000-4000-8000-000000000000' },
         { media: [] },
         { media: Array.from({ length: 31 }, () => mediaItem()) },
@@ -250,6 +270,46 @@ describe('Posts (e2e)', () => {
         .send({ locationId: location.id })
         .expect(200);
       expect(place.body).toMatchObject({
+        location: { id: location.id },
+        customLocationName: null,
+      });
+    });
+
+    it('removes the location with both fields null, and adds one back', async () => {
+      const patch = (id: string, body: Record<string, unknown>) =>
+        request(app.getHttpServer())
+          .patch(`/api/posts/${id}`)
+          .set(as(owner))
+          .send(body);
+      const placed = await createPost();
+      const custom = await createPost({
+        locationId: undefined,
+        customLocationName: 'Back alley bakery',
+      });
+
+      for (const post of [placed, custom]) {
+        // A lone null is ambiguous, so it's a 400 and nothing changes
+        await patch(post.id, { locationId: null }).expect(400);
+        await patch(post.id, { customLocationName: null }).expect(400);
+
+        const res = await patch(post.id, {
+          locationId: null,
+          customLocationName: null,
+        }).expect(200);
+        expect(res.body).toMatchObject({
+          location: null,
+          customLocationName: null,
+        });
+      }
+      // Never deleted with its post's location
+      expect(await prisma.location.count({ where: { id: location.id } })).toBe(
+        1,
+      );
+
+      const back = await patch(placed.id, { locationId: location.id }).expect(
+        200,
+      );
+      expect(back.body).toMatchObject({
         location: { id: location.id },
         customLocationName: null,
       });

@@ -207,13 +207,41 @@ describe('PostsService', () => {
       expect(prisma.post.create).not.toHaveBeenCalled();
     });
 
-    it('requires exactly one of locationId and customLocationName', async () => {
-      await expect(
-        service.create(ownerId, createDto({ customLocationName: undefined })),
-      ).rejects.toThrow(BadRequestException);
+    it('creates a post with no location', async () => {
+      await service.create(
+        ownerId,
+        createDto({ customLocationName: undefined }),
+      );
+      expect(prisma.post.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            locationId: null,
+            customLocationName: null,
+            rating: null,
+          }) as unknown,
+        }),
+      );
+      // No location to check
+      expect(prisma.location.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('rejects both locationId and customLocationName', async () => {
       await expect(
         service.create(ownerId, createDto({ locationId })),
-      ).rejects.toThrow(BadRequestException);
+      ).rejects.toThrow(
+        'Send at most one of locationId and customLocationName',
+      );
+      expect(prisma.post.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a rating on a post with no location', async () => {
+      await expect(
+        service.create(
+          ownerId,
+          createDto({ customLocationName: undefined, rating: 4 }),
+        ),
+      ).rejects.toThrow("A post with no location can't be rated");
+      expect(prisma.post.create).not.toHaveBeenCalled();
     });
 
     it('saves a rating on a Mapbox place and refreshes its rating', async () => {
@@ -460,6 +488,55 @@ describe('PostsService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
+    it('takes a place or a custom name with the other field null', async () => {
+      prisma.location.findUnique.mockResolvedValue({ id: locationId });
+      await service.update(ownerId, postId, {
+        locationId,
+        customLocationName: null,
+      });
+      await service.update(ownerId, postId, {
+        locationId: null,
+        customLocationName: 'Home',
+      });
+
+      const data = prisma.post.update.mock.calls.map(
+        ([args]: [{ data: Record<string, unknown> }]) => [
+          args.data.locationId,
+          args.data.customLocationName,
+        ],
+      );
+      expect(data).toEqual([
+        [locationId, null],
+        [null, 'Home'],
+      ]);
+    });
+
+    it('removes the location when both fields are null', async () => {
+      await service.update(ownerId, postId, {
+        locationId: null,
+        customLocationName: null,
+      });
+      expect(prisma.post.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            locationId: null,
+            customLocationName: null,
+            rating: null,
+          }) as unknown,
+        }),
+      );
+      expect(prisma.location.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('rejects a lone null, which would be ambiguous', async () => {
+      for (const body of [{ locationId: null }, { customLocationName: null }]) {
+        await expect(service.update(ownerId, postId, body)).rejects.toThrow(
+          'To remove the location, send both',
+        );
+      }
+      expect(prisma.post.update).not.toHaveBeenCalled();
+    });
+
     it("rejects a new date outside the trip's dates", async () => {
       await expect(
         service.update(ownerId, postId, { visitedOn: '2026-10-20' }),
@@ -519,6 +596,47 @@ describe('PostsService', () => {
         expect(prisma.$executeRaw.mock.calls[0]).toContainEqual([locationId]);
       });
 
+      it('clears the rating when the location is removed, refreshing the old place', async () => {
+        ratedPlace();
+        await service.update(ownerId, postId, {
+          locationId: null,
+          customLocationName: null,
+        });
+        expect(prisma.post.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              locationId: null,
+              customLocationName: null,
+              rating: null,
+            }) as unknown,
+          }),
+        );
+        expect(prisma.$executeRaw.mock.calls[0]).toContainEqual([locationId]);
+        // Read after the refresh
+        expect(prisma.post.findUniqueOrThrow).toHaveBeenCalled();
+      });
+
+      it('rejects a rating sent while removing the location', async () => {
+        ratedPlace();
+        await expect(
+          service.update(ownerId, postId, {
+            locationId: null,
+            customLocationName: null,
+            rating: 3,
+          }),
+        ).rejects.toThrow("A post with no location can't be rated");
+        expect(prisma.post.update).not.toHaveBeenCalled();
+      });
+
+      it('rejects a rating on a post with no location', async () => {
+        prisma.$queryRaw.mockResolvedValue([
+          { location_id: null, custom_location_name: null, rating: null },
+        ]);
+        await expect(
+          service.update(ownerId, postId, { rating: 3 }),
+        ).rejects.toThrow("A post with no location can't be rated");
+      });
+
       it('rejects a rating sent with a custom name', async () => {
         await expect(
           service.update(ownerId, postId, {
@@ -529,10 +647,16 @@ describe('PostsService', () => {
       });
 
       it('rejects a rating on a post that has a custom name', async () => {
-        // The locked row has no location_id (the default mock)
+        prisma.$queryRaw.mockResolvedValue([
+          {
+            location_id: null,
+            custom_location_name: 'Somewhere',
+            rating: null,
+          },
+        ]);
         await expect(
           service.update(ownerId, postId, { rating: 3 }),
-        ).rejects.toThrow("can't be rated");
+        ).rejects.toThrow("only a custom location name can't be rated");
         expect(prisma.post.update).not.toHaveBeenCalled();
       });
 
