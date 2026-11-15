@@ -27,6 +27,13 @@ export function toLocationFields(
   return value.kind === 'custom' ? { customLocationName: value.name } : { locationId: value.location.id };
 }
 
+// Whether a post with this location can be rated: it needs a locationId, so a
+// Mapbox place or a dropped pin. A custom name or no location (#143 POST-4)
+// can't be. For the composer's "Rate this place" row (#92 RATE-2).
+export function canRateLocation(value: PickedLocation | null): boolean {
+  return value != null && value.kind !== 'custom';
+}
+
 // The API deletes a pin nobody used after 24 hours, so a post draft retried
 // later gets "Location not found" for it. The fix is to drop the same pin again.
 export function isExpiredPinError(
