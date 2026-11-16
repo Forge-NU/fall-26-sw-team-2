@@ -13,6 +13,7 @@ import type {
 
 import { apiGet, apiRequest } from '@/api/client';
 import { mockDelay, mockError, mockPage, withMock } from '@/api/mock';
+import { mockFindTripPost } from '@/api/mock-backend';
 import type { SaveTarget } from '@/lib/engagement-cache';
 
 const postPath = (id: string) => `/api/posts/${encodeURIComponent(id)}`;
@@ -172,7 +173,17 @@ export function mockAdjustCommentCount(postId: string, delta: number) {
 }
 
 function mockFindPost(id: string): PostResponse {
-  return mockPosts.find((post) => post.id === id) ?? mockError(404, 'Post not found', postPath(id));
+  return (
+    mockPosts.find((post) => post.id === id) ??
+    // Posts on the mock trips, e.g. liked from post detail
+    mockFindTripPost(id) ??
+    mockError(404, 'Post not found', postPath(id))
+  );
+}
+
+/** A saved post from these mocks, so post detail opens from the Saved tab in mock mode */
+export function mockFindSavedPost(id: string): PostResponse | undefined {
+  return mockPosts.find((post) => post.id === id);
 }
 
 function mockLikers(post: PostResponse): PostLikerResponse[] {

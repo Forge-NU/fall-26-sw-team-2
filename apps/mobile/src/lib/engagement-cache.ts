@@ -45,6 +45,30 @@ export function updateEverywhere<T>(data: T, target: SaveTarget, id: string, upd
   return walk(data) as T;
 }
 
+/**
+ * Takes one post or trip out of every list inside `data`, however deep, e.g.
+ * once it's deleted. Like updateEverywhere, returns `data` itself when nothing matched.
+ */
+export function removeEverywhere<T>(data: T, target: SaveTarget, id: string): T {
+  const matches = (value: unknown) => isRecord(value) && value.id === id && marker[target] in value;
+  const walk = (value: unknown): unknown => {
+    if (Array.isArray(value)) {
+      const kept = value.filter((item) => !matches(item));
+      const next = kept.map(walk);
+      return kept.length !== value.length || next.some((item, i) => item !== kept[i]) ? next : value;
+    }
+    if (!isRecord(value)) return value;
+    let changed = false;
+    const next: Record<string, unknown> = {};
+    for (const [key, child] of Object.entries(value)) {
+      next[key] = walk(child);
+      if (next[key] !== child) changed = true;
+    }
+    return changed ? next : value;
+  };
+  return walk(data) as T;
+}
+
 /** Whether `data` holds the post or trip anywhere. */
 export function containsTarget(data: unknown, target: SaveTarget, id: string): boolean {
   return updateEverywhere(data, target, id, () => ({})) !== data;
