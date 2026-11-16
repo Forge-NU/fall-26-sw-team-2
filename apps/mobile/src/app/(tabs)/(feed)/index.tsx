@@ -7,7 +7,7 @@ import { ItineraryCard } from '@/components/feed/itinerary-card';
 import { StoriesRow } from '@/components/feed/stories-row';
 import { YujiHeader } from '@/components/yuji-header';
 import { Palette, Spacing } from '@/constants/theme';
-import { FeedTab, Itineraries, Stories } from '@/data/mock';
+import { FeedTab, Itineraries } from '@/data/mock';
 
 const FeedTabs: { key: FeedTab; label: string }[] = [
   { key: 'local', label: 'Local' },
@@ -45,7 +45,7 @@ export default function FeedScreen() {
           </View>
         </View>
 
-        <StoriesRow stories={Stories} />
+        <StoriesRow />
 
         <View style={styles.stream}>
           {itineraries.map((itinerary) => (

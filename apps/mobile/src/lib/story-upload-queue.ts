@@ -5,8 +5,10 @@
 // uploading or waiting for Retry, that story is lost and the user has to post
 // it again. Persisting the queue is out of scope for now (#101).
 import { ApiError } from '@/api/client';
+import { queryKeys } from '@/api/query-keys';
 import { createStory } from '@/api/stories';
 import { uploadPhoto } from '@/lib/media/upload-photo';
+import { queryClient } from '@/lib/query-client';
 import { isRetryableError, RETRY_DELAYS_MS, sleep } from '@/lib/retry';
 import { toCreateStoryRequest, type StoryDraft } from '@/lib/story-draft';
 import { showToast } from '@/lib/toast';
@@ -91,6 +93,7 @@ async function run(id: string) {
       try {
         await attemptOnce(job.draft, state);
         remove(id);
+        refreshStories(job.draft);
         showToast({ message: 'Story posted', variant: 'success' });
         return;
       } catch (error) {
@@ -132,6 +135,14 @@ async function attemptOnce(draft: StoryDraft, state: Progress) {
     if (state.createOutcomeUnknown && error instanceof ApiError && error.status === 400) return;
     if (!(error instanceof ApiError)) state.createOutcomeUnknown = true;
     throw error;
+  }
+}
+
+// The new story shows in the bar, and on the trip page if it's kept there
+function refreshStories(draft: StoryDraft) {
+  void queryClient.invalidateQueries({ queryKey: queryKeys.storiesFeed });
+  if (draft.tripId && draft.keepOnTrip) {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.tripStories(draft.tripId) });
   }
 }
 
