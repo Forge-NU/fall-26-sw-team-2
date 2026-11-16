@@ -1,5 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { StyleSheet, View } from 'react-native';
+import { router } from 'expo-router';
+import { Pressable, StyleSheet, View } from 'react-native';
 import type { PostResponse } from 'shared-types';
 
 import { AppText } from '@/components/ui/app-text';
@@ -44,13 +45,18 @@ export function DayPosts({ posts }: { posts: PostResponse[] }) {
   );
 }
 
-// TODO(#43 POST-3): open post detail on press once that screen exists
+// Opens post detail. `from: 'trip'` lets its "View trip" link come back here.
 function PostRow({ post }: { post: PostResponse }) {
   const cover = post.media[0];
   const count = post.media.length;
 
   return (
-    <View style={styles.row} accessible accessibilityLabel={`${postPlaceName(post)}. ${post.caption ?? ''}`}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${postPlaceName(post)}. ${post.caption ?? ''}`}
+      accessibilityHint="Opens the post"
+      onPress={() => router.push({ pathname: '/posts/[id]', params: { id: post.id, from: 'trip' } })}
+      style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
       {/* A plain tile when there are no photos, so it doesn't read as a failed image */}
       {cover ? (
         <Media seed={post.id} url={cover.url} iconSize={Spacing.three} style={styles.thumb} />
@@ -66,7 +72,7 @@ function PostRow({ post }: { post: PostResponse }) {
       <AppText variant="caption" style={styles.muted}>
         {count === 1 ? '1 photo' : `${count} photos`}
       </AppText>
-    </View>
+    </Pressable>
   );
 }
 
@@ -81,4 +87,5 @@ const styles = StyleSheet.create({
   thumbEmpty: { backgroundColor: Palette.lightPink },
   caption: { flex: 1, fontFamily: Typography.body.fontFamily },
   muted: { color: Palette.placeholderGray },
+  pressed: { opacity: 0.6 },
 });

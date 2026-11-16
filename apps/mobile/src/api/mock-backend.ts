@@ -18,6 +18,7 @@ import type {
   TripResponse,
   TripStoriesResponse,
   UserSummary,
+  UpdatePostRequest,
   UpdateTripRequest,
 } from 'shared-types';
 
@@ -400,6 +401,72 @@ export async function mockCreatePost(body: CreatePostRequest): Promise<PostRespo
   posts.push(post);
   refreshDerived(trip);
   return post;
+}
+
+// Only your own posts exist in the mocks, so a missing post is the API's 404
+function findOwnPost(id: string): PostResponse {
+  seed();
+  const post = posts.find((p) => p.id === id);
+  if (!post) mockError(404, 'Post not found');
+  return post;
+}
+
+/** The stored post itself, so the like and save mocks can count on trip posts too */
+export function mockFindTripPost(id: string): PostResponse | undefined {
+  seed();
+  return posts.find((p) => p.id === id);
+}
+
+export async function mockGetPost(id: string): Promise<PostResponse> {
+  await mockDelay();
+  return { ...findOwnPost(id) };
+}
+
+// Same rules as PATCH /api/posts/:id: a custom location clears the rating
+export async function mockUpdatePost(id: string, body: UpdatePostRequest): Promise<PostResponse> {
+  await mockDelay();
+  const post = findOwnPost(id);
+  if (body.locationId !== undefined && body.customLocationName !== undefined) {
+    mockError(400, 'Send only one of locationId and customLocationName');
+  }
+  if (body.rating != null && body.customLocationName !== undefined) {
+    mockError(400, 'Only posts at a Mapbox place can be rated, not a custom location');
+  }
+  if (body.rating != null && (!Number.isInteger(body.rating) || body.rating < 1 || body.rating > 5)) {
+    mockError(400, 'rating must be a whole number from 1 to 5');
+  }
+  if (body.caption && textLength(body.caption) > 2200) {
+    mockError(400, 'caption must be at most 2200 characters');
+  }
+  if (body.locationId !== undefined) {
+    const location =
+      resolvedLocations.get(body.locationId) ??
+      posts.find((p) => p.location?.id === body.locationId)?.location;
+    if (!location) mockError(400, 'Location not found');
+    post.location = location;
+    post.customLocationName = null;
+  }
+  if (body.customLocationName !== undefined) {
+    post.location = null;
+    post.customLocationName = body.customLocationName.trim();
+    post.rating = null;
+  }
+  if (body.rating !== undefined) {
+    if (body.rating != null && !post.location) mockError(400, 'Only posts at a Mapbox place can be rated');
+    post.rating = body.rating;
+  }
+  if (body.caption !== undefined) post.caption = body.caption?.trim() || null;
+  if (body.visitedOn !== undefined) post.visitedOn = body.visitedOn;
+  post.updatedAt = new Date().toISOString();
+  return { ...post };
+}
+
+export async function mockDeletePost(id: string): Promise<void> {
+  await mockDelay();
+  const post = findOwnPost(id);
+  posts.splice(posts.indexOf(post), 1);
+  const trip = trips.find((t) => t.id === post.tripId);
+  if (trip) refreshDerived(trip);
 }
 
 // Places the mock search knows about, with what /retrieve would return

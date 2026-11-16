@@ -89,6 +89,18 @@ export type CreatePostRequest = {
   media: CreatePostMedia[]; // 1-30, carousel order
 };
 
+// PATCH /api/posts/:id. Every field is optional; only caption and rating can
+// be cleared with null. Sending locationId or customLocationName replaces the
+// other, and switching to a customLocationName clears the rating.
+export type UpdatePostRequest = {
+  visitedOn?: string; // YYYY-MM-DD, within the trip's dates
+  caption?: string | null; // up to 2,200 characters
+  locationId?: string;
+  customLocationName?: string; // 1-100 characters
+  rating?: number | null; // 1-5 stars; only with a Mapbox location
+  media?: CreatePostMedia[]; // replaces the whole list
+};
+
 export type CreatePostMedia = {
   s3Key: string;
   mediaType: MediaType;

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createToggleSync } from '../src/lib/toggle-sync.ts';
-import { containsTarget, updateEverywhere, uniqueById, withLike, withLikerFollowing, withSave } from '../src/lib/engagement-cache.ts';
+import { containsTarget, removeEverywhere, updateEverywhere, uniqueById, withLike, withLikerFollowing, withSave } from '../src/lib/engagement-cache.ts';
 
 // A fake server: each send waits until the test resolves it
 function harness() {
@@ -124,4 +124,21 @@ test('withLikerFollowing updates one person on a likes list', () => {
 
 test('uniqueById keeps the first of each id', () => {
   assert.deepEqual(uniqueById([{ id: 'a', n: 1 }, { id: 'b' }, { id: 'a', n: 2 }]), [{ id: 'a', n: 1 }, { id: 'b' }]);
+});
+
+test('removeEverywhere drops a deleted post from every list and page', () => {
+  const a = { id: 'p1', likeCount: 0 };
+  const b = { id: 'p2', likeCount: 3 };
+  const trip = { id: 'p1', postCount: 2 };
+  const pages = { pages: [{ items: [a, b], nextCursor: 'c' }, { items: [a], nextCursor: null }], pageParams: [null, 'c'] };
+  const next = removeEverywhere(pages, 'post', 'p1');
+  assert.deepEqual(next.pages.map((page) => page.items), [[b], []]);
+  assert.deepEqual(removeEverywhere([a, b], 'post', 'p1'), [b]);
+  // A trip with the same id isn't a post
+  const trips = [trip];
+  assert.equal(removeEverywhere(trips, 'post', 'p1'), trips);
+  // Nothing matched: same object back
+  const other = [b];
+  assert.equal(removeEverywhere(other, 'post', 'p1'), other);
+  assert.equal(removeEverywhere(undefined, 'post', 'p1'), undefined);
 });

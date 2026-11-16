@@ -137,11 +137,17 @@ export function ProfileView({ userId: routeUserId }: { userId?: string }) {
           numColumns={2}
           columnWrapperStyle={styles.gridRow}
           renderItem={({ item }) => (
-            <Media
-              seed={item.id}
-              url={item.media.find((media) => media.mediaType === 'image')?.url}
-              style={styles.gridCell}
-            />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Open post${item.caption ? `: ${item.caption}` : ''}`}
+              onPress={() => router.push({ pathname: '/posts/[id]', params: { id: item.id } })}
+              style={({ pressed }) => [styles.gridCell, pressed && styles.pressed]}>
+              <Media
+                seed={item.id}
+                url={item.media.find((media) => media.mediaType === 'image')?.url}
+                style={styles.gridMedia}
+              />
+            </Pressable>
           )}
           ListHeaderComponent={header}
           ListEmptyComponent={
@@ -247,6 +253,8 @@ const styles = StyleSheet.create({
   separator: { height: Spacing.two },
   gridRow: { gap: Spacing.half },
   gridCell: { flex: 1, aspectRatio: 1, marginBottom: Spacing.half },
+  gridMedia: { width: '100%', height: '100%' },
+  pressed: { opacity: 0.7 },
   topBar: { paddingHorizontal: Spacing.three },
   backBar: {
     height: 44,

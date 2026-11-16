@@ -5,6 +5,8 @@ export const queryKeys = {
   userTrips: (userId: string) => ['users', userId, 'trips'] as const,
   // The profile's paged trip list. Under userTrips, so invalidating that refreshes it too.
   userTripPages: (userId: string) => ['users', userId, 'trips', 'pages'] as const,
+  // Not ['posts', id] alone, so invalidating it leaves the likes and comments lists be
+  post: (id: string) => ['posts', id, 'detail'] as const,
   userPosts: (userId: string) => ['users', userId, 'posts'] as const,
   activeTrips: ['me', 'trips', 'active'] as const,
   myProfile: ['me', 'profile'] as const,

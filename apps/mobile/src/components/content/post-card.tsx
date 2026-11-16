@@ -88,7 +88,8 @@ export function PostCard({
   );
 }
 
-const likedBy = (count: number) =>
+/** "Liked by 3 people", for the link to the likes list */
+export const likedBy = (count: number) =>
   `Liked by ${count.toLocaleString()} ${count === 1 ? "person" : "people"}`;
 
 const styles = StyleSheet.create({
