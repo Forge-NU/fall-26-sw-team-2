@@ -11,12 +11,9 @@ export const queryKeys = {
   profile: (userId: string) => ['users', userId, 'profile'] as const,
   followStatus: (userId: string) => ['users', userId, 'follow-status'] as const,
   followList: (userId: string, list: 'followers' | 'following') => ['users', userId, list] as const,
-<<<<<<< HEAD
+  storiesFeed: ['stories', 'feed'] as const,
+  tripStories: (tripId: string) => ['trips', tripId, 'stories'] as const,
   // Search results for one type. Follows update every cached people search (useFollow).
   searchPeople: ['search', 'people'] as const,
   search: (type: 'people' | 'places', q: string) => ['search', type, q] as const,
-=======
-  storiesFeed: ['stories', 'feed'] as const,
-  tripStories: (tripId: string) => ['trips', tripId, 'stories'] as const,
->>>>>>> origin/main
 };
