@@ -44,6 +44,7 @@ const Icons = {
   send: { glyph: 'paper-plane-outline' },
   'share-2': { glyph: 'share-social-outline' },
   sparkle: { glyph: 'sparkles-outline' },
+  trash: { glyph: 'trash-outline' },
   trophy: { glyph: 'trophy-outline' },
   type: { glyph: 'text-outline' },
   'user-round': { glyph: 'person-outline' },

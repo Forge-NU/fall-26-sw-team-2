@@ -142,7 +142,7 @@ Errors: `403` if it isn't your comment (even on your own post), and `404 Comment
 Built in #52:
 
 - `api/comments.ts`: the endpoints above, with mocks for `EXPO_PUBLIC_API_MOCKS=all`.
-- `components/comments/comments-view.tsx`: the comment list and composer. POST-3 (#43) can put it under post detail. For now it opens from the comment button on `PostCard` (`postStats(post, { onCommentsPress })`), at `app/saved/posts/[id]/comments.tsx`.
+- `components/comments/comments-view.tsx`: the comment list and composer. It sits under the post on post detail (`app/posts/[id]/index.tsx`, POST-3 #43), which passes the post in as `header` and wraps it in a `KeyboardAvoidingView`. The comment button on `PostCard` (`postStats(post, { onCommentsPress })`) opens post detail; there's no standalone comments screen.
 - Replies load behind "View replies (N)". Tapping Reply on a reply prefills `@username ` in the composer. The app takes the mention back off the body before sending, because the API stores it as `replyTo` and the app shows it in front of the text. Replying to a top-level comment, or to your own reply, has no prefill.
 - The composer's Post button is off when the body is empty or over 500 characters, counted by code point the way Postgres counts. A counter shows from 450.
 - Delete is only on your own comments. It asks first, and warns when replies will go too. The comment disappears straight away and comes back if the request fails. A 404 counts as already deleted.
