@@ -19,4 +19,13 @@ model User {
   tripSaves   TripSave[]
   comments    Comment[]  @relation("CommentAuthor")
   mentionedIn Comment[]  @relation("CommentReplyTo")
+
+  // Shared trips (#131 COLLAB-1)
+  tripMemberships      TripMember[]
+  sentTripInvites      TripInvite[]     @relation("TripInviteInviter")
+  receivedTripInvites  TripInvite[]     @relation("TripInviteInvitee")
+  notifications        Notification[]   @relation("NotificationRecipient")
+  notificationsActedOn Notification[]   @relation("NotificationActor")
+  placeSaves           PlaceSave[]
+  bucketItemsAdded     TripBucketItem[]
 }

@@ -1,0 +1,18 @@
+// A place in a user's Saved tab (#131 COLLAB-1, #135 PLACE-1). Private, like
+// trip and post saves. Only Mapbox places can be saved: PLACE-1's endpoints
+// reject custom locations (#129 DOC-3).
+model PlaceSave {
+  userId     String   @map("user_id")
+  locationId String   @map("location_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  location Location @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  @@id([userId, locationId])
+  // The Saved tab, newest first
+  @@index([userId, createdAt, locationId])
+  // The RESTRICT check when a location row is deleted
+  @@index([locationId])
+  @@map("place_saves")
+}

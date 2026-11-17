@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { Prisma, Trip } from '../generated/prisma/client';
 import { daysBetween, parseDateOnly, todayUtc } from '../common/dates';
+import type { TripRole } from 'shared-types';
 
 // Shared trip rules from DOC-1 (#33). Feed, map, search, profiles and stories
 // should use these instead of rewriting them.
@@ -54,4 +55,36 @@ export function resolveToday(date?: string, now = new Date()): Date {
     );
   }
   return today;
+}
+
+// Shared trips (#129 DOC-3, #131 COLLAB-1)
+
+// A trip has one owner and up to 9 collaborators. Pending invites count too,
+// so an owner can't invite more people than fit.
+export const MAX_TRIP_PEOPLE = 10;
+
+// The most places one trip's bucket holds
+export const MAX_BUCKET_PLACES = 200;
+
+/**
+ * The viewer's role on a trip: 'owner', 'collaborator', or null for everyone
+ * else, including when the trip doesn't exist. Every shared-trip permission
+ * check starts here (see the permission table in
+ * docs/architecture/shared-trips.md). One query.
+ */
+export async function tripRole(
+  prisma: Pick<Prisma.TransactionClient, 'trip'>,
+  tripId: string,
+  viewerId: string,
+): Promise<TripRole | null> {
+  const trip = await prisma.trip.findUnique({
+    where: { id: tripId },
+    select: {
+      ownerId: true,
+      members: { where: { userId: viewerId }, select: { userId: true } },
+    },
+  });
+  if (!trip) return null;
+  if (trip.ownerId === viewerId) return 'owner';
+  return trip.members.length > 0 ? 'collaborator' : null;
 }

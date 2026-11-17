@@ -1,7 +1,10 @@
 // Notifications inbox (#137 NOTIF-2): the bell's badge, what each row shows,
-// the optimistic Accept / Decline, and the stand-in mocks.
+// the optimistic Accept / Decline, and the mocks.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+
+// The endpoints are live now, so force the mocks (getMockMode reads this on each call)
+process.env.EXPO_PUBLIC_API_MOCKS = 'all';
 
 import { ApiError } from '../src/api/client.ts';
 import {
@@ -133,7 +136,12 @@ test('read-all clears the unread count', async () => {
 
 test('accepting a pending invite works once, then 409s', async () => {
   const tokyo = (await listNotifications(null)).items.find((n) => n.trip.title === 'Tokyo food crawl');
-  assert.deepEqual(await acceptInvite(tokyo.invite.id), { id: tokyo.invite.id, status: 'accepted' });
+  const accepted = await acceptInvite(tokyo.invite.id);
+  assert.equal(accepted.id, tokyo.invite.id);
+  assert.equal(accepted.status, 'accepted');
+  assert.equal(accepted.tripId, tokyo.trip.id);
+  assert.equal(accepted.inviter.id, tokyo.actor.id);
+  assert.ok(accepted.respondedAt);
   await assert.rejects(declineInvite(tokyo.invite.id), (error) => error instanceof ApiError && error.status === 409);
 });
 

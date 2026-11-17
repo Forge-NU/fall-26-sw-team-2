@@ -1,5 +1,6 @@
 import type { UserSummary } from "./index.js";
 import type { LocationResponse } from "./locations.js";
+import type { TripRole } from "./collaboration.js";
 
 // Trip and post contracts (docs/architecture/itinerary-schema.md).
 
@@ -20,6 +21,12 @@ export type TripResponse = {
   saveCount: number;
   /** Whether the viewer has saved this trip */
   savedByMe: boolean;
+  /**
+   * The viewer's role on a shared trip (#131 COLLAB-1): 'owner',
+   * 'collaborator', or null for everyone else. Endpoints that don't look it up
+   * leave it out.
+   */
+  myRole?: TripRole | null;
   createdAt: string;
   updatedAt: string;
 };

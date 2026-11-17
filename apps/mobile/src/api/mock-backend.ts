@@ -64,7 +64,8 @@ function mockTrip(title: string, destination: string, startDate: string, endDate
   };
 }
 
-function mockLocation(name: string, city: string, latitude: number, longitude: number): LocationResponse {
+/** A Mapbox place, for other features' mocks */
+export function mockLocation(name: string, city: string, latitude: number, longitude: number): LocationResponse {
   return {
     id: mockId('loc'),
     provider: 'mapbox',
@@ -459,6 +460,11 @@ export async function mockRetrievePlace(mapboxId: string): Promise<ResolveLocati
 
 // Keyed by providerPlaceId, so resolving the same place twice reuses the row
 const resolvedLocations = new Map<string, LocationResponse>();
+
+/** A place picked in mock place search, for other features' mocks (buckets, saved places) */
+export function mockResolvedLocation(id: string): LocationResponse | undefined {
+  return resolvedLocations.get(id);
+}
 
 export async function mockResolveLocation(body: ResolveLocationRequest): Promise<ResolveLocationResponse> {
   await mockDelay();
