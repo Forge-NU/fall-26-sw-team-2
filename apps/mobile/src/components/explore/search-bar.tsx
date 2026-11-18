@@ -18,7 +18,7 @@ export function SearchBar({ value, onChangeText, filtersHighlighted, onPressFilt
         style={styles.input}
         value={value}
         onChangeText={onChangeText}
-        placeholder="Search places, trips, things to do"
+        placeholder="Search people and places"
         placeholderTextColor={colors.textMuted}
         returnKeyType="search"
         autoCorrect={false}

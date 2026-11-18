@@ -13,4 +13,7 @@ export const queryKeys = {
   followList: (userId: string, list: 'followers' | 'following') => ['users', userId, list] as const,
   storiesFeed: ['stories', 'feed'] as const,
   tripStories: (tripId: string) => ['trips', tripId, 'stories'] as const,
+  // Search results for one type. Follows update every cached people search (useFollow).
+  searchPeople: ['search', 'people'] as const,
+  search: (type: 'people' | 'places', q: string) => ['search', type, q] as const,
 };

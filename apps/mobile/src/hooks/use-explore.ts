@@ -6,11 +6,8 @@ import { AREA_BY_ID, AREAS, COUNTRIES, COUNTRY_BY_ID, PLACES } from '@/component
 import type {
   Audience,
   CategoryFilter,
-  KindFilter,
   LatLng,
   PinItem,
-  ResultKind,
-  SearchResult,
   Stats,
   ZoomLevel,
 } from '@/components/explore/types';
@@ -23,20 +20,8 @@ export interface AroundItem {
   pin: PinItem;
 }
 
-const normalize = (str: string) =>
-  str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-
-const KIND_ORDER: Record<ResultKind, number> = { destination: 0, place: 1, activity: 2 };
-
 /** "1 friend", "3 friends", "1.2k travelers" */
 const count = (n: number, one: string, many = `${one}s`) => `${formatCount(n)} ${n === 1 ? one : many}`;
-
-function statsLine(kind: ResultKind, st: Stats, audience: Audience) {
-  if (audience === 'me') return st.logs > 0 ? `${st.logs} of your logs` : 'You haven’t logged this yet';
-  if (audience === 'global') return `${count(st.logs, 'log')} · ${count(st.people, 'traveler')}`;
-  const verb = kind === 'activity' ? 'tried this' : st.people === 1 ? 'has been' : 'have been';
-  return `${count(st.logs, 'log')} · ${count(st.people, 'friend')} ${verb}`;
-}
 
 export function aroundSubtitle(audience: Audience, st: Stats) {
   if (audience === 'me') {
@@ -49,7 +34,6 @@ export function aroundSubtitle(audience: Audience, st: Stats) {
 export function useExplore(initialRegion: Region) {
   const [query, setQuery] = useState('');
   const [audience, setAudience] = useState<Audience>('friends');
-  const [kindFilter, setKindFilter] = useState<KindFilter>('all');
   const [category, setCategory] = useState<CategoryFilter>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [view, setView] = useState<{ level: ZoomLevel; center: LatLng }>(() => ({
@@ -107,47 +91,6 @@ export function useExplore(initialRegion: Region) {
 
   const weightOf = useMemo(() => logWeight(pins.map((pn) => pn.stats.reviews)), [pins]);
 
-  const results = useMemo<SearchResult[]>(() => {
-    const q = normalize(query);
-    if (!q) return [];
-    const matches = (...fields: string[]) => fields.some((f) => normalize(f).includes(q));
-
-    const destinations: SearchResult[] = AREAS.filter((a) =>
-      matches(a.name, COUNTRY_BY_ID[a.countryId].name),
-    ).map((a) => ({
-      id: `area-${a.id}`,
-      kind: 'destination',
-      title: `${a.name}, ${COUNTRY_BY_ID[a.countryId].name}`,
-      subtitle: `Destination · ${a.label}`,
-      statsLine: statsLine('destination', areaStats[a.id], audience),
-      target: { type: 'area', area: a },
-    }));
-
-    const placeResults: SearchResult[] = places
-      .filter((pl) => {
-        const area = AREA_BY_ID[pl.areaId];
-        return matches(pl.name, pl.type, pl.neighborhood, area.name, COUNTRY_BY_ID[area.countryId].name);
-      })
-      .map((pl) => ({
-        id: `place-${pl.id}`,
-        kind: pl.kind,
-        title: pl.name,
-        subtitle:
-          pl.kind === 'activity'
-            ? `Thing to do · ${pl.type} · ${AREA_BY_ID[pl.areaId].name}`
-            : `Place · ${pl.type} · ${pl.neighborhood}`,
-        statsLine: statsLine(pl.kind, pl.stats[audience], audience),
-        target: { type: 'place', place: pl },
-      }));
-
-    const logsOf = (r: SearchResult) =>
-      r.target.type === 'area' ? areaStats[r.target.area.id].logs : r.target.place.stats[audience].logs;
-
-    return [...destinations, ...placeResults]
-      .filter((r) => kindFilter === 'all' || r.kind === kindFilter)
-      .sort((a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || logsOf(b) - logsOf(a));
-  }, [query, places, kindFilter, audience, areaStats]);
-
   const nearestArea = useMemo(() => nearest(AREAS, view.center) ?? AREAS[0], [view.center]);
   const nearestCountry = COUNTRY_BY_ID[nearestArea.countryId];
 
@@ -186,10 +129,9 @@ export function useExplore(initialRegion: Region) {
     onRegionChange,
     query, setQuery,
     audience, setAudience,
-    kindFilter, setKindFilter,
     category, setCategory,
     selected, selectedArea, setSelectedId,
-    pins, weightOf, results,
+    pins, weightOf,
     around, topItems, locationLabel,
   };
 }

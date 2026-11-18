@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { adjustCount, setFollowingInPages, uniqueById } from '../src/lib/follow-cache.ts';
+import { adjustCount, setFollowingInPages, setFollowingInSearch, uniqueById } from '../src/lib/follow-cache.ts';
 
 const profile = { id: 'a', followerCount: 1, followingCount: 0 };
 
@@ -22,6 +22,28 @@ test('setFollowingInPages flips only the matching user on every page', () => {
   const next = setFollowingInPages(data, 'a', true);
   assert.deepEqual(next.pages.map((p) => p.items.map((u) => u.isFollowing)), [[true, false], [true]]);
   assert.equal(data.pages[0].items[0].isFollowing, false);
+});
+
+test('setFollowingInSearch flips the matching person and moves their follower count once', () => {
+  const a = { id: 'a', isFollowing: false, followerCount: 3, followingCount: 0 };
+  const b = { id: 'b', isFollowing: false, followerCount: 1, followingCount: 0 };
+  const data = {
+    pageParams: [null, '1'],
+    pages: [
+      { items: [a, b], nextCursor: '1' },
+      { items: [a], nextCursor: null },
+    ],
+  };
+  const followed = setFollowingInSearch(data, 'a', true);
+  const followedA = { ...a, isFollowing: true, followerCount: 4 };
+  assert.deepEqual(followed.pages[0].items[0], followedA);
+  assert.deepEqual(followed.pages[1].items[0], followedA);
+  assert.equal(followed.pages[0].items[1], b);
+  assert.equal(data.pages[0].items[0].isFollowing, false);
+  // Already followed: nothing changes
+  assert.equal(setFollowingInSearch(followed, 'a', true).pages[0].items[0].followerCount, 4);
+  assert.deepEqual(setFollowingInSearch(followed, 'a', false).pages[0].items[0], a);
+  assert.equal(setFollowingInSearch(undefined, 'a', true), undefined);
 });
 
 test('uniqueById keeps the first of each id in order', () => {
