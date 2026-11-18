@@ -1,15 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState, type ReactNode } from 'react';
-import { FlatList, StyleSheet, View } from 'react-native';
+import { FlatList, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { PostResponse, TripResponse } from 'shared-types';
 
 import { getErrorMessage } from '@/api/client';
 import { getFollowStatus, getMyProfile, getProfile, listUserPosts, listUserTrips } from '@/api/profiles';
 import { queryKeys } from '@/api/query-keys';
+import { PostGridSkeleton, PostTile } from '@/components/content/post-tile';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Media } from '@/components/ui/media';
 import { IconButton } from '@/components/ui/icon-button';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { TabBar } from '@/components/ui/tab-bar';
@@ -38,6 +38,12 @@ export function ProfileView({ userId: routeUserId }: { userId?: string }) {
   const [tab, setTab] = useState<ProfileTab>('itineraries');
   const currentUser = useCurrentUser();
   const signOut = useSignOut();
+  // Two tiles and the gap between them span the screen (the list has no side
+  // padding). A fixed size, not flex: 1, so a lone tile in the last row stays
+  // half width. From the window rather than onLayout, so the first frame isn't
+  // drawn at 0x0.
+  const { width: screenWidth } = useWindowDimensions();
+  const tileSize = (screenWidth - Spacing.half) / 2;
   // Opening your own profile from a list still counts as your own
   const isOwn = !routeUserId || routeUserId === currentUser.id;
   const userId = isOwn ? currentUser.id : routeUserId;
@@ -123,22 +129,30 @@ export function ProfileView({ userId: routeUserId }: { userId?: string }) {
           numColumns={2}
           columnWrapperStyle={styles.gridRow}
           renderItem={({ item }) => (
-            <Media
-              seed={item.id}
-              url={item.media.find((media) => media.mediaType === 'image')?.url}
+            <PostTile
+              post={item}
+              size={tileSize}
+              // TODO: open the post itself at /posts/[id] once POST-3 (#43) adds it
+              onPress={() => router.push({ pathname: '/trips/[id]', params: { id: item.tripId } })}
               style={styles.gridCell}
             />
           )}
           ListHeaderComponent={header}
           ListEmptyComponent={
-            <View style={styles.rowWrap}>
-              <ListEmpty
-                list={posts}
-                icon="images-outline"
-                title="No posts yet"
-                description={isOwn ? 'Photos you add to a trip show up here.' : undefined}
-              />
-            </View>
+            // The grid skeleton spans the screen like the tiles, so it sits
+            // outside rowWrap's padding
+            posts.isPending ? (
+              <PostGridSkeleton size={tileSize} />
+            ) : (
+              <View style={styles.rowWrap}>
+                <ListEmpty
+                  list={posts}
+                  icon="images-outline"
+                  title="No posts yet"
+                  description={isOwn ? 'Photos you add to a trip show up here.' : undefined}
+                />
+              </View>
+            )
           }
           ListFooterComponent={<ListFooter list={posts} />}
           onEndReached={posts.loadMore}
@@ -215,6 +229,6 @@ const styles = StyleSheet.create({
   headerBlock: { gap: Spacing.three, padding: Spacing.three },
   separator: { height: Spacing.two },
   gridRow: { gap: Spacing.half },
-  gridCell: { flex: 1, aspectRatio: 1, marginBottom: Spacing.half },
+  gridCell: { marginBottom: Spacing.half },
   topBar: { paddingHorizontal: Spacing.three },
 });

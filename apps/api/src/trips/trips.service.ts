@@ -42,7 +42,7 @@ export const TRIP_POSTS = keyset<
 >([
   { field: 'visitedOn', direction: 'asc', type: 'date' },
   { field: 'createdAt', direction: 'asc', type: 'date' },
-  { field: 'id', direction: 'asc', type: 'string' },
+  { field: 'id', direction: 'asc', type: 'uuid' },
 ]);
 export const POST_ORDER = TRIP_POSTS.orderBy;
 
@@ -80,7 +80,7 @@ const USER_TRIPS = keyset<
   Prisma.TripOrderByWithRelationInput
 >([
   { field: 'startDate', direction: 'desc', type: 'date' },
-  { field: 'id', direction: 'desc', type: 'string' },
+  { field: 'id', direction: 'desc', type: 'uuid' },
 ]);
 
 // One user's saved trips, most recently saved first
@@ -90,7 +90,7 @@ const SAVED_TRIPS = keyset<
   Prisma.TripSaveOrderByWithRelationInput
 >([
   { field: 'createdAt', direction: 'desc', type: 'date' },
-  { field: 'tripId', direction: 'desc', type: 'string' },
+  { field: 'tripId', direction: 'desc', type: 'uuid' },
 ]);
 
 @Injectable()

@@ -40,7 +40,11 @@ export function pageLimit(query: PaginationQueryDto): number {
 }
 
 export type CursorValue = string | number | Date;
-export type CursorValueType = 'string' | 'number' | 'date';
+// 'uuid' is a string that has to be a UUID, for keys in a `@db.Uuid` column:
+// Postgres errors on anything else, which would be a 500 instead of a 400.
+export type CursorValueType = 'string' | 'uuid' | 'number' | 'date';
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type CursorPayload = { list: string; key: unknown[] };
 
@@ -87,6 +91,9 @@ export function decodeCursor(
 
 function parseValue(value: unknown, type: CursorValueType): CursorValue {
   if (type === 'string' && typeof value === 'string' && value) return value;
+  if (type === 'uuid' && typeof value === 'string' && UUID.test(value)) {
+    return value;
+  }
   if (type === 'number' && typeof value === 'number' && isFinite(value)) {
     return value;
   }

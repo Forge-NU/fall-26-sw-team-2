@@ -577,6 +577,20 @@ describe('StoriesService', () => {
       });
     });
 
+    it('rejects a cursor whose story ID is not a UUID', async () => {
+      prisma.trip.findUnique.mockResolvedValue(makeTrip());
+      const day = new Date('2026-10-12T00:00:00Z');
+      const cursor = encodeCursor(`trip-stories:${tripId}`, [
+        day,
+        day,
+        'not-a-uuid',
+      ]);
+      await expect(
+        service.listForTrip(ownerId, tripId, { cursor }),
+      ).rejects.toThrow('Invalid cursor');
+      expect(prisma.story.findMany).not.toHaveBeenCalled();
+    });
+
     it("rejects a cursor that isn't a kept story on this trip", async () => {
       prisma.trip.findUnique.mockResolvedValue(makeTrip());
       prisma.story.findFirst.mockResolvedValue(null);
