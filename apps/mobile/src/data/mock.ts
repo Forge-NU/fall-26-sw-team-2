@@ -9,7 +9,7 @@
 
 export type FeedTab = 'local' | 'friends' | 'fyp';
 
-export type Traveler = {
+type Traveler = {
   id: string;
   name: string;
   avatarUrl?: string;
@@ -22,7 +22,7 @@ export type StoryBubble = {
   avatarUrl?: string;
 };
 
-export type Moment = {
+type Moment = {
   id: string;
   kind: 'photo' | 'video';
   imageUrl?: string;
@@ -32,20 +32,11 @@ export type Moment = {
   duration?: string;
 };
 
-export type DayPlace = {
-  id: string;
-  time: string;
-  name: string;
-  note: string;
-};
-
-export type TripDay = {
+type TripDay = {
   day: number;
   title: string;
-  summary: string;
   coverUrl?: string;
   moments: Moment[];
-  places: DayPlace[];
 };
 
 export type Itinerary = {
@@ -59,7 +50,6 @@ export type Itinerary = {
   startDate: string;
   stops: number;
   author: Traveler;
-  participants: Traveler[];
   days: TripDay[];
   likes: number;
   comments: number;
@@ -86,7 +76,7 @@ export type NearbyPlace = {
   distance: string;
 };
 
-export const Travelers = {
+const Travelers = {
   maya: { id: 'maya', name: 'Maya Chen', verified: true },
   priya: { id: 'priya', name: 'Priya Shah', verified: true },
   noah: { id: 'noah', name: 'Noah Kim' },
@@ -114,7 +104,6 @@ export const Itineraries: Itinerary[] = [
     startDate: '2026-10-12',
     stops: 24,
     author: Travelers.maya,
-    participants: [Travelers.noah, Travelers.priya, Travelers.jordan, Travelers.sam],
     likes: 248,
     comments: 31,
     saves: 84,
@@ -125,7 +114,6 @@ export const Itineraries: Itinerary[] = [
       {
         day: 1,
         title: 'Belém & Alfama',
-        summary: 'Tarts, tram rides & a golden-hour finish.',
         moments: [
           {
             id: 'l1-sunset',
@@ -152,22 +140,10 @@ export const Itineraries: Itinerary[] = [
             duration: '0:08',
           },
         ],
-        places: [
-          { id: 'torre', time: '09:00', name: 'Torre de Belém', note: 'Riverside wander' },
-          { id: 'pasteis', time: '10:30', name: 'Pastéis de Belém', note: 'Warm tarts + espresso' },
-          { id: 'tram28', time: '14:00', name: 'Tram 28', note: 'Ride into Alfama' },
-          {
-            id: 'portas',
-            time: '18:45',
-            name: 'Miradouro das Portas do Sol',
-            note: 'Alfama stroll → sunset',
-          },
-        ],
       },
       {
         day: 2,
         title: 'Chiado & LX Factory',
-        summary: 'Bookshops, rooftops & a warehouse market.',
         moments: [
           {
             id: 'l2-chiado',
@@ -176,15 +152,10 @@ export const Itineraries: Itinerary[] = [
             caption: 'Yellow trams everywhere 💛',
           },
         ],
-        places: [
-          { id: 'bertrand', time: '10:00', name: 'Livraria Bertrand', note: "World's oldest bookshop" },
-          { id: 'lxfactory', time: '15:00', name: 'LX Factory', note: 'Market + street art' },
-        ],
       },
       {
         day: 3,
         title: 'Sintra day trip',
-        summary: 'Palaces in the fog and a long lunch.',
         moments: [
           {
             id: 'l3-sintra',
@@ -193,15 +164,10 @@ export const Itineraries: Itinerary[] = [
             caption: 'Fuel for Pena Palace ☕',
           },
         ],
-        places: [
-          { id: 'pena', time: '10:00', name: 'Pena Palace', note: 'Go early, skip the queue' },
-          { id: 'regaleira', time: '14:30', name: 'Quinta da Regaleira', note: 'The initiation well' },
-        ],
       },
       {
         day: 4,
         title: 'More to explore',
-        summary: 'Riverside markets and a slow evening.',
         moments: [
           {
             id: 'l4-river',
@@ -210,15 +176,10 @@ export const Itineraries: Itinerary[] = [
             caption: 'Boats, bikes & no plans',
           },
         ],
-        places: [
-          { id: 'ribeira', time: '12:30', name: 'Time Out Market', note: 'Lunch, one of everything' },
-          { id: 'cais', time: '17:00', name: 'Cais do Sodré', note: 'Riverside sunset drinks' },
-        ],
       },
       {
         day: 5,
         title: 'One last wander',
-        summary: 'Backstreets, souvenirs & goodbye.',
         moments: [
           {
             id: 'l5-street',
@@ -227,7 +188,6 @@ export const Itineraries: Itinerary[] = [
             caption: 'Already planning the return',
           },
         ],
-        places: [{ id: 'graca', time: '11:00', name: 'Miradouro da Graça', note: 'One final view' }],
       },
     ],
   },
@@ -242,7 +202,6 @@ export const Itineraries: Itinerary[] = [
     startDate: '2026-09-18',
     stops: 14,
     author: Travelers.priya,
-    participants: [],
     likes: 193,
     comments: 24,
     saves: 57,
@@ -254,7 +213,6 @@ export const Itineraries: Itinerary[] = [
       {
         day: 1,
         title: 'Nyhavn & Strøget',
-        summary: 'Harbour colours and a long walk.',
         moments: [
           {
             id: 'c1-nyhavn',
@@ -263,15 +221,10 @@ export const Itineraries: Itinerary[] = [
             caption: 'Every house a different colour',
           },
         ],
-        places: [
-          { id: 'nyhavn', time: '11:00', name: 'Nyhavn', note: 'Harbour walk' },
-          { id: 'stroget', time: '14:00', name: 'Strøget', note: 'Shopping street' },
-        ],
       },
       {
         day: 2,
         title: 'Tivoli & Freetown',
-        summary: 'Rides, lights & Christiania.',
         moments: [
           {
             id: 'c2-tivoli',
@@ -280,15 +233,10 @@ export const Itineraries: Itinerary[] = [
             caption: 'Better after dark ✨',
           },
         ],
-        places: [
-          { id: 'tivoli', time: '18:00', name: 'Tivoli Gardens', note: 'Go for the lights' },
-          { id: 'christiania', time: '13:00', name: 'Freetown Christiania', note: 'Wander, no photos' },
-        ],
       },
       {
         day: 3,
         title: 'Castles & Design',
-        summary: 'Rosenborg and the Design Museum.',
         moments: [
           {
             id: 'c3-castle',
@@ -297,18 +245,10 @@ export const Itineraries: Itinerary[] = [
             caption: 'Crown jewels in the basement',
           },
         ],
-        places: [
-          { id: 'rosenborg', time: '10:00', name: 'Rosenborg Castle', note: 'Crown jewels' },
-          { id: 'design', time: '14:00', name: 'Designmuseum Danmark', note: 'Chairs, so many chairs' },
-        ],
       },
     ],
   },
 ];
-
-export function getItinerary(id: string) {
-  return Itineraries.find((itinerary) => itinerary.id === id);
-}
 
 /** Trips the signed-in traveler has running today (story composer). */
 export const ActiveTrips: ActiveTrip[] = [

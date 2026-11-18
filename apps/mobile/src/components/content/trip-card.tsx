@@ -55,7 +55,6 @@ export type TripCardProps = {
   onPress?: () => void;
   onUserPress?: () => void;
   onDayPress?: (visitedOn: string) => void;
-  onDaySelect?: (day: number) => void;
   onShare?: () => void;
   onAddPlaces?: () => void;
 };
@@ -72,7 +71,6 @@ export function TripCard({
   onPress,
   onUserPress,
   onDayPress,
-  onDaySelect,
   onShare,
   onAddPlaces,
 }: TripCardProps) {
@@ -102,9 +100,8 @@ export function TripCard({
           (Date.parse(trip.endDate) - Date.parse(trip.startDate)) / 86400000,
         ) + 1
       : previews.length;
-  const canOpenDay = Boolean(onDaySelect || onDayPress);
+  const canOpenDay = Boolean(onDayPress);
   const openDay = (day: TripDayPreview) => {
-    onDaySelect?.(day.day);
     if (day.visitedOn) onDayPress?.(day.visitedOn);
   };
   return (

@@ -6,24 +6,10 @@ import { AppText } from '@/components/ui/app-text';
 import { Media } from '@/components/ui/media';
 import { Palette } from '@/constants/palette';
 import { Radii, Spacing, Typography } from '@/constants/theme';
+import { groupByPlace, postPlaceName } from '@/lib/trip-page';
 
-export function postPlaceName(post: PostResponse): string {
-  return post.location?.name ?? post.customLocationName ?? 'Unknown place';
-}
-
-// Back-to-back posts at the same place share one header, like the wireframe
-function groupByPlace(posts: PostResponse[]) {
-  const groups: { key: string; name: string; posts: PostResponse[] }[] = [];
-  for (const post of posts) {
-    const key = post.location?.id ?? `custom:${post.customLocationName}`;
-    const last = groups[groups.length - 1];
-    if (last?.key === key) last.posts.push(post);
-    else groups.push({ key, name: postPlaceName(post), posts: [post] });
-  }
-  return groups;
-}
-
-// One day's posts on the trip page (wireframe 02)
+// One day's posts on the trip page (wireframe 02). Back-to-back posts at the
+// same place share one header, like the wireframe.
 export function DayPosts({ posts }: { posts: PostResponse[] }) {
   return (
     <View style={styles.list}>
@@ -70,7 +56,7 @@ function PostRow({ post }: { post: PostResponse }) {
   );
 }
 
-const THUMB = 44;
+export const THUMB = 44;
 
 const styles = StyleSheet.create({
   list: { gap: Spacing.three },
