@@ -1,28 +1,14 @@
-import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import { Icon } from '@/components/icon';
-import { AddToTripSheet } from '@/components/itinerary/add-to-trip-sheet';
 import { AppText } from '@/components/ui/app-text';
-import { Button } from '@/components/ui/button';
 import { Palette, Radii } from '@/constants/theme';
 import type { DayPlace } from '@/data/mock';
 
-/** Bottom panel listing a day's stops, each addable to the viewer's own itinerary. */
+/**
+ * Bottom panel listing a day's stops. The Add buttons are hidden until adding
+ * places to your own trip is real (UI-4 #98): they only showed a success toast.
+ */
 export function DayAtAGlance({ places }: { places: DayPlace[] }) {
-  // Mock only: nothing is persisted yet.
-  const [added, setAdded] = useState<Set<string>>(new Set());
-  // Places waiting on a trip choice in the "Add to a trip" sheet.
-  const [pending, setPending] = useState<string[] | null>(null);
-  const allAdded = places.length > 0 && places.every((place) => added.has(place.id));
-
-  const remove = (id: string) =>
-    setAdded((current) => {
-      const next = new Set(current);
-      next.delete(id);
-      return next;
-    });
-
   return (
     <View style={styles.panel}>
       <View style={styles.intro}>
@@ -35,59 +21,26 @@ export function DayAtAGlance({ places }: { places: DayPlace[] }) {
           </AppText>
         </View>
       </View>
-      <AppText variant="caption" color="placeholderGray">
-        Add places to your planned itinerary.
-      </AppText>
 
       <View style={styles.places}>
-        {places.map((place) => {
-          const isAdded = added.has(place.id);
-          return (
-            <View key={place.id} style={styles.place}>
-              <View style={styles.placeHeader}>
-                <View style={styles.timeChip}>
-                  <AppText variant="caption">
-                    {place.time}
-                  </AppText>
-                </View>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={isAdded ? `Remove ${place.name}` : `Add ${place.name}`}
-                  onPress={() => (isAdded ? remove(place.id) : setPending([place.id]))}
-                  style={styles.addPlace}>
-                  <Icon name={isAdded ? 'check' : 'plus'} size={13} color="coral" />
-                  <AppText variant="caption">
-                    {isAdded ? 'Added' : 'Add'}
-                  </AppText>
-                </Pressable>
+        {places.map((place) => (
+          <View key={place.id} style={styles.place}>
+            <View style={styles.placeHeader}>
+              <View style={styles.timeChip}>
+                <AppText variant="caption">
+                  {place.time}
+                </AppText>
               </View>
-              <AppText variant="label">
-                {place.name}
-              </AppText>
-              <AppText variant="caption" color="placeholderGray">
-                {place.note}
-              </AppText>
             </View>
-          );
-        })}
+            <AppText variant="label">
+              {place.name}
+            </AppText>
+            <AppText variant="caption" color="placeholderGray">
+              {place.note}
+            </AppText>
+          </View>
+        ))}
       </View>
-
-      <Button
-        title={allAdded ? `All ${places.length} places added` : `Add all ${places.length} places`}
-        disabled={allAdded}
-        style={styles.fullWidth}
-        onPress={() => setPending(places.filter((place) => !added.has(place.id)).map((place) => place.id))}
-      />
-      <AppText variant="caption" color="placeholderGray" style={styles.footnote}>
-        Make this day part of your next trip.
-      </AppText>
-
-      <AddToTripSheet
-        visible={pending !== null}
-        placeCount={pending?.length ?? 0}
-        onAdded={() => setAdded((current) => new Set([...current, ...(pending ?? [])]))}
-        onClose={() => setPending(null)}
-      />
     </View>
   );
 }
@@ -139,20 +92,5 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: Radii.circle,
     backgroundColor: Palette.peach,
-  },
-  addPlace: {
-    height: 28,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    borderRadius: Radii.small,
-    backgroundColor: Palette.peach,
-  },
-  fullWidth: {
-    alignSelf: 'stretch',
-  },
-  footnote: {
-    textAlign: 'center',
   },
 });

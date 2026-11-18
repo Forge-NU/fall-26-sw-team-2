@@ -3,7 +3,8 @@ import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/ui/app-text';
 import { Button } from '@/components/ui/button';
 import { Palette } from '@/constants/palette';
-import { Radii, Spacing, Theme, Typography } from '@/constants/theme';
+import { SheetTokens } from '@/constants/sheet-tokens';
+import { Spacing, Theme, Typography } from '@/constants/theme';
 
 export type ConfirmDialogProps = {
   visible: boolean;
@@ -78,7 +79,8 @@ const styles = StyleSheet.create({
     maxWidth: 340,
     gap: Spacing.two,
     padding: Spacing.four,
-    borderRadius: Radii.medium * 2,
+    // Same corners as BottomSheet
+    borderRadius: SheetTokens.radius,
     backgroundColor: Palette.warmWhite,
   },
   center: { textAlign: 'center' },

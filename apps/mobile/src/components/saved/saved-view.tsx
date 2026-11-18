@@ -1,8 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { FlatList, StyleSheet, View } from 'react-native';
 import type { PostResponse, TripResponse } from 'shared-types';
 
 import { listSavedPosts, listSavedTrips } from '@/api/engagement';
@@ -12,8 +11,10 @@ import { PostCard } from '@/components/content/post-card';
 import { TripCard } from '@/components/content/trip-card';
 import { SavedPlacesList } from '@/components/saved/saved-places-list';
 import { AppText } from '@/components/ui/app-text';
+import { Screen } from '@/components/ui/screen';
+import { TabBar } from '@/components/ui/tab-bar';
 import { YujiHeader } from '@/components/yuji-header';
-import { BottomTabInset, Palette, Spacing } from '@/constants/theme';
+import { BottomTabInset, Spacing } from '@/constants/theme';
 import { useInfiniteList } from '@/hooks/use-infinite-list';
 import { engagementKeys, uniqueById, type SaveTarget } from '@/lib/engagement-cache';
 
@@ -31,30 +32,23 @@ export function SavedView() {
   const [activeTab, setActiveTab] = useState<SavedTab>('trip');
 
   return (
-    <SafeAreaView edges={['top']} style={styles.screen}>
-      <YujiHeader />
-      <View style={styles.tabs} accessibilityRole="tablist">
-        {SavedTabs.map((tab) => {
-          const active = tab.key === activeTab;
-          return (
-            <Pressable
-              key={tab.key}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: active }}
-              onPress={() => setActiveTab(tab.key)}
-              style={styles.tab}>
-              <AppText variant="label" color={active ? 'black' : 'placeholderGray'}>
-                {tab.label}
-              </AppText>
-              {active && <View style={styles.tabIndicator} />}
-            </Pressable>
-          );
-        })}
-      </View>
+    <Screen
+      edges={['top']}
+      gutters={false}
+      header={
+        <View>
+          <YujiHeader />
+          <View style={styles.gutter}>
+            <TabBar items={SavedTabs} value={activeTab} onChange={setActiveTab} />
+          </View>
+        </View>
+      }>
       {activeTab === 'trip' && <SavedTrips />}
       {activeTab === 'post' && <SavedPosts />}
-      {activeTab === 'place' && <SavedPlacesList />}
-    </SafeAreaView>
+      {activeTab === 'place' && (
+        <SavedPlacesList header={<Intro />} contentContainerStyle={styles.content} />
+      )}
+    </Screen>
   );
 }
 
@@ -153,39 +147,15 @@ function SavedPosts() {
 
 function Intro() {
   return (
-    <AppText variant="caption" color="placeholderGray" style={styles.intro}>
+    <AppText variant="caption" color="placeholderGray">
       Only you can see what you&apos;ve saved.
     </AppText>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: Palette.warmWhite,
-  },
-  tabs: {
-    minHeight: Spacing.five + Spacing.three,
-    flexDirection: 'row',
+  gutter: {
     paddingHorizontal: Spacing.three,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Palette.lightPink,
-  },
-  tab: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tabIndicator: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: Spacing.half,
-    backgroundColor: Palette.teal,
-  },
-  intro: {
-    paddingTop: Spacing.three,
   },
   content: {
     flexGrow: 1,
