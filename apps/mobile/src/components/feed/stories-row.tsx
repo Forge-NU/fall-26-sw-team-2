@@ -6,6 +6,7 @@ import { StoryUploadPills } from '@/components/story/story-upload-pill';
 import { AppText } from '@/components/ui/app-text';
 import { Avatar } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AvatarTokens } from '@/constants/avatar-tokens';
 import { Palette, Radii, Spacing } from '@/constants/theme';
 import { useStoriesFeed } from '@/hooks/use-stories';
 import { useStoryUploads } from '@/hooks/use-story-uploads';
@@ -54,7 +55,7 @@ function StoryBubble({ group, isOwn }: { group: StoryGroup; isOwn: boolean }) {
       accessibilityLabel={`${isOwn ? 'Your' : `${name}'s`} story, ${count} ${count === 1 ? 'photo' : 'photos'}`}
       onPress={() => router.push({ pathname: '/stories/[ownerId]', params: { ownerId: group.owner.id } })}
       style={({ pressed }) => [styles.bubble, pressed && styles.pressed]}>
-      <Avatar name={name} uri={group.owner.avatarUrl} size="compact" />
+      <Avatar name={name} uri={group.owner.avatarUrl} size="small" />
       <AppText variant="caption" numberOfLines={1}>
         {label}
       </AppText>
@@ -63,7 +64,15 @@ function StoryBubble({ group, isOwn }: { group: StoryGroup; isOwn: boolean }) {
 }
 
 function LoadingBubbles() {
-  return [0, 1, 2].map((key) => <Skeleton key={key} width={76} height={34} style={styles.loading} />);
+  // Bubble-sized: a UserRow-sized avatar plus the bubble's padding
+  return [0, 1, 2].map((key) => (
+    <Skeleton
+      key={key}
+      width={Spacing.six + Spacing.three}
+      height={AvatarTokens.sizes.small.diameter + Spacing.two}
+      style={styles.loading}
+    />
+  ));
 }
 
 function Separator() {
@@ -73,7 +82,7 @@ function Separator() {
 const styles = StyleSheet.create({
   content: {
     paddingHorizontal: Spacing.three,
-    paddingVertical: 6,
+    paddingVertical: Spacing.one,
   },
   row: {
     flexDirection: 'row',
@@ -88,10 +97,11 @@ const styles = StyleSheet.create({
   bubble: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: Spacing.two,
     maxWidth: 140,
-    paddingHorizontal: Spacing.two,
-    paddingVertical: 6,
+    paddingLeft: Spacing.one,
+    paddingRight: Spacing.three,
+    paddingVertical: Spacing.one,
     borderRadius: Radii.circle,
     borderWidth: 1,
     borderColor: Palette.lightPink,

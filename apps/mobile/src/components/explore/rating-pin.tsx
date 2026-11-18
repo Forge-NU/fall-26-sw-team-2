@@ -3,7 +3,9 @@ import { memo, useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Marker } from 'react-native-maps';
 
-import { colors, formatCount } from '@/components/explore/explore-theme';
+import { MapTokens } from '@/constants/map-tokens';
+import { Palette, Radii, Spacing, Typography } from '@/constants/theme';
+import { formatCount } from '@/utils/format-count';
 import type { PinItem } from '@/components/explore/types';
 
 interface Props {
@@ -63,7 +65,7 @@ function RatingPinBase({ item, weight, selected, calloutLine, onPress }: Props) 
               {item.name}
             </Text>
             <View style={styles.row}>
-              <MaterialCommunityIcons name="star" size={18} color={colors.star} />
+              <MaterialCommunityIcons name="star" size={18} color={Palette.coral} />
               <Text allowFontScaling={false} style={styles.calloutRating}>
                 {rating}
               </Text>
@@ -85,8 +87,8 @@ function RatingPinBase({ item, weight, selected, calloutLine, onPress }: Props) 
               </Text>
             )}
             <View style={[styles.bubble, { height: size, minWidth: size, borderRadius: size / 2 }]}>
-              <MaterialCommunityIcons name="star" size={11 + weight * 4} color={colors.star} />
-              <Text allowFontScaling={false} style={[styles.rating, { fontSize: 15 + weight * 5 }]}>
+              <MaterialCommunityIcons name="star" size={11 + weight * 4} color={Palette.coral} />
+              <Text allowFontScaling={false} style={[styles.rating, { fontSize: MapTokens.pin.ratingSize + weight * MapTokens.pin.ratingGrowth }]}>
                 {rating}
               </Text>
             </View>
@@ -100,55 +102,62 @@ function RatingPinBase({ item, weight, selected, calloutLine, onPress }: Props) 
 
 export const RatingPin = memo(RatingPinBase);
 
-const halo = { textShadowColor: 'rgba(255,255,255,0.95)', textShadowRadius: 4, textShadowOffset: { width: 0, height: 0 } };
+const halo = { textShadowColor: MapTokens.pin.halo, textShadowRadius: Spacing.one, textShadowOffset: { width: 0, height: 0 } };
 
 const styles = StyleSheet.create({
   frame: { alignItems: 'center', justifyContent: 'flex-end', paddingVertical: PAD },
   label: {
+    ...Typography.label,
     height: LABEL_H,
     lineHeight: LABEL_H,
-    maxWidth: FRAME_W - 8,
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.forest,
+    maxWidth: FRAME_W - Spacing.two,
+    color: Palette.black,
     ...halo,
   },
-  reviews: { height: REVIEWS_H, lineHeight: REVIEWS_H - 4, fontSize: 11, color: colors.textMuted, ...halo },
+  reviews: {
+    ...Typography.caption,
+    fontFamily: Typography.body.fontFamily,
+    fontSize: MapTokens.pin.reviewsSize,
+    height: REVIEWS_H,
+    lineHeight: REVIEWS_H - Spacing.one,
+    color: Palette.placeholderGray,
+    ...halo,
+  },
   bubble: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 3,
-    paddingHorizontal: 8,
-    backgroundColor: colors.cream,
+    gap: Spacing.half,
+    paddingHorizontal: Spacing.two,
+    backgroundColor: Palette.warmWhite,
     borderWidth: 1,
-    borderColor: '#DED8CD',
+    borderColor: Palette.lightPink,
   },
-  rating: { fontWeight: '700', color: colors.forest },
+  rating: { fontFamily: Typography.button.fontFamily, color: Palette.black },
   tail: {
-    width: 12,
-    height: 12,
+    width: TAIL_H * 2,
+    height: TAIL_H * 2,
     marginTop: -TAIL_H,
     marginBottom: 0,
     transform: [{ rotate: '45deg' }],
-    backgroundColor: colors.cream,
+    backgroundColor: Palette.warmWhite,
     borderRightWidth: 1,
     borderBottomWidth: 1,
-    borderColor: '#DED8CD',
+    borderColor: Palette.lightPink,
   },
   callout: {
     width: CALLOUT_W,
     height: CALLOUT_H,
-    paddingHorizontal: 14,
+    paddingHorizontal: Spacing.three,
     justifyContent: 'center',
-    gap: 6,
-    borderRadius: 16,
-    backgroundColor: colors.cream,
+    gap: Spacing.one,
+    borderRadius: Radii.pill,
+    backgroundColor: Palette.warmWhite,
     borderWidth: 1,
-    borderColor: '#DED8CD',
+    borderColor: Palette.lightPink,
   },
-  calloutTitle: { fontSize: 16, fontWeight: '600', color: colors.forest, lineHeight: 21 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  calloutRating: { fontSize: 18, fontWeight: '700', color: colors.forest },
-  calloutMeta: { flexShrink: 1, fontSize: 14, color: colors.textMuted, marginLeft: 2 },
+  calloutTitle: { ...Typography.label, fontSize: Typography.body.fontSize, lineHeight: MapTokens.pin.calloutLineHeight, color: Palette.black },
+  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one },
+  calloutRating: { ...Typography.subheading, fontFamily: Typography.button.fontFamily, color: Palette.black },
+  calloutMeta: { ...Typography.label, fontFamily: Typography.body.fontFamily, flexShrink: 1, color: Palette.placeholderGray, marginLeft: Spacing.half },
 });

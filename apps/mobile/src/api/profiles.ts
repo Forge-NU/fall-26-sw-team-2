@@ -15,6 +15,7 @@ import { apiGet, apiRequest } from '@/api/client';
 import { mockDelay, mockError, mockPage, withMock } from '@/api/mock';
 import { me as mockMe } from '@/api/mock-backend';
 import { getMe } from '@/api/users';
+import { normalizeSearchText } from '@/utils/search-text';
 
 export type FollowList = 'followers' | 'following';
 
@@ -44,6 +45,18 @@ export const updateMe = withMock<[body: UpdateMeRequest], UserResponse>({
     // Mock uploads don't store anything, so there's no photo to show
     if (avatarKey !== undefined) me.avatarUrl = null;
     return mockProfile(MOCK_ME_ID);
+  },
+});
+
+/**
+ * Deletes the signed-in user's account and everything they own, including their
+ * media and Clerk user (ACCT-1, #29). Sign out afterwards: the session is gone.
+ */
+export const deleteMe = withMock<[], void>({
+  live: true,
+  real: () => apiRequest('DELETE', '/api/me'),
+  mock: async () => {
+    await mockDelay();
   },
 });
 
@@ -174,6 +187,21 @@ function mockProfile(id: string): UserResponse {
     followerCount: keys.filter((key) => key.endsWith(`>${id}`)).length,
     followingCount: keys.filter((key) => key.startsWith(`${id}>`)).length,
   };
+}
+
+/**
+ * People search (SRCH-2) on the same mock travelers and follows as above, so a
+ * follow from search shows up on their profile and in your Following list.
+ */
+export function mockSearchPeople(q: string): (UserResponse & { isFollowing: boolean })[] {
+  const query = normalizeSearchText(q);
+  return mockUsers
+    .filter((user) =>
+      [`${user.firstName} ${user.lastName}`, user.username ?? ''].some((field) =>
+        normalizeSearchText(field).includes(query),
+      ),
+    )
+    .map((user) => ({ ...mockProfile(user.id), isFollowing: mockFollows.has(followKey(MOCK_ME_ID, user.id)) }));
 }
 
 async function mockFollowList(id: string, list: FollowList, cursor: string | null) {
