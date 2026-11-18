@@ -7,10 +7,12 @@ import { PostCard } from '@/components/content/post-card';
 import { AppText } from '@/components/ui/app-text';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { StarRating } from '@/components/ui/star-rating';
 import { Palette, Radii, Spacing } from '@/constants/theme';
 import { useFollow } from '@/hooks/use-follow';
 import type { useSearch } from '@/hooks/use-search';
 import { useCurrentUser } from '@/lib/current-user';
+import { ratingLabel } from '@/lib/rating';
 import { SEARCH_TABS } from '@/lib/search/filters';
 
 type Props = {
@@ -80,13 +82,14 @@ function Person({ person, onPress }: { person: SearchPerson; onPress: () => void
   }} />;
 }
 function Place({ place, onPress }: { place: SearchPlace; onPress: () => void }) {
-  return <Pressable accessibilityRole="button" onPress={onPress} style={styles.place}>
+  const area = [place.city, place.region].filter(Boolean).join(', ');
+  const label = [place.name, area, ratingLabel(place.rating?.average ?? null, place.rating?.count)].filter(Boolean).join(', ');
+  return <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={styles.place}>
     <AppText variant="label">{place.name}</AppText>
-    <AppText variant="caption" color="placeholderGray">{[place.city, place.region].filter(Boolean).join(', ')}</AppText>
-    {/* Replace this display with the shared StarRating when #92 lands. */}
-    <AppText variant="caption" accessibilityLabel={place.rating ? `Rated ${place.rating.average} out of 5 from ${place.rating.count} posts` : 'No ratings yet'}>
-      {place.rating ? `${place.rating.average.toFixed(1)} / 5 · ${place.rating.count} ratings` : 'No ratings yet'}
-    </AppText>
+    <AppText variant="caption" color="placeholderGray">{area}</AppText>
+    {place.rating
+      ? <StarRating value={place.rating.average} count={place.rating.count} showLabel />
+      : <AppText variant="caption" color="placeholderGray">No ratings yet</AppText>}
   </Pressable>;
 }
 const styles = StyleSheet.create({

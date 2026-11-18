@@ -4,8 +4,10 @@ import type { PostResponse } from 'shared-types';
 
 import { AppText } from '@/components/ui/app-text';
 import { Media } from '@/components/ui/media';
+import { StarRating } from '@/components/ui/star-rating';
 import { Palette } from '@/constants/palette';
 import { Radii, Spacing, Typography } from '@/constants/theme';
+import { ratingLabel } from '@/lib/rating';
 
 export function postPlaceName(post: PostResponse): string {
   return post.location?.name ?? post.customLocationName ?? 'Unknown place';
@@ -48,21 +50,27 @@ export function DayPosts({ posts }: { posts: PostResponse[] }) {
 function PostRow({ post }: { post: PostResponse }) {
   const cover = post.media[0];
   const count = post.media.length;
+  const label = [postPlaceName(post), post.rating != null ? ratingLabel(post.rating) : null, post.caption]
+    .filter(Boolean)
+    .join('. ');
 
   return (
-    <View style={styles.row} accessible accessibilityLabel={`${postPlaceName(post)}. ${post.caption ?? ''}`}>
+    <View style={styles.row} accessible accessibilityLabel={label}>
       {/* A plain tile when there are no photos, so it doesn't read as a failed image */}
       {cover ? (
         <Media seed={post.id} url={cover.url} iconSize={Spacing.three} style={styles.thumb} />
       ) : (
         <View style={[styles.thumb, styles.thumbEmpty]} />
       )}
-      <AppText
-        variant="label"
-        numberOfLines={2}
-        style={[styles.caption, !post.caption && styles.muted]}>
-        {post.caption ?? 'No caption'}
-      </AppText>
+      <View style={styles.text}>
+        <AppText
+          variant="label"
+          numberOfLines={2}
+          style={[styles.caption, !post.caption && styles.muted]}>
+          {post.caption ?? 'No caption'}
+        </AppText>
+        {post.rating != null ? <StarRating value={post.rating} /> : null}
+      </View>
       <AppText variant="caption" style={styles.muted}>
         {count === 1 ? '1 photo' : `${count} photos`}
       </AppText>
@@ -79,6 +87,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, minHeight: THUMB },
   thumb: { width: THUMB, height: THUMB, borderRadius: Radii.small },
   thumbEmpty: { backgroundColor: Palette.lightPink },
-  caption: { flex: 1, fontFamily: Typography.body.fontFamily },
+  text: { flex: 1, gap: Spacing.half },
+  caption: { fontFamily: Typography.body.fontFamily },
   muted: { color: Palette.placeholderGray },
 });

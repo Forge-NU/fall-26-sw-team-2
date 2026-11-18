@@ -85,6 +85,7 @@ Import components from `@/components/ui/<file-name>`.
 | `DateField` | `label`, `value` (`YYYY-MM-DD` or null), `onChange`, `error`. Opens a month calendar that works the same on iOS, Android and web. |
 | `ConfirmDialog` | `visible`, `title`, `message`, `confirmLabel`, `onConfirm`, `onCancel`, `loading`. Use it instead of `Alert.alert`, which does nothing on web. |
 | `Toggle` | `value`, `onValueChange`, `accessibilityLabel`. |
+| `StarRating` | `value` (1-5, a place's average, or null), small/medium/large `size`. Shows `count` and, with `showLabel`, "4.3 · 12" after the stars. Pass `onChange` (plus `disabled`, `accessibilityLabel`) to make it an input: tap a star to set it, tap it again to clear. |
 
 ```tsx
 import { Button } from '@/components/ui/button';

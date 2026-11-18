@@ -62,9 +62,22 @@ const post: PostResponse = {
   author: maya,
   caption: "Got here right at opening. Worth the early start!",
   visitedOn: "2026-09-12",
-  location: null,
-  customLocationName: "Belém Tower, Lisbon",
-  rating: null,
+  // A place from search, so the post can carry a rating (RATE-1)
+  location: {
+    id: "preview-belem-tower",
+    provider: "mapbox",
+    providerPlaceId: "preview-belem-tower",
+    name: "Belém Tower",
+    address: "Av. Brasília, 1400-038 Lisboa",
+    latitude: 38.6916,
+    longitude: -9.216,
+    city: "Lisbon",
+    region: "Lisbon",
+    countryCode: "PT",
+    rating: { average: 4.3, count: 12 },
+  },
+  customLocationName: null,
+  rating: 4,
   media: photos.slice(0, 3),
   likeCount: 12,
   saveCount: 2,
@@ -196,7 +209,9 @@ export function ContentPreview() {
             ...post,
             id: "preview-tram",
             visitedOn: "2026-09-13",
+            location: null,
             customLocationName: "Lisbon, Portugal",
+            rating: null,
             caption: "Exploring the city by tram.",
             media: photos.slice(1, 2),
           },
@@ -204,7 +219,9 @@ export function ContentPreview() {
             ...post,
             id: "preview-food",
             visitedOn: "2026-09-14",
+            location: null,
             customLocationName: "Lisbon, Portugal",
+            rating: null,
             caption: "An afternoon stop for custard tarts.",
             media: photos.slice(2, 3),
           },
@@ -212,7 +229,9 @@ export function ContentPreview() {
             ...post,
             id: "preview-sintra",
             visitedOn: "2026-09-15",
+            location: null,
             customLocationName: "Pena Palace, Sintra",
+            rating: null,
             caption: "A day trip to explore the colorful Pena Palace.",
             media: photos.slice(3, 4),
           },
@@ -220,7 +239,9 @@ export function ContentPreview() {
             ...post,
             id: "preview-last-day",
             visitedOn: "2026-09-16",
+            location: null,
             customLocationName: "Lisbon, Portugal",
+            rating: null,
             caption: "One last panoramic view of Lisbon before heading home.",
             media: photos.slice(4, 5),
           },
@@ -228,7 +249,9 @@ export function ContentPreview() {
             ...post,
             id: "preview-last-treat",
             visitedOn: "2026-09-16",
+            location: null,
             customLocationName: "Lisbon, Portugal",
+            rating: null,
             caption: "Taking a few custard tarts for the journey.",
             media: photos.slice(2, 3),
           },
@@ -253,7 +276,7 @@ export function ContentPreview() {
       <PostCard
         post={post}
         onShare={() => {
-          void share(`${post.customLocationName}: ${post.caption}`);
+          void share(`${post.location?.name}: ${post.caption}`);
         }}
         onPress={notify("Belém post selected.")}
         stats={[

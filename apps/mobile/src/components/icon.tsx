@@ -45,6 +45,8 @@ const Icons = {
   'share-2': { glyph: 'share-social-outline' },
   sparkle: { glyph: 'sparkles-outline' },
   star: { glyph: 'star' },
+  'star-half': { glyph: 'star-half' },
+  'star-outline': { glyph: 'star-outline' },
   trophy: { glyph: 'trophy-outline' },
   type: { glyph: 'text-outline' },
   'user-round': { glyph: 'person-outline' },
