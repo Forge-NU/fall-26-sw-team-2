@@ -1,33 +1,37 @@
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState, type ReactNode } from 'react';
-import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { PostResponse, TripResponse } from 'shared-types';
 
 import { getErrorMessage } from '@/api/client';
 import { getFollowStatus, getMyProfile, getProfile, listUserPosts, listUserTrips } from '@/api/profiles';
 import { queryKeys } from '@/api/query-keys';
-import { Icon } from '@/components/icon';
-import { AppText } from '@/components/ui/app-text';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Media } from '@/components/ui/media';
 import { IconButton } from '@/components/ui/icon-button';
 import { ScreenHeader } from '@/components/ui/screen-header';
+import { TabBar } from '@/components/ui/tab-bar';
 import { BottomTabInset, Palette, Spacing } from '@/constants/theme';
 import { useInfiniteList } from '@/hooks/use-infinite-list';
 import { useCurrentUser, useSignOut } from '@/lib/current-user';
 import { uniqueById } from '@/lib/follow-cache';
-import { ListEmpty, ListFooter } from './list-states';
+import { ListEmpty, ListFooter } from '@/components/content/list-states';
 import { ProfileHeader, ProfileHeaderSkeleton } from './profile-header';
 import { TripRow } from './trip-row';
 
-type ProfileTab = 'itineraries' | 'posts' | 'saved';
+type ProfileTab = 'itineraries' | 'posts';
 
-const TAB_LABELS: Record<ProfileTab, string> = { itineraries: 'Itineraries', posts: 'Posts', saved: 'Saved' };
+// Saved isn't here yet: it only said "coming soon", and your saves are on the
+// Saved tab for now (UI-4 #98). DOC-1 puts them on your own profile.
+const TABS: { key: ProfileTab; label: string }[] = [
+  { key: 'itineraries', label: 'Itineraries' },
+  { key: 'posts', label: 'Posts' },
+];
 
 /**
- * A profile: header, then Itineraries / Posts (and Saved on your own).
+ * A profile: header, then Itineraries / Posts.
  * Without `userId` it's the signed-in user's own profile tab.
  */
 export function ProfileView({ userId: routeUserId }: { userId?: string }) {
@@ -59,7 +63,6 @@ export function ProfileView({ userId: routeUserId }: { userId?: string }) {
     enabled: tab === 'posts',
   });
 
-  const tabs: ProfileTab[] = isOwn ? ['itineraries', 'posts', 'saved'] : ['itineraries', 'posts'];
   const newTrip = () => router.push('/trips/new');
   const backBar = routeUserId ? (
     <BackBar />
@@ -98,24 +101,7 @@ export function ProfileView({ userId: routeUserId }: { userId?: string }) {
       ) : (
         <ProfileHeaderSkeleton />
       )}
-      <View style={styles.tabs} accessibilityRole="tablist">
-        {tabs.map((key) => {
-          const active = key === tab;
-          return (
-            <Pressable
-              key={key}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: active }}
-              onPress={() => setTab(key)}
-              style={styles.tab}>
-              <AppText variant="label" color={active ? 'black' : 'placeholderGray'}>
-                {TAB_LABELS[key]}
-              </AppText>
-              {active && <View style={styles.tabIndicator} />}
-            </Pressable>
-          );
-        })}
-      </View>
+      <TabBar items={TABS} value={tab} onChange={setTab} />
     </View>
   );
 
@@ -145,12 +131,14 @@ export function ProfileView({ userId: routeUserId }: { userId?: string }) {
           )}
           ListHeaderComponent={header}
           ListEmptyComponent={
-            <ListEmpty
-              list={posts}
-              icon="images-outline"
-              title="No posts yet"
-              description={isOwn ? 'Photos you add to a trip show up here.' : undefined}
-            />
+            <View style={styles.rowWrap}>
+              <ListEmpty
+                list={posts}
+                icon="images-outline"
+                title="No posts yet"
+                description={isOwn ? 'Photos you add to a trip show up here.' : undefined}
+              />
+            </View>
           }
           ListFooterComponent={<ListFooter list={posts} />}
           onEndReached={posts.loadMore}
@@ -163,7 +151,7 @@ export function ProfileView({ userId: routeUserId }: { userId?: string }) {
       ) : (
         <FlatList
           key="list"
-          data={tab === 'itineraries' ? uniqueById(trips.items) : []}
+          data={uniqueById(trips.items)}
           keyExtractor={(trip) => trip.id}
           renderItem={({ item }) => (
             <View style={styles.rowWrap}>
@@ -176,25 +164,17 @@ export function ProfileView({ userId: routeUserId }: { userId?: string }) {
           ItemSeparatorComponent={Separator}
           ListHeaderComponent={header}
           ListEmptyComponent={
-            tab === 'saved' ? (
-              // INT-3 (#51) fills this in
-              <EmptyState
-                icon="bookmark-outline"
-                title="Saved trips are coming soon"
-                description="Itineraries you save will live here."
-                style={styles.centered}
-              />
-            ) : (
+            <View style={styles.rowWrap}>
               <ListEmpty
                 list={trips}
                 icon="map-outline"
                 title="No itineraries yet"
                 description={isOwn ? 'Trips you start show up here, drafts included.' : undefined}
               />
-            )
+            </View>
           }
-          ListFooterComponent={tab === 'itineraries' ? <ListFooter list={trips} /> : undefined}
-          onEndReached={tab === 'itineraries' ? trips.loadMore : undefined}
+          ListFooterComponent={<ListFooter list={trips} />}
+          onEndReached={trips.loadMore}
           onEndReachedThreshold={0.5}
           refreshing={refreshing}
           onRefresh={refresh}
@@ -210,22 +190,19 @@ function Separator() {
   return <View style={styles.separator} />;
 }
 
+// The same ScreenHeader as the trip pages: back arrow, centered title, actions
 export function BackBar({ title, onBack, right }: { title?: string; onBack?: () => void; right?: ReactNode }) {
   return (
-    <View style={styles.backBar}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Back"
-        hitSlop={Spacing.two}
-        onPress={onBack ?? (() => (router.canGoBack() ? router.back() : router.navigate('/profile')))}>
-        <Icon name="chevron-left" size={Spacing.four} />
-      </Pressable>
-      {title ? (
-        <AppText variant="label" numberOfLines={1} style={styles.backTitle}>
-          {title}
-        </AppText>
-      ) : null}
-      {right}
+    <View style={styles.topBar}>
+      <ScreenHeader
+        title={title}
+        left={{
+          icon: 'arrow-left',
+          label: 'Back',
+          onPress: onBack ?? (() => (router.canGoBack() ? router.back() : router.navigate('/profile'))),
+        }}
+        right={right}
+      />
     </View>
   );
 }
@@ -236,24 +213,8 @@ const styles = StyleSheet.create({
   content: { paddingBottom: BottomTabInset + Spacing.four, flexGrow: 1 },
   rowWrap: { paddingHorizontal: Spacing.three },
   headerBlock: { gap: Spacing.three, padding: Spacing.three },
-  tabs: {
-    height: 48,
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: Palette.lightPink,
-  },
-  tab: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  tabIndicator: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 3, backgroundColor: Palette.teal },
   separator: { height: Spacing.two },
   gridRow: { gap: Spacing.half },
   gridCell: { flex: 1, aspectRatio: 1, marginBottom: Spacing.half },
   topBar: { paddingHorizontal: Spacing.three },
-  backBar: {
-    height: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-    paddingHorizontal: Spacing.three,
-  },
-  backTitle: { flex: 1 },
 });

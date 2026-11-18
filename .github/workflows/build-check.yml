@@ -56,3 +56,32 @@ jobs:
 
       - name: Build check
         run: npx expo export --platform all
+
+  # Synthesizes the staging stacks and runs their tests. Needs no AWS credentials:
+  # the account is in infra/cdk.json and lookups are cached in cdk.context.json.
+  build-infra:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: 'npm'
+
+      - name: Install dependencies
+        working-directory: .
+        run: npm ci -w infra
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Synth
+        run: npx cdk synth --quiet

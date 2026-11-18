@@ -66,6 +66,11 @@ TestFlight builds are planned for later. They need the Apple Developer Program
    Both are set: `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`, and `EXPO_PUBLIC_API_URL` pointing
    at staging (`https://d20gwnp53wixzg.cloudfront.net`, without `/api`, since the app
    adds that itself). If staging's address changes, update it here too.
+   
+4. Set `EXPO_PUBLIC_API_URL` for the `preview` environment on expo.dev (Project →
+   Environment variables) to the staging API, the `ApiUrl` output of `YujiStagingApi`
+   (see [process/deployment.md](process/deployment.md)). Until it's set, previews can't
+   reach an API and the feed shows its error state.
 
 **GitHub** (repo Settings)
 1. Add a secret `EXPO_TOKEN`: an access token from expo.dev → Account settings →
