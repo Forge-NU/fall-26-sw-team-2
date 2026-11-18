@@ -7,15 +7,12 @@ import { search } from '@/api/search';
 import { uniqueById } from '@/lib/follow-cache';
 import {
   activeFilterCount,
-  buildSearchRequest,
   defaultSearchFilters,
-  filterError,
-  hasSearchWords,
   type SearchCenters,
   type SearchFilters,
   type SearchTab,
 } from '@/lib/search/filters';
-import { isRefinement } from '@/utils/search-text';
+import { keepPreviousResults, resetsSearch, searchRequest, searchView } from '@/lib/search/search-view';
 
 const DEBOUNCE_MS = 300;
 // The pages query when the "All" tab is showing: never fetched, and a different
@@ -32,8 +29,6 @@ function useDebounced<T>(value: T, ms: number) {
   return debounced;
 }
 
-export type SearchStatus = 'idle' | 'loading' | 'ready' | 'error';
-
 /**
  * Map tab search (SRCH-2, SRCH-4): the "All" preview or one type a page at a
  * time, for `query` with the tab and filters kept here.
@@ -49,7 +44,7 @@ export function useSearch({ query, active, centers }: { query: string; active: b
   const [wasActive, setWasActive] = useState(active);
   if (wasActive !== active) {
     setWasActive(active);
-    if (!active) {
+    if (resetsSearch(wasActive, active)) {
       setTab('all');
       setFilters(defaultSearchFilters());
     }
@@ -57,18 +52,8 @@ export function useSearch({ query, active, centers }: { query: string; active: b
 
   const trimmed = query.trim();
   const debounced = useDebounced(trimmed, DEBOUNCE_MS);
-  const validationError = filterError(filters, tab, centers);
-  const request =
-    active && !validationError && hasSearchWords(debounced)
-      ? buildSearchRequest(debounced, tab, filters, centers)
-      : null;
-  const q = request?.q ?? '';
-  // Everything about the request except its text
-  const filtersKey = request ? JSON.stringify({ ...request, q: undefined }) : '';
-  // While the next results load, keep showing the last ones only if this is the
-  // same search (tab and filters) being refined, never an unrelated earlier one.
-  const sameSearch = (key: readonly unknown[] | undefined) =>
-    key?.[3] === filtersKey && isRefinement(key[2] as string, q);
+  const { request, q, filtersKey, validationError } = searchRequest({ active, debounced, tab, filters, centers });
+  const sameSearch = (key: readonly unknown[] | undefined) => keepPreviousResults(key, q, filtersKey);
 
   const preview = useQuery({
     queryKey: queryKeys.search('all', q, filtersKey),
@@ -90,17 +75,16 @@ export function useSearch({ query, active, centers }: { query: string; active: b
   });
 
   const current = tab === 'all' ? preview : pages;
-  const typing = active && !validationError && hasSearchWords(trimmed) && debounced !== trimmed;
-  // Results on screen stay only while they're for this search; while typing
-  // something new they'd be for the old text.
-  const showData = Boolean(current.data) && (!typing || isRefinement(debounced, trimmed));
+  const { typing, showData, status } = searchView({
+    active,
+    trimmed,
+    debounced,
+    validationError,
+    hasRequest: request !== null,
+    hasData: Boolean(current.data),
+    isError: current.isError,
+  });
   const pageError = tab !== 'all' && pages.isFetchNextPageError ? pages.error : null;
-
-  let status: SearchStatus;
-  if (!request && !typing) status = 'idle';
-  else if (showData) status = 'ready';
-  else if (current.isError && !typing) status = 'error';
-  else status = 'loading';
 
   const items: SearchItems[SearchType][] = pages.data?.pages.flatMap((page) => page.items) ?? [];
   const lastPage = pages.data?.pages.at(-1);

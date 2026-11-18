@@ -21,6 +21,7 @@ import { PostCard } from '@/components/content/post-card';
 import { Button } from '@/components/ui/button';
 import type { PostResponse, SearchPlace, TripResponse } from 'shared-types';
 import type { Coordinate, LocationPermission } from '@/lib/search/filters';
+import { isSearchOpen } from '@/lib/search/search-view';
 import { useSearch } from '@/hooks/use-search';
 import { Sheet } from '@/components/explore/sheet';
 import { mapStyle } from '@/components/explore/map-style';
@@ -69,7 +70,7 @@ export default function ExploreScreen() {
   const mode = ex.selected ? 'detail' : searchOpen || ex.query.trim() ? 'results' : 'idle';
   // Search stays open (text, tab, filters) while a result is opened on top and
   // when a map pin is tapped mid-search; it resets once it's closed.
-  const searchActive = searchOpen || ex.query.trim() !== '';
+  const searchActive = isSearchOpen(searchOpen, ex.query);
   const search = useSearch({ query: ex.query, active: searchActive, centers: { permission, nearMe, mapCenter } });
   // Leaving the screen only closes the filters sheet; the search itself stays
   useFocusEffect(useCallback(() => () => setSearchFiltersOpen(false), []));
