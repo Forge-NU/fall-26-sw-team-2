@@ -59,8 +59,9 @@ TestFlight builds are planned for later. They need the Apple Developer Program
    `npx eas-cli@latest update:configure`, and commit the changes to `app.json`,
    `eas.json` and `package.json`.
 3. Set `EXPO_PUBLIC_API_URL` for the `preview` environment on expo.dev (Project →
-   Environment variables) to a deployed API. Until staging exists (#34), previews
-   can't reach an API and the feed shows its error state.
+   Environment variables) to the staging API, the `ApiUrl` output of `YujiStagingApi`
+   (see [process/deployment.md](process/deployment.md)). Until it's set, previews can't
+   reach an API and the feed shows its error state.
 
 **GitHub** (repo Settings)
 1. Add a secret `EXPO_TOKEN`: an access token from expo.dev → Account settings →
