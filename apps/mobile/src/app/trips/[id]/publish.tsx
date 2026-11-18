@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { getErrorMessage } from '@/api/client';
-import { tripErrorState } from '@/components/trips/trip-error-state';
+import { leaveTrip, tripErrorState } from '@/components/trips/trip-error-state';
 import { AppText } from '@/components/ui/app-text';
 import { Button } from '@/components/ui/button';
 import { Media } from '@/components/ui/media';
@@ -113,7 +113,7 @@ export default function PublishTripScreen() {
       header={
         <ScreenHeader
           title="Publish trip"
-          left={{ icon: 'arrow-left', label: 'Back', onPress: () => router.back() }}
+          left={{ icon: 'arrow-left', label: 'Back', onPress: leaveTrip }}
         />
       }>
       {body}

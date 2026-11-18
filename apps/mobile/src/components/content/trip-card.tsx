@@ -4,7 +4,6 @@ import { useState } from "react";
 import type { PostResponse, TripResponse } from "shared-types";
 import { Icon } from "@/components/icon";
 import { AppText } from "@/components/ui/app-text";
-import { Button } from "@/components/ui/button";
 import { Media } from "@/components/ui/media";
 import { Palette, Radii, Spacing } from "@/constants/theme";
 import { ContentTokens } from "@/constants/content-tokens";
@@ -56,7 +55,6 @@ export type TripCardProps = {
   onUserPress?: () => void;
   onDayPress?: (visitedOn: string) => void;
   onShare?: () => void;
-  onAddPlaces?: () => void;
 };
 export function TripCard({
   trip,
@@ -72,7 +70,6 @@ export function TripCard({
   onUserPress,
   onDayPress,
   onShare,
-  onAddPlaces,
 }: TripCardProps) {
   const [width, setWidth] = useState(0);
   const previews =
@@ -248,14 +245,6 @@ export function TripCard({
           {onShare && <ShareAction label="Share itinerary" onPress={onShare} />}
         </View>
       )}
-      {onAddPlaces && (
-        <Button
-          title="Add places to itinerary"
-          variant="teal"
-          style={styles.fullWidth}
-          onPress={onAddPlaces}
-        />
-      )}
     </View>
   );
 }
@@ -338,8 +327,5 @@ const styles = StyleSheet.create({
   },
   caption: {
     gap: Spacing.one,
-  },
-  fullWidth: {
-    alignSelf: "stretch",
   },
 });

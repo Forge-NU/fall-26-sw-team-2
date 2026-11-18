@@ -41,8 +41,6 @@ export type Itinerary = {
   stops: number;
   author: Traveler;
   days: TripDay[];
-  likes: number;
-  comments: number;
   saves: number;
   caption: string;
   lovedBy: string;
@@ -69,9 +67,6 @@ export type NearbyPlace = {
 const Travelers = {
   maya: { id: 'maya', name: 'Maya Chen', verified: true },
   priya: { id: 'priya', name: 'Priya Shah', verified: true },
-  noah: { id: 'noah', name: 'Noah Kim' },
-  jordan: { id: 'jordan', name: 'Jordan Lee' },
-  sam: { id: 'sam', name: 'Sam Ortiz' },
 } satisfies Record<string, Traveler>;
 
 export const Stories: StoryBubble[] = [
@@ -94,8 +89,6 @@ export const Itineraries: Itinerary[] = [
     startDate: '2026-10-12',
     stops: 24,
     author: Travelers.maya,
-    likes: 248,
-    comments: 31,
     saves: 84,
     caption: 'Sunset found us right on schedule 🌞 adding this lookout to every Lisbon itinerary.',
     lovedBy: 'Loved by Noah, Priya + 246 more',
@@ -139,8 +132,6 @@ export const Itineraries: Itinerary[] = [
     startDate: '2026-09-18',
     stops: 14,
     author: Travelers.priya,
-    likes: 193,
-    comments: 24,
     saves: 57,
     caption:
       "Biked the entire city in one afternoon ☀️ Copenhagen just hits different when you're not rushing.",

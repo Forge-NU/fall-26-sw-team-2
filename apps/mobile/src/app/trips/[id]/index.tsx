@@ -10,7 +10,7 @@ import { PostDraftsBanner } from '@/components/posts/post-drafts-banner';
 import { DayAtAGlance } from '@/components/trips/day-at-a-glance';
 import { DayPosts } from '@/components/trips/day-posts';
 import { DayStories } from '@/components/trips/day-stories';
-import { tripErrorState } from '@/components/trips/trip-error-state';
+import { leaveTrip, tripErrorState } from '@/components/trips/trip-error-state';
 import { AppText } from '@/components/ui/app-text';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -64,7 +64,7 @@ export default function TripScreen() {
       errorState={tripErrorState(error)}
       header={
         <ScreenHeader
-          left={{ icon: 'arrow-left', label: 'Back', onPress: () => router.back() }}
+          left={{ icon: 'arrow-left', label: 'Back', onPress: leaveTrip }}
           right={
             <>
               {/* Published only: a link to a draft opens "not found" for anyone else */}
@@ -122,7 +122,7 @@ function TripBody({ dayParam, trip, posts, stories, isOwner, refreshing, onRefre
   const dayPosts = posts.filter((post) => post.visitedOn === day);
   const dayStories = storiesOnDay(stories, day);
   const dayStops = dayPlaces(dayPosts);
-  const places =new Set(posts.map((post) => post.location?.id ?? post.customLocationName)).size;
+  const places = new Set(posts.map((post) => post.location?.id ?? post.customLocationName)).size;
 
   const addPost = () =>
     router.push({ pathname: '/posts/new', params: { tripId: trip.id, visitedOn: day } });
