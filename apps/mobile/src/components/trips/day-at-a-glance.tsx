@@ -1,5 +1,4 @@
 import { StyleSheet, View } from 'react-native';
-import type { PostResponse } from 'shared-types';
 
 import { THUMB } from '@/components/trips/day-posts';
 import { AppText } from '@/components/ui/app-text';
@@ -7,14 +6,12 @@ import { Media } from '@/components/ui/media';
 import { Pill } from '@/components/ui/pill';
 import { Palette } from '@/constants/palette';
 import { Radii, Spacing } from '@/constants/theme';
-import { dayPlaces } from '@/lib/trip-page';
+import type { DayPlace } from '@/lib/trip-page';
 
-// "The day, at a glance": the day's places in visit order, above its posts.
-// Not tappable until there's a place page to open (the old itinerary page's
-// per-place Add button comes back as PLACE-2's Save sheet, #139).
-export function DayAtAGlance({ posts }: { posts: PostResponse[] }) {
-  const places = dayPlaces(posts);
-
+// "The day, at a glance": the day's places in visit order (from `dayPlaces`),
+// above its posts. Not tappable until there's a place page to open. Saving a
+// place comes with PLACE-2's Save sheet (#139).
+export function DayAtAGlance({ places }: { places: DayPlace[] }) {
   return (
     <View style={styles.panel}>
       <View style={styles.header}>

@@ -82,10 +82,10 @@ export default function TripScreen() {
           }
         />
       }>
-      {trip.data && posts.data ? (
+      {data && posts.data ? (
         <TripBody
           dayParam={day}
-          trip={trip.data}
+          trip={data}
           posts={posts.data}
           stories={stories.data ?? []}
           isOwner={isOwner}
@@ -121,7 +121,8 @@ function TripBody({ dayParam, trip, posts, stories, isOwner, refreshing, onRefre
   const day = [selectedDay, fallbackDay].find((d): d is string => d !== null && days.includes(d)) ?? days[0];
   const dayPosts = posts.filter((post) => post.visitedOn === day);
   const dayStories = storiesOnDay(stories, day);
-  const places = new Set(posts.map((post) => post.location?.id ?? post.customLocationName)).size;
+  const dayStops = dayPlaces(dayPosts);
+  const places =new Set(posts.map((post) => post.location?.id ?? post.customLocationName)).size;
 
   const addPost = () =>
     router.push({ pathname: '/posts/new', params: { tripId: trip.id, visitedOn: day } });
@@ -200,7 +201,7 @@ function TripBody({ dayParam, trip, posts, stories, isOwner, refreshing, onRefre
             {dayStories.length > 0 ? <DayStories tripId={trip.id} day={day} stories={dayStories} /> : null}
 
             {/* With one stop it would only repeat the place header in the post list */}
-            {dayPlaces(dayPosts).length > 1 ? <DayAtAGlance posts={dayPosts} /> : null}
+            {dayStops.length > 1 ? <DayAtAGlance places={dayStops} /> : null}
 
             {dayPosts.length > 0 ? (
               <DayPosts posts={dayPosts} />

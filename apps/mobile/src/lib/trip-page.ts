@@ -1,7 +1,6 @@
-import type { PostResponse, TripResponse } from 'shared-types';
-
 // Logic for the trip page (app/trips/[id]), kept free of React Native so the
 // node tests can import it.
+import type { PostResponse, TripResponse } from 'shared-types';
 
 export function postPlaceName(post: PostResponse): string {
   return post.location?.name ?? post.customLocationName ?? 'Unknown place';

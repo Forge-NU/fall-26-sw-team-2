@@ -47,7 +47,9 @@ export default function FeedScreen() {
 }
 
 // Cards open the shared trip page. Until FEED-2 (#27) replaces the mock trips,
-// their ids aren't real, so the page shows "Trip not found".
+// their ids aren't real trips: the page shows "Couldn't load this trip" (the
+// API rejects the id), or "Trip not found" with EXPO_PUBLIC_API_MOCKS=all, and
+// Share sends a link that won't open.
 function FeedCard({ card }: { card: FeedTrip }) {
   const { trip } = card;
   // `visitedOn` (YYYY-MM-DD) opens the page on that day's tab

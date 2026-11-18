@@ -22,21 +22,11 @@ export type StoryBubble = {
   avatarUrl?: string;
 };
 
-type Moment = {
-  id: string;
-  kind: 'photo' | 'video';
-  imageUrl?: string;
-  caption: string;
-  /** Only the lead moment of a day shows a title. */
-  title?: string;
-  duration?: string;
-};
-
 type TripDay = {
   day: number;
   title: string;
   coverUrl?: string;
-  moments: Moment[];
+  postCount: number;
 };
 
 export type Itinerary = {
@@ -114,80 +104,27 @@ export const Itineraries: Itinerary[] = [
       {
         day: 1,
         title: 'Belém & Alfama',
-        moments: [
-          {
-            id: 'l1-sunset',
-            kind: 'photo',
-            title: 'Golden hour at Portas do Sol',
-            caption: 'Sunset, right on schedule 🌞',
-          },
-          { id: 'l1-belem', kind: 'photo', caption: 'Belém by the water' },
-          {
-            id: 'l1-pastry',
-            kind: 'photo',
-            caption: 'Worth the pastry queue',
-          },
-          {
-            id: 'l1-tram',
-            kind: 'video',
-            caption: 'Tram 28, window seat',
-            duration: '0:12',
-          },
-          {
-            id: 'l1-alfama',
-            kind: 'video',
-            caption: 'Lost in Alfama',
-            duration: '0:08',
-          },
-        ],
+        postCount: 5,
       },
       {
         day: 2,
         title: 'Chiado & LX Factory',
-        moments: [
-          {
-            id: 'l2-chiado',
-            kind: 'photo',
-            title: 'Morning in Chiado',
-            caption: 'Yellow trams everywhere 💛',
-          },
-        ],
+        postCount: 1,
       },
       {
         day: 3,
         title: 'Sintra day trip',
-        moments: [
-          {
-            id: 'l3-sintra',
-            kind: 'photo',
-            title: 'Coffee before the climb',
-            caption: 'Fuel for Pena Palace ☕',
-          },
-        ],
+        postCount: 1,
       },
       {
         day: 4,
         title: 'More to explore',
-        moments: [
-          {
-            id: 'l4-river',
-            kind: 'photo',
-            title: 'Down by the Tagus',
-            caption: 'Boats, bikes & no plans',
-          },
-        ],
+        postCount: 1,
       },
       {
         day: 5,
         title: 'One last wander',
-        moments: [
-          {
-            id: 'l5-street',
-            kind: 'photo',
-            title: 'Last stroll',
-            caption: 'Already planning the return',
-          },
-        ],
+        postCount: 1,
       },
     ],
   },
@@ -213,38 +150,17 @@ export const Itineraries: Itinerary[] = [
       {
         day: 1,
         title: 'Nyhavn & Strøget',
-        moments: [
-          {
-            id: 'c1-nyhavn',
-            kind: 'photo',
-            title: 'Nyhavn at noon',
-            caption: 'Every house a different colour',
-          },
-        ],
+        postCount: 1,
       },
       {
         day: 2,
         title: 'Tivoli & Freetown',
-        moments: [
-          {
-            id: 'c2-tivoli',
-            kind: 'photo',
-            title: 'Tivoli lights',
-            caption: 'Better after dark ✨',
-          },
-        ],
+        postCount: 1,
       },
       {
         day: 3,
         title: 'Castles & Design',
-        moments: [
-          {
-            id: 'c3-castle',
-            kind: 'photo',
-            title: 'Rosenborg Castle',
-            caption: 'Crown jewels in the basement',
-          },
-        ],
+        postCount: 1,
       },
     ],
   },
