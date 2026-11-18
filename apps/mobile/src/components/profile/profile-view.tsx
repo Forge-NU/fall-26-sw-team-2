@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState, type ReactNode } from 'react';
-import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { PostResponse, TripResponse } from 'shared-types';
 
@@ -34,10 +34,12 @@ export function ProfileView({ userId: routeUserId }: { userId?: string }) {
   const [tab, setTab] = useState<ProfileTab>('itineraries');
   const currentUser = useCurrentUser();
   const signOut = useSignOut();
-  // Two tiles and the gap between them span the list. A fixed size, not
-  // flex: 1, so a lone tile in the last row stays half width.
-  const [gridWidth, setGridWidth] = useState(0);
-  const tileSize = gridWidth > 0 ? (gridWidth - Spacing.half) / 2 : 0;
+  // Two tiles and the gap between them span the screen (the list has no side
+  // padding). A fixed size, not flex: 1, so a lone tile in the last row stays
+  // half width. From the window rather than onLayout, so the first frame isn't
+  // drawn at 0x0.
+  const { width: screenWidth } = useWindowDimensions();
+  const tileSize = (screenWidth - Spacing.half) / 2;
   // Opening your own profile from a list still counts as your own
   const isOwn = !routeUserId || routeUserId === currentUser.id;
   const userId = isOwn ? currentUser.id : routeUserId;
@@ -136,7 +138,6 @@ export function ProfileView({ userId: routeUserId }: { userId?: string }) {
       {tab === 'posts' ? (
         <FlatList
           key="posts"
-          onLayout={(event) => setGridWidth(event.nativeEvent.layout.width)}
           data={uniqueById(posts.items)}
           keyExtractor={(post) => post.id}
           numColumns={2}

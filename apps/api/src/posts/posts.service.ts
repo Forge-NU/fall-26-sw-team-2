@@ -68,7 +68,7 @@ const USER_POSTS = keyset<
 >([
   { field: 'visitedOn', direction: 'desc', type: 'date' },
   { field: 'createdAt', direction: 'desc', type: 'date' },
-  { field: 'id', direction: 'desc', type: 'string' },
+  { field: 'id', direction: 'desc', type: 'uuid' },
 ]);
 
 const CUSTOM_LOCATION_RATING =

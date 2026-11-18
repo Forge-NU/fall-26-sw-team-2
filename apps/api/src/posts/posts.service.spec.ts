@@ -788,6 +788,19 @@ describe('PostsService', () => {
       ).toEqual([visitedOn, createdAt, 'a']);
     });
 
+    it('rejects a cursor whose post ID is not a UUID', async () => {
+      const visitedOn = parseDateOnly('2026-10-13');
+      const cursor = encodeCursor(`user-posts:${ownerId}`, [
+        visitedOn,
+        visitedOn,
+        'not-a-uuid',
+      ]);
+      await expect(
+        service.listForUser(ownerId, ownerId, { cursor }),
+      ).rejects.toThrow('Invalid cursor');
+      expect(prisma.post.findMany).not.toHaveBeenCalled();
+    });
+
     it("rejects a cursor from another user's posts", async () => {
       const visitedOn = parseDateOnly('2026-10-13');
       const cursor = encodeCursor('user-posts:someone_else', [

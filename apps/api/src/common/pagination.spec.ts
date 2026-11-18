@@ -53,6 +53,18 @@ describe('pagination', () => {
       );
     });
 
+    it('accepts a UUID where a uuid goes, and rejects anything else', () => {
+      const id = '9b2f3c1e-1111-4222-8333-444455556666';
+      expect(
+        decodeCursor(encodeCursor('list', [id]), 'list', ['uuid']),
+      ).toEqual([id]);
+      for (const bad of ['x', 'id_1', `${id}0`, '']) {
+        expect(() =>
+          decodeCursor(encodeCursor('list', [bad]), 'list', ['uuid']),
+        ).toThrow('Invalid cursor');
+      }
+    });
+
     it('rejects a date that does not parse', () => {
       const cursor = encodeCursor('list', ['not a date']);
       expect(() => decodeCursor(cursor, 'list', ['date'])).toThrow(
