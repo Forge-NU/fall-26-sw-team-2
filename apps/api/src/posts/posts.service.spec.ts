@@ -675,6 +675,19 @@ describe('PostsService', () => {
       expect(prisma.post.findMany).not.toHaveBeenCalled();
     });
 
+    it('rejects a cursor whose post ID is not a UUID', async () => {
+      const visitedOn = parseDateOnly('2026-10-12');
+      const cursor = encodeCursor(`posts:${tripId}`, [
+        visitedOn,
+        visitedOn,
+        'not-a-uuid',
+      ]);
+      await expect(
+        service.listForTrip(ownerId, tripId, { cursor }),
+      ).rejects.toThrow('Invalid cursor');
+      expect(prisma.post.findMany).not.toHaveBeenCalled();
+    });
+
     it('starts the next page after the cursor, in trip order', async () => {
       prisma.post.findMany.mockResolvedValue([]);
       const visitedOn = parseDateOnly('2026-10-12');
@@ -872,7 +885,8 @@ describe('PostsService', () => {
 
     it('starts after the cursor and returns the next one', async () => {
       const savedAt = new Date('2026-10-20T12:00:00Z');
-      const cursor = encodeCursor('saved-posts:user_saver', [savedAt, 'a']);
+      const lastId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+      const cursor = encodeCursor('saved-posts:user_saver', [savedAt, lastId]);
       prisma.postSave.findMany.mockResolvedValue([
         { postId: 'b', createdAt: savedAt, post: makePost({ id: 'b' }) },
         { postId: 'c', createdAt: savedAt, post: makePost({ id: 'c' }) },
@@ -885,7 +899,7 @@ describe('PostsService', () => {
       ];
       expect(args.where.OR).toEqual([
         { createdAt: { lt: savedAt } },
-        { createdAt: savedAt, postId: { lt: 'a' } },
+        { createdAt: savedAt, postId: { lt: lastId } },
       ]);
       expect(args.orderBy).toEqual([{ createdAt: 'desc' }, { postId: 'desc' }]);
       expect(args.take).toBe(2);
@@ -896,6 +910,17 @@ describe('PostsService', () => {
           'string',
         ]),
       ).toEqual([savedAt, 'b']);
+    });
+
+    it('rejects a cursor whose post ID is not a UUID', async () => {
+      const cursor = encodeCursor('saved-posts:user_saver', [
+        new Date('2026-10-20T12:00:00Z'),
+        'not-a-uuid',
+      ]);
+      await expect(service.listSaved('user_saver', { cursor })).rejects.toThrow(
+        'Invalid cursor',
+      );
+      expect(prisma.postSave.findMany).not.toHaveBeenCalled();
     });
 
     it("rejects a cursor from someone else's list", async () => {

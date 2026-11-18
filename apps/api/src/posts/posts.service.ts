@@ -57,7 +57,7 @@ const SAVED_POSTS = keyset<
   Prisma.PostSaveOrderByWithRelationInput
 >([
   { field: 'createdAt', direction: 'desc', type: 'date' },
-  { field: 'postId', direction: 'desc', type: 'string' },
+  { field: 'postId', direction: 'desc', type: 'uuid' },
 ]);
 
 // One user's posts on their profile: newest visit first, then newest added
