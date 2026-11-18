@@ -29,18 +29,21 @@ logic is `.github/scripts/next-version.mjs`, which has tests next to it.
 ## App previews
 
 `.github/workflows/app-preview.yml` runs on every PR that changes `apps/mobile/`,
-`apps/shared-types/` or the root `package-lock.json`, drafts included, and adds two sections to the PR description:
+`apps/shared-types/` or the root `package-lock.json`, drafts included. It publishes the
+PR's JavaScript as an EAS Update on its own branch (`pr-<number>`) and adds an
+**Expo Go preview** section with a QR code to the PR description. Install
+[Expo Go](https://expo.dev/go) and scan the code with your phone's camera. A new push
+replaces it within a couple of minutes.
 
-- **Expo Go preview:** the PR's JavaScript is published as an EAS Update on its own
-  branch (`pr-<number>`), with a QR code. Install [Expo Go](https://expo.dev/go) and
-  scan the code with your phone's camera. A new push replaces it within a couple of
-  minutes.
-- **Web preview:** the web build is deployed to EAS Hosting under the alias
-  `pr-<number>`, with a link that stays the same as the PR is updated. It's a quick
-  way to look without a phone, but the web version can differ from the phone app.
-
-- **Cost:** free. Neither preview uses any builds. EAS Update and EAS Hosting are
-  included in Expo's free plan, with usage limits that paid plans raise.
+- **Environment variables:** the update is built on GitHub's runner, not your
+  computer, so it never sees your `.env`. `EXPO_PUBLIC_*` values come from the EAS
+  `preview` environment (expo.dev → the `yuji` project → Environment variables) and are
+  baked in when the update is published. After changing one, push to the PR or re-run
+  its "Expo Go preview" job.
+- **Cost:** free. It uses no builds, and EAS Update is included in Expo's free plan
+  (1,000 monthly active users, unlimited updates).
+- **No web preview:** there used to be one on EAS Hosting, but the free plan allows
+  only 5 hosting aliases and this is a mobile app, so it was removed.
 - **Limits:** Expo Go only runs apps whose native modules ship inside it. All of ours do
   today. If a PR adds a library with its own native code, that PR's preview won't
   open in Expo Go; check a new library against Expo Go first
@@ -58,9 +61,11 @@ TestFlight builds are planned for later. They need the Apple Developer Program
 2. In `apps/mobile`, run `npx eas-cli@latest init`, then
    `npx eas-cli@latest update:configure`, and commit the changes to `app.json`,
    `eas.json` and `package.json`.
-3. Set `EXPO_PUBLIC_API_URL` for the `preview` environment on expo.dev (Project →
-   Environment variables) to a deployed API. Until staging exists (#34), previews
-   can't reach an API and the feed shows its error state.
+3. Set the app's `EXPO_PUBLIC_*` variables for the `preview` environment on expo.dev
+   (Project → Environment variables), or with `eas env:create` run from `apps/mobile`.
+   `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` is set. `EXPO_PUBLIC_API_URL` should point to a
+   deployed API; until staging exists (#34), previews can't reach an API and the feed
+   shows its error state.
 
 **GitHub** (repo Settings)
 1. Add a secret `EXPO_TOKEN`: an access token from expo.dev → Account settings →
