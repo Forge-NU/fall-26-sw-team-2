@@ -1,5 +1,5 @@
 import type { InfiniteData } from '@tanstack/react-query';
-import type { FollowCounts, FollowListUser, PaginatedResponse } from 'shared-types';
+import type { FollowCounts, FollowListUser, PaginatedResponse, SearchPreview } from 'shared-types';
 
 /** Adds `delta` to one count, never going below zero. */
 export function adjustCount<T extends FollowCounts>(profile: T | undefined, field: keyof FollowCounts, delta: number) {
@@ -38,14 +38,25 @@ export function setFollowingInSearch<T extends FollowCounts & { id: string; isFo
       ...data,
       pages: data.pages.map((page) => ({
         ...page,
-        items: page.items.map((user) =>
-          user.id === userId && user.isFollowing !== isFollowing
-            ? { ...user, isFollowing, followerCount: Math.max(0, user.followerCount + (isFollowing ? 1 : -1)) }
-            : user,
-        ),
+        items: page.items.map((user) => setFollowingOn(user, userId, isFollowing)),
       })),
     }
   );
+}
+
+/** setFollowingInSearch for the people section of the "All" search preview */
+export function setFollowingInPreview(data: SearchPreview | undefined, userId: string, isFollowing: boolean) {
+  return data && { ...data, people: data.people.map((user) => setFollowingOn(user, userId, isFollowing)) };
+}
+
+function setFollowingOn<T extends FollowCounts & { id: string; isFollowing: boolean }>(
+  user: T,
+  userId: string,
+  isFollowing: boolean,
+): T {
+  return user.id === userId && user.isFollowing !== isFollowing
+    ? { ...user, isFollowing, followerCount: Math.max(0, user.followerCount + (isFollowing ? 1 : -1)) }
+    : user;
 }
 
 /**

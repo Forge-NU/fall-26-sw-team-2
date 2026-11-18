@@ -1,9 +1,16 @@
 import { useMutation, useQueryClient, type InfiniteData, type QueryKey } from '@tanstack/react-query';
-import type { FollowListUser, FollowStatus, PaginatedResponse, SearchPage, UserResponse } from 'shared-types';
+import type {
+  FollowListUser,
+  FollowStatus,
+  PaginatedResponse,
+  SearchPage,
+  SearchPreview,
+  UserResponse,
+} from 'shared-types';
 
 import { followUser, unfollowUser } from '@/api/profiles';
 import { queryKeys } from '@/api/query-keys';
-import { adjustCount, setFollowingInPages, setFollowingInSearch } from '@/lib/follow-cache';
+import { adjustCount, setFollowingInPages, setFollowingInPreview, setFollowingInSearch } from '@/lib/follow-cache';
 
 type FollowPages = InfiniteData<PaginatedResponse<FollowListUser>>;
 
@@ -34,6 +41,9 @@ export function useFollow(userId: string) {
     queryClient.setQueriesData<InfiniteData<SearchPage<'people'>>>({ queryKey: queryKeys.searchPeople }, (data) =>
       setFollowingInSearch(data, userId, follow),
     );
+    queryClient.setQueriesData<SearchPreview>({ queryKey: queryKeys.searchPreview }, (data) =>
+      setFollowingInPreview(data, userId, follow),
+    );
   };
 
   const mutation = useMutation({
@@ -61,6 +71,7 @@ export function useFollow(userId: string) {
       });
       // The search on screen refetches (a follow doesn't remove anyone from it); older ones on next use
       void queryClient.invalidateQueries({ queryKey: queryKeys.searchPeople });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.searchPreview });
     },
   });
 

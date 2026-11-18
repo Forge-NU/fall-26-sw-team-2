@@ -1,7 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { adjustCount, setFollowingInPages, setFollowingInSearch, uniqueById } from '../src/lib/follow-cache.ts';
+import {
+  adjustCount,
+  setFollowingInPages,
+  setFollowingInPreview,
+  setFollowingInSearch,
+  uniqueById,
+} from '../src/lib/follow-cache.ts';
 
 const profile = { id: 'a', followerCount: 1, followingCount: 0 };
 
@@ -48,4 +54,14 @@ test('setFollowingInSearch flips the matching person and moves their follower co
 
 test('uniqueById keeps the first of each id in order', () => {
   assert.deepEqual(uniqueById([{ id: 'a', n: 1 }, { id: 'b' }, { id: 'a', n: 2 }]), [{ id: 'a', n: 1 }, { id: 'b' }]);
+});
+
+test('setFollowingInPreview flips the person in the "All" preview and leaves other sections alone', () => {
+  const a = { id: 'a', isFollowing: false, followerCount: 3, followingCount: 0 };
+  const preview = { people: [a], places: [{ id: 'p' }], trips: [], posts: [] };
+  const next = setFollowingInPreview(preview, 'a', true);
+  assert.deepEqual(next.people[0], { ...a, isFollowing: true, followerCount: 4 });
+  assert.equal(next.places, preview.places);
+  assert.equal(setFollowingInPreview(next, 'a', true).people[0].followerCount, 4);
+  assert.equal(setFollowingInPreview(undefined, 'a', true), undefined);
 });
