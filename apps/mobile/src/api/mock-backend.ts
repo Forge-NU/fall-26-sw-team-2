@@ -43,17 +43,10 @@ function mockId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${nextId++}`;
 }
 
-function mockTrip(
-  title: string,
-  destination: string,
-  startDate: string,
-  endDate: string,
-  // Seeded trips pass a fixed id, so their links (and shared links) survive a reload
-  id = mockId('trip'),
-): TripResponse {
+function mockTrip(title: string, destination: string, startDate: string, endDate: string): TripResponse {
   const now = new Date().toISOString();
   return {
-    id,
+    id: mockId('trip'),
     owner: me,
     title,
     destination,
@@ -141,7 +134,7 @@ function seed() {
   seeded = true;
   const today = todayLocalIso();
 
-  const lisbon = mockTrip('Lisbon weekend', 'Lisbon, Portugal', addDays(today, -2), addDays(today, 1), 'trip-lisbon');
+  const lisbon = mockTrip('Lisbon weekend', 'Lisbon, Portugal', addDays(today, -2), addDays(today, 1));
   lisbon.description = 'Custard tarts, tram 28 and a day trip out to Sintra.';
   const belem = mockLocation('Pastéis de Belém', 'Lisbon', 38.697464, -9.203213);
   const pena = mockLocation('Pena Palace', 'Sintra', 38.787586, -9.390616);
@@ -154,13 +147,7 @@ function seed() {
     mockPost(lisbon, today, null, cascais, [1050]),
   );
 
-  const copenhagen = mockTrip(
-    'Copenhagen in spring',
-    'Copenhagen, Denmark',
-    addDays(today, -60),
-    addDays(today, -55),
-    'trip-copenhagen',
-  );
+  const copenhagen = mockTrip('Copenhagen in spring', 'Copenhagen, Denmark', addDays(today, -60), addDays(today, -55));
   copenhagen.status = 'published';
   copenhagen.publishedAt = new Date(Date.now() - 50 * 24 * 60 * 60 * 1000).toISOString();
   posts.push(
@@ -168,7 +155,7 @@ function seed() {
     mockPost(copenhagen, addDays(copenhagen.startDate, 2), 'Bikes everywhere.', 'Nørrebro', [211]),
   );
 
-  const kyoto = mockTrip('Kyoto, someday', 'Kyoto, Japan', addDays(today, 40), addDays(today, 46), 'trip-kyoto');
+  const kyoto = mockTrip('Kyoto, someday', 'Kyoto, Japan', addDays(today, 40), addDays(today, 46));
 
   trips.push(lisbon, copenhagen, kyoto);
   trips.forEach(refreshDerived);
