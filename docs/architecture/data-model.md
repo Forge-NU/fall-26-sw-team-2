@@ -230,6 +230,10 @@ Only the rules that cross features are listed here. Column types and lengths fol
 - **Suggestion (Christian):** have the API check that a reply's parent is on the same post, and index `(post_id, parent_comment_id, created_at)` for top-level lists and reply lists.
 - Built in #50 ([`comments.md`](comments.md)) with the suggestion, plus `(parent_comment_id, created_at, id)` for reply lists. It adds `reply_to_user_id` for the @mention on a reply to a reply. That key is `ON DELETE SET NULL`, since the mentioned user doesn't own the reply.
 
+### trip_members, trip_invites, notifications, place_saves, trip_bucket_items
+
+Shared trips, buckets, saved places and notifications (#131 COLLAB-1). Their columns, indexes, deletion rules and endpoints are in [shared-trips.md](shared-trips.md).
+
 ## Visibility
 
 Visibility is decided by the trip.

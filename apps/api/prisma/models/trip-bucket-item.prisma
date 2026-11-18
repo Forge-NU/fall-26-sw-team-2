@@ -1,0 +1,27 @@
+// A place in a trip's bucket: somewhere the members want to go, not scheduled
+// onto a day (#131 COLLAB-1, #136 BUCKET-1, rules in #129 DOC-3). Members
+// only, before and after publishing. At most MAX_BUCKET_PLACES per trip
+// (src/trips/trip-rules.ts). Only Mapbox places: BUCKET-1's endpoints reject
+// custom locations. When a collaborator leaves, the places they added stay.
+model TripBucketItem {
+  id         String   @id @default(uuid()) @db.Uuid
+  tripId     String   @map("trip_id") @db.Uuid
+  locationId String   @map("location_id") @db.Uuid
+  addedById  String   @map("added_by_id")
+  note       String?  @db.VarChar(280)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  trip     Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  location Location @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  addedBy  User     @relation(fields: [addedById], references: [id], onDelete: Cascade)
+
+  // A place is in a bucket at most once
+  @@unique([tripId, locationId])
+  // The bucket, newest first
+  @@index([tripId, createdAt, id])
+  // Deleting an account cascades through this, and the RESTRICT check when a
+  // location row is deleted uses the other
+  @@index([addedById])
+  @@index([locationId])
+  @@map("trip_bucket_items")
+}
