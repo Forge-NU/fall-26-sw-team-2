@@ -23,5 +23,3 @@ export const queryKeys = {
   search: (tab: 'all' | 'people' | 'places' | 'trips' | 'posts', q: string, filters: string) =>
     ['search', tab, q, filters] as const,
 };
-
-};
