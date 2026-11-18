@@ -19,6 +19,8 @@ export type PostDraft = {
   visitedOn: string;
   caption: string;
   location: PickedLocation | null;
+  /** 1-5 stars for the place, only with a Mapbox location. Missing on drafts saved before RATE-2. */
+  rating?: number | null;
   photos: DraftPhoto[];
   status: 'uploading' | 'failed';
   error: string | null;

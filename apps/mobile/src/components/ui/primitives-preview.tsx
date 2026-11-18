@@ -9,16 +9,19 @@ import { IconButton } from '@/components/ui/icon-button';
 import { Pill } from '@/components/ui/pill';
 import { Screen } from '@/components/ui/screen';
 import { ScreenHeader } from '@/components/ui/screen-header';
+import { StarRating } from '@/components/ui/star-rating';
 import { TabBar } from '@/components/ui/tab-bar';
 import { Toggle } from '@/components/ui/toggle';
 import { useToast } from '@/components/ui/toast-provider';
+import { RatingTokens, type RatingSize } from '@/constants/rating-tokens';
 import { Radii, Spacing, Theme } from '@/constants/theme';
+import { ratingValueText } from '@/lib/rating';
 
 const SCREEN_STATES = ['content', 'loading', 'empty', 'error'] as const;
 type ScreenState = (typeof SCREEN_STATES)[number];
 
 // UI-3 additions to the components preview: Screen, ScreenHeader, Pill,
-// ConfirmDialog, DateField and Toggle. UI-4 added TabBar.
+// ConfirmDialog, DateField and Toggle. UI-4 added TabBar, RATE-2 StarRating.
 export function PrimitivesPreview() {
   const { showToast } = useToast();
   const [screenState, setScreenState] = useState<ScreenState>('content');
@@ -27,6 +30,7 @@ export function PrimitivesPreview() {
   const [end, setEnd] = useState<string | null>('2026-10-06');
   const [toggle, setToggle] = useState(true);
   const [tab, setTab] = useState<'trips' | 'posts' | 'places'>('trips');
+  const [rating, setRating] = useState<number | null>(3);
 
   return (
     <View style={styles.section}>
@@ -108,6 +112,24 @@ export function PrimitivesPreview() {
         <AppText variant="label">{toggle ? 'On' : 'Off'}</AppText>
       </View>
 
+      <AppText variant="supporting">Star rating</AppText>
+      <View style={styles.ratings}>
+        <StarRating value={5} />
+        <StarRating value={4.3} count={12} showLabel />
+        <StarRating value={3.5} showLabel />
+        <StarRating value={null} />
+        {(Object.keys(RatingTokens.sizes) as RatingSize[]).map((size) => (
+          <View key={size} style={styles.ratingSize}>
+            <AppText variant="label">{size}</AppText>
+            <StarRating value={4.3} count={12} showLabel size={size} />
+          </View>
+        ))}
+      </View>
+      <StarRating value={rating} onChange={setRating} accessibilityLabel="Preview rating" />
+      <AppText variant="caption" color="placeholderGray">
+        {ratingValueText(rating)} · tap the same star to clear
+      </AppText>
+
       <AppText variant="supporting">Confirm dialog</AppText>
       <Button title="Delete trip" onPress={() => setConfirming(true)} />
       <ConfirmDialog
@@ -128,6 +150,8 @@ export function PrimitivesPreview() {
 const styles = StyleSheet.create({
   section: { width: '100%', maxWidth: 361, gap: Spacing.three, alignItems: 'center' },
   full: { width: '100%' },
+  ratings: { gap: Spacing.two, alignItems: 'flex-start' },
+  ratingSize: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   row: { width: '100%', flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: Spacing.two },
   frame: {
     width: '100%',

@@ -8,6 +8,7 @@ import { createPost } from '@/api/posts';
 import { toLocationFields } from '@/components/location/location-picker';
 import { uploadPhoto } from '@/lib/media/upload-photo';
 import { deleteDraft, saveDraft, type PostDraft } from '@/lib/post-drafts';
+import { canRate } from '@/lib/rating';
 import { RETRY_DELAYS_MS } from '@/lib/retry';
 
 // current: 1-based photo being uploaded. fraction: 0 to 1, for that photo.
@@ -82,6 +83,8 @@ export async function submitPostDraft(
         visitedOn: draft.visitedOn,
         caption: draft.caption.trim() || null,
         ...toLocationFields(draft.location!),
+        // Custom locations can't be rated (RATE-1), so never send one with them
+        ...(draft.rating != null && canRate(draft.location) ? { rating: draft.rating } : {}),
         media: draft.photos.map((p) => ({
           s3Key: p.s3Key!,
           mediaType: 'image' as const,

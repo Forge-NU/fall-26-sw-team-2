@@ -13,7 +13,7 @@ Import components from `@/components/content/<file-name>`.
 | Component | Main props / usage |
 | --- | --- |
 | `TripCard` | `trip`, optional `posts` or `dayPreviews`; featured day with scrollable day thumbnails. Supports draft/published status and navigation, share and add-place callbacks. |
-| `PostCard` | `post`, optional `stats`, `onPress`, `onUserPress` and `onShare`. Shows photos, location, caption and date. |
+| `PostCard` | `post`, optional `stats`, `onPress`, `onUserPress` and `onShare`. Shows photos, location, rating, caption and date. |
 | `MediaCarousel` | `items`: image media. Supports swiping, arrows, page count and empty/failed-image fallbacks. Single photos hide paging controls. |
 | `UserRow` | `user`, optional `subtitle`, `verified`, `onPress` and button `action`. |
 | `StatRow` | `items`: counts with labels, optional icons, selection state and callbacks. |
