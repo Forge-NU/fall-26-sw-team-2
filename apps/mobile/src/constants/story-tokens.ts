@@ -12,4 +12,13 @@ export const StoryTokens = {
     lineHeight: 28,
     placeholder: 'rgba(255,252,250,0.7)',
   },
+  // The full-screen viewer (#25 STORY-3): dark bands behind the header and
+  // caption, and the chips and progress bars over the photo
+  viewer: {
+    headerScrim: 'rgba(0,0,0,0.25)',
+    captionScrim: 'rgba(0,0,0,0.35)',
+    progressTrack: 'rgba(255,255,255,0.35)',
+    chip: 'rgba(0,0,0,0.45)',
+    textShadow: 'rgba(0,0,0,0.5)',
+  },
 } as const;

@@ -11,6 +11,8 @@ export const queryKeys = {
   profile: (userId: string) => ['users', userId, 'profile'] as const,
   followStatus: (userId: string) => ['users', userId, 'follow-status'] as const,
   followList: (userId: string, list: 'followers' | 'following') => ['users', userId, list] as const,
+  storiesFeed: ['stories', 'feed'] as const,
+  tripStories: (tripId: string) => ['trips', tripId, 'stories'] as const,
   // One search: the "All" preview or one type's pages, for the text and the
   // filters that apply (as JSON). Follows update the cached people searches
   // and previews (useFollow).

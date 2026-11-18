@@ -12,6 +12,8 @@ export type ConfirmDialogProps = {
   confirmLabel: string;
   cancelLabel?: string;
   loading?: boolean;
+  /** Fills the confirm button, for actions that delete something for good */
+  destructive?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 };
@@ -24,6 +26,7 @@ export function ConfirmDialog({
   confirmLabel,
   cancelLabel = 'Cancel',
   loading = false,
+  destructive = false,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -41,7 +44,13 @@ export function ConfirmDialog({
             {message}
           </AppText>
           <View style={styles.actions}>
-            <Button title={confirmLabel} loading={loading} onPress={onConfirm} style={styles.button} />
+            <Button
+              title={confirmLabel}
+              loading={loading}
+              filled={destructive}
+              onPress={onConfirm}
+              style={styles.button}
+            />
             <Button
               title={cancelLabel}
               variant="teal"
