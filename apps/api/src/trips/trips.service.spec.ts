@@ -474,7 +474,8 @@ describe('TripsService', () => {
       prisma.user.findUnique.mockResolvedValue({ id: owner.id });
       prisma.trip.findMany.mockResolvedValue([]);
       const startDate = parseDateOnly('2026-10-12');
-      const cursor = encodeCursor(`trips:${owner.id}`, [startDate, 'b']);
+      const lastId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+      const cursor = encodeCursor(`trips:${owner.id}`, [startDate, lastId]);
 
       await service.listForUser(owner.id, owner.id, { cursor });
 
@@ -484,12 +485,24 @@ describe('TripsService', () => {
             ownerId: owner.id,
             OR: [
               { startDate: { lt: startDate } },
-              { startDate, id: { lt: 'b' } },
+              { startDate, id: { lt: lastId } },
             ],
           },
           orderBy: [{ startDate: 'desc' }, { id: 'desc' }],
         }),
       );
+    });
+
+    it('rejects a cursor whose trip ID is not a UUID', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: owner.id });
+      const cursor = encodeCursor(`trips:${owner.id}`, [
+        parseDateOnly('2026-10-12'),
+        'not-a-uuid',
+      ]);
+      await expect(
+        service.listForUser(owner.id, owner.id, { cursor }),
+      ).rejects.toThrow('Invalid cursor');
+      expect(prisma.trip.findMany).not.toHaveBeenCalled();
     });
 
     it("rejects a cursor from another user's trips", async () => {
@@ -561,7 +574,8 @@ describe('TripsService', () => {
 
     it('starts after the cursor and returns the next one', async () => {
       const savedAt = new Date('2026-10-20T12:00:00Z');
-      const cursor = encodeCursor('saved-trips:user_saver', [savedAt, 'a']);
+      const lastId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+      const cursor = encodeCursor('saved-trips:user_saver', [savedAt, lastId]);
       prisma.tripSave.findMany.mockResolvedValue([
         { tripId: 'b', createdAt: savedAt, trip: makeTrip({ id: 'b' }) },
         { tripId: 'c', createdAt: savedAt, trip: makeTrip({ id: 'c' }) },
@@ -574,7 +588,7 @@ describe('TripsService', () => {
       ];
       expect(args.where.OR).toEqual([
         { createdAt: { lt: savedAt } },
-        { createdAt: savedAt, tripId: { lt: 'a' } },
+        { createdAt: savedAt, tripId: { lt: lastId } },
       ]);
       expect(args.orderBy).toEqual([{ createdAt: 'desc' }, { tripId: 'desc' }]);
       expect(args.take).toBe(2);
@@ -585,6 +599,17 @@ describe('TripsService', () => {
           'string',
         ]),
       ).toEqual([savedAt, 'b']);
+    });
+
+    it('rejects a cursor whose trip ID is not a UUID', async () => {
+      const cursor = encodeCursor('saved-trips:user_saver', [
+        new Date('2026-10-20T12:00:00Z'),
+        'not-a-uuid',
+      ]);
+      await expect(service.listSaved('user_saver', { cursor })).rejects.toThrow(
+        'Invalid cursor',
+      );
+      expect(prisma.tripSave.findMany).not.toHaveBeenCalled();
     });
 
     it("rejects a cursor from someone else's list", async () => {

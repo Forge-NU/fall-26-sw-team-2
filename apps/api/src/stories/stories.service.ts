@@ -52,7 +52,7 @@ const TRIP_STORIES = keyset<
 >([
   { field: 'storyDate', direction: 'asc', type: 'date' },
   { field: 'createdAt', direction: 'asc', type: 'date' },
-  { field: 'id', direction: 'asc', type: 'string' },
+  { field: 'id', direction: 'asc', type: 'uuid' },
 ]);
 
 // The feed pages through users, ordered by (latest story, owner id), both
