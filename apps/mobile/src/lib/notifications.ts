@@ -57,6 +57,15 @@ export function notificationTripId(n: NotificationResponse): string | null {
   return n.invite?.status === 'accepted' ? n.trip.id : null;
 }
 
+/**
+ * Whether the inbox list has finished a fetch since the screen opened. A
+ * cached list from an earlier visit doesn't count: it refetches on open, and
+ * marking read before that lands would hide which rows are new.
+ */
+export function loadedSinceOpen(openedAt: number, list: { dataUpdatedAt: number; isFetching: boolean }): boolean {
+  return !list.isFetching && list.dataUpdatedAt >= openedAt;
+}
+
 /** Sets one invite's status in every loaded page, for the optimistic Accept / Decline. */
 export function setInviteStatus(
   data: NotificationPages | undefined,

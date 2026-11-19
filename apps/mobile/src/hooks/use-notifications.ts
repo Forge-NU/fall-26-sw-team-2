@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import type { NotificationResponse, UnreadCountResponse } from 'shared-types';
 
@@ -17,6 +17,7 @@ import { useCurrentUser } from '@/lib/current-user';
 import {
   conflictMessage,
   findInviteStatus,
+  loadedSinceOpen,
   setInviteStatus,
   type NotificationPages,
 } from '@/lib/notifications';
@@ -49,10 +50,12 @@ export function useNotifications() {
 }
 
 /**
- * Marks everything as read when the inbox opens, and clears the badge right
- * away. Leaving the inbox refetches the count, and the list on the next open.
+ * Marks everything as read once the inbox has loaded, and clears the badge
+ * then. Waiting for the list keeps rows that were unread showing as unread on
+ * this visit; marking at the same time as the fetch could return them already
+ * read. Leaving the inbox refetches the count, and the list on the next open.
  */
-export function useMarkAllReadOnOpen() {
+export function useMarkAllReadOnOpen(list: { dataUpdatedAt: number; isFetching: boolean }) {
   const queryClient = useQueryClient();
   const { mutate } = useMutation({
     meta: { toast: false },
@@ -65,13 +68,22 @@ export function useMarkAllReadOnOpen() {
     onError: () => void queryClient.invalidateQueries({ queryKey: queryKeys.unreadNotifications, exact: true }),
   });
 
+  const [openedAt] = useState(Date.now);
+  const marked = useRef(false);
+  const loaded = loadedSinceOpen(openedAt, list);
   useEffect(() => {
+    if (!loaded || marked.current) return;
+    marked.current = true;
     mutate();
-    return () => {
+  }, [loaded, mutate]);
+
+  useEffect(
+    () => () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.unreadNotifications, exact: true });
       void queryClient.invalidateQueries({ queryKey: queryKeys.notifications, exact: true });
-    };
-  }, [mutate, queryClient]);
+    },
+    [queryClient],
+  );
 
   /** Marks rows that arrived since the inbox opened, e.g. after a pull to refresh */
   return () => mutate();

@@ -21,6 +21,7 @@ import {
   notificationParts,
   notificationTripId,
   setInviteStatus,
+  loadedSinceOpen,
 } from '../src/lib/notifications.ts';
 import { todayLocalIso } from '../src/utils/local-date.ts';
 
@@ -148,4 +149,16 @@ test('the Porto invite gets cancelled when you answer it, to show the cancelled 
 test("other people's trips stay out of your active trips", async () => {
   const { items } = await mockGetActiveTrips(todayLocalIso());
   assert.ok(items.every((t) => t.owner.id === 'user_mock'));
+});
+
+test('the inbox marks read only after a fetch that finished since it opened', () => {
+  const openedAt = 1_000;
+  // A cached list from an earlier visit, still refetching
+  assert.equal(loadedSinceOpen(openedAt, { dataUpdatedAt: 500, isFetching: true }), false);
+  // The cached list, before its refetch starts
+  assert.equal(loadedSinceOpen(openedAt, { dataUpdatedAt: 500, isFetching: false }), false);
+  // First load in flight
+  assert.equal(loadedSinceOpen(openedAt, { dataUpdatedAt: 0, isFetching: true }), false);
+  // This visit's fetch landed
+  assert.equal(loadedSinceOpen(openedAt, { dataUpdatedAt: 1_200, isFetching: false }), true);
 });

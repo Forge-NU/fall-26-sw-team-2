@@ -13,8 +13,8 @@ import { isShownNotification } from '@/lib/notifications';
 // The inbox behind the header's bell (#137 NOTIF-2). Opening it marks
 // everything as read (#129 DOC-3).
 export default function NotificationsScreen() {
-  const markAllRead = useMarkAllReadOnOpen();
   const list = useNotifications();
+  const markAllRead = useMarkAllReadOnOpen(list);
   const rows = list.items.filter(isShownNotification);
 
   const openTrip = (id: string) => router.push({ pathname: '/trips/[id]', params: { id } });
