@@ -168,7 +168,7 @@ Stories kept on a trip, including ones that have expired, ordered by `storyDate`
 
 `SKIP LOCKED` means two runs at once never pick the same rows, so an overlapping schedule is safe.
 
-The same run then calls `StoriesCleanupService.deleteUnusedPins()`, which deletes dropped pins (#94 LOC-2) over 24 hours old that no post or story uses, in batches of 1,000 with `FOR UPDATE SKIP LOCKED`. These are pins from a composer that was abandoned. A pin on an expired story is already gone by then, deleted with the story by the trigger. Pins have no S3 objects.
+The same run then calls `StoriesCleanupService.deleteUnusedPins()`, which deletes dropped pins (#94 LOC-2) over 24 hours old that no post or story uses, in batches of 1,000: each batch locks its pins with `FOR UPDATE SKIP LOCKED`, then deletes them in a second statement that checks again that nothing uses them, so a pin attached just before the lock is kept. These are pins from a composer that was abandoned. A pin on an expired story is already gone by then, deleted with the story by the trigger. Pins have no S3 objects.
 
 ### Running it
 
