@@ -1,13 +1,15 @@
+import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScrollView, Share, StyleSheet, View } from 'react-native';
 
-import { AppText } from '@/components/ui/app-text';
-import { ItineraryCard } from '@/components/feed/itinerary-card';
+import { TripCard } from '@/components/content/trip-card';
 import { StoriesRow } from '@/components/feed/stories-row';
+import { Screen } from '@/components/ui/screen';
+import { TabBar } from '@/components/ui/tab-bar';
 import { YujiHeader } from '@/components/yuji-header';
-import { Palette, Spacing } from '@/constants/theme';
-import { FeedTab, Itineraries } from '@/data/mock';
+import { BottomTabInset, Spacing } from '@/constants/theme';
+import { feedTrips, type FeedTrip } from '@/data/feed-trips';
+import type { FeedTab } from '@/data/mock';
 
 const FeedTabs: { key: FeedTab; label: string }[] = [
   { key: 'local', label: 'Local' },
@@ -17,73 +19,66 @@ const FeedTabs: { key: FeedTab; label: string }[] = [
 
 export default function FeedScreen() {
   const [activeTab, setActiveTab] = useState<FeedTab>('fyp');
-  const itineraries = Itineraries.filter((itinerary) => itinerary.feeds.includes(activeTab));
+  const cards = feedTrips(activeTab);
 
   return (
-    <SafeAreaView edges={['top']} style={styles.screen}>
-      <YujiHeader />
-      <ScrollView stickyHeaderIndices={[0]} showsVerticalScrollIndicator={false}>
-        {/* Sticky headers get their style replaced on native, so the row lives one level down. */}
+    <Screen
+      edges={['top']}
+      gutters={false}
+      header={
         <View>
-          <View style={styles.tabs} accessibilityRole="tablist">
-            {FeedTabs.map((tab) => {
-              const active = tab.key === activeTab;
-              return (
-                <Pressable
-                  key={tab.key}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: active }}
-                  onPress={() => setActiveTab(tab.key)}
-                  style={styles.tab}>
-                  <AppText variant="label" color={active ? 'black' : 'placeholderGray'}>
-                    {tab.label}
-                  </AppText>
-                  {active && <View style={styles.tabIndicator} />}
-                </Pressable>
-              );
-            })}
+          <YujiHeader />
+          <View style={styles.gutter}>
+            <TabBar items={FeedTabs} value={activeTab} onChange={setActiveTab} />
           </View>
         </View>
-
+      }>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <StoriesRow />
-
         <View style={styles.stream}>
-          {itineraries.map((itinerary) => (
-            <ItineraryCard key={itinerary.id} itinerary={itinerary} />
+          {cards.map((card) => (
+            <FeedCard key={card.trip.id} card={card} />
           ))}
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
+  );
+}
+
+function FeedCard({ card }: { card: FeedTrip }) {
+  const { trip } = card;
+  const openDay = (day: number) =>
+    router.push({ pathname: '/itinerary/[id]', params: { id: trip.id, day: String(day) } });
+
+  return (
+    <TripCard
+      trip={trip}
+      dayPreviews={card.dayPreviews}
+      meta={card.meta}
+      verified={card.verified}
+      stops={card.stops}
+      // Counts only: the mock trips have no real ids to save. FEED-2 (#27)
+      // switches this to tripStats(trip) with the real feed.
+      stats={[{ key: 'saves', label: 'saves', icon: 'bookmark', count: trip.saveCount }]}
+      caption={card.caption}
+      lovedBy={card.lovedBy}
+      onPress={() => openDay(1)}
+      onDaySelect={openDay}
+      onShare={() => void Share.share({ message: trip.title })}
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: Palette.warmWhite,
-  },
-  tabs: {
-    height: 48,
-    flexDirection: 'row',
+  gutter: {
     paddingHorizontal: Spacing.three,
-    borderBottomWidth: 1,
-    borderBottomColor: Palette.lightPink,
-    backgroundColor: Palette.warmWhite,
   },
-  tab: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tabIndicator: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 3,
-    backgroundColor: Palette.teal,
+  content: {
+    gap: Spacing.three,
+    paddingBottom: BottomTabInset + Spacing.four,
   },
   stream: {
-    gap: 8,
+    gap: Spacing.three,
+    paddingHorizontal: Spacing.three,
   },
 });

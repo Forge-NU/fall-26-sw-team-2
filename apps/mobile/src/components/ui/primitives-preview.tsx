@@ -9,6 +9,7 @@ import { IconButton } from '@/components/ui/icon-button';
 import { Pill } from '@/components/ui/pill';
 import { Screen } from '@/components/ui/screen';
 import { ScreenHeader } from '@/components/ui/screen-header';
+import { TabBar } from '@/components/ui/tab-bar';
 import { Toggle } from '@/components/ui/toggle';
 import { useToast } from '@/components/ui/toast-provider';
 import { Radii, Spacing, Theme } from '@/constants/theme';
@@ -17,7 +18,7 @@ const SCREEN_STATES = ['content', 'loading', 'empty', 'error'] as const;
 type ScreenState = (typeof SCREEN_STATES)[number];
 
 // UI-3 additions to the components preview: Screen, ScreenHeader, Pill,
-// ConfirmDialog, DateField and Toggle
+// ConfirmDialog, DateField and Toggle. UI-4 added TabBar.
 export function PrimitivesPreview() {
   const { showToast } = useToast();
   const [screenState, setScreenState] = useState<ScreenState>('content');
@@ -25,6 +26,7 @@ export function PrimitivesPreview() {
   const [start, setStart] = useState<string | null>(null);
   const [end, setEnd] = useState<string | null>('2026-10-06');
   const [toggle, setToggle] = useState(true);
+  const [tab, setTab] = useState<'trips' | 'posts' | 'places'>('trips');
 
   return (
     <View style={styles.section}>
@@ -66,6 +68,19 @@ export function PrimitivesPreview() {
             Loading wins over error, and error over empty.
           </AppText>
         </Screen>
+      </View>
+
+      <AppText variant="supporting">Tab bar</AppText>
+      <View style={styles.full}>
+        <TabBar
+          items={[
+            { key: 'trips', label: 'Trips' },
+            { key: 'posts', label: 'Posts' },
+            { key: 'places', label: 'Places' },
+          ]}
+          value={tab}
+          onChange={setTab}
+        />
       </View>
 
       <AppText variant="supporting">Pills</AppText>
@@ -112,6 +127,7 @@ export function PrimitivesPreview() {
 
 const styles = StyleSheet.create({
   section: { width: '100%', maxWidth: 361, gap: Spacing.three, alignItems: 'center' },
+  full: { width: '100%' },
   row: { width: '100%', flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: Spacing.two },
   frame: {
     width: '100%',

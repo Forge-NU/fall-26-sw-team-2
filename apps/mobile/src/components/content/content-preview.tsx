@@ -10,6 +10,7 @@ import { UserRow } from "./user-row";
 import { StatRow } from "./stat-row";
 import { TripCard } from "./trip-card";
 import { PostCard } from "./post-card";
+import { PostGridSkeleton, PostTile } from "./post-tile";
 import { MediaCarousel, type Photo } from "./media-carousel";
 import { contentStyles } from "./content-styles";
 
@@ -271,6 +272,12 @@ export function ContentPreview() {
           },
         ]}
       />
+      <AppText variant="supporting">PostTile · photo, no photo, loading</AppText>
+      <View style={contentStyles.cardHeader}>
+        <PostTile post={post} size={120} onPress={notify("Belém tile selected.")} />
+        <PostTile post={{ ...post, id: "preview-no-photo", media: [] }} size={120} />
+      </View>
+      <PostGridSkeleton size={120} rows={1} />
       <AppText variant="supporting">Carousel · 1 photo</AppText>
       <MediaCarousel items={photos.slice(0, 1)} />
       <AppText variant="supporting">

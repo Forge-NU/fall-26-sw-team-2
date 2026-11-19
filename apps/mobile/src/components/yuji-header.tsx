@@ -3,13 +3,18 @@ import { StyleSheet, View } from 'react-native';
 
 import { NotificationBell } from '@/components/notifications/notification-bell';
 import { AppText } from '@/components/ui/app-text';
-import { Radii, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 
-export function YujiLogo({ size = 40 }: { size?: number }) {
+// Width ÷ height of the "yuji" wordmark (Figma: Main Design File › Logo v2)
+export const WORDMARK_ASPECT_RATIO = 1.218;
+
+// The black "yuji" wordmark; `size` is its height
+export function YujiLogo({ size = 26 }: { size?: number }) {
   return (
     <Image
-      source={require('@/assets/images/yuji/logo.png')}
-      style={[styles.logo, { width: size, height: size }]}
+      source={require('@/assets/images/yuji/wordmark.png')}
+      style={{ width: size * WORDMARK_ASPECT_RATIO, height: size }}
+      contentFit="contain"
       accessibilityLabel="Yuji"
     />
   );
@@ -18,14 +23,9 @@ export function YujiLogo({ size = 40 }: { size?: number }) {
 export function YujiHeader() {
   return (
     <View style={styles.header}>
-      <View style={styles.brand}>
+      <View>
         <YujiLogo />
-        <View>
-          <AppText variant="heading">
-            YUJI
-          </AppText>
-          <AppText variant="caption">GO SOMEWHERE</AppText>
-        </View>
+        <AppText variant="caption">GO SOMEWHERE</AppText>
       </View>
       <View style={styles.actions}>
         {/* The Leaderboard button goes here once leaderboards exist */}
@@ -36,20 +36,12 @@ export function YujiHeader() {
 }
 
 const styles = StyleSheet.create({
-  logo: {
-    borderRadius: Radii.medium,
-  },
   header: {
     height: 60,
     paddingHorizontal: Spacing.three,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  brand: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
   },
   // Lines the bell up with the gutter instead of the button's padding, like ScreenHeader
   actions: {
