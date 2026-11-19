@@ -13,6 +13,7 @@ import {
 } from '@/api/notifications';
 import { queryKeys } from '@/api/query-keys';
 import { useInfiniteList } from '@/hooks/use-infinite-list';
+import { useCurrentUser } from '@/lib/current-user';
 import {
   conflictMessage,
   findInviteStatus,
@@ -86,6 +87,7 @@ export type InviteAnswer = 'accepted' | 'declined';
  */
 export function useAnswerInvite() {
   const queryClient = useQueryClient();
+  const user = useCurrentUser();
   const key = queryKeys.notifications;
   return useMutation({
     meta: { toast: false },
@@ -108,8 +110,14 @@ export function useAnswerInvite() {
       showToast({ message: getErrorMessage(error), variant: 'error' });
     },
     onSuccess: (_invite, { answer }) => {
-      // You're on a new trip, so its page and your trip lists change
-      if (answer === 'accepted') void queryClient.invalidateQueries({ queryKey: ['trips'] });
+      if (answer !== 'accepted') return;
+      // You're on a new trip, so its page changes (['trips'] covers every trip
+      // and its posts), and it joins your trip lists: the profile grid and the
+      // post composer's picker (userTrips covers both), and the story
+      // composer's active trips. Same lists as creating a trip (use-trips.ts).
+      void queryClient.invalidateQueries({ queryKey: ['trips'] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.userTrips(user.id) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.activeTrips });
     },
   });
 }
