@@ -1,12 +1,15 @@
 import { Injectable } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import type { Location as LocationRow } from '../generated/prisma/client';
 import type {
+  LocationProvider,
   LocationResponse,
   ResolveLocationRequest,
   ResolveLocationResponse,
 } from 'shared-types';
+import { CUSTOM_PROVIDER } from './custom-locations';
 import { toLocationRating } from './location-ratings';
 
 const PROVIDER = 'mapbox';
@@ -15,10 +18,30 @@ const PROVIDER = 'mapbox';
 export class LocationsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async resolve(req: ResolveLocationRequest): Promise<ResolveLocationResponse> {
+  async resolve(
+    userId: string,
+    req: ResolveLocationRequest,
+  ): Promise<ResolveLocationResponse> {
     if (req.kind === 'custom') {
       // Custom names are stored on the post, not as a locations row (DOC-1)
       return { kind: 'custom', name: req.name };
+    }
+
+    if (req.kind === 'pin') {
+      // Always a new row: two people's "secret beach" aren't the same place,
+      // and a pin belongs to the one post or story it goes on. Rows nobody
+      // attaches are deleted by the cleanup job (custom-locations.ts).
+      const row = await this.prisma.location.create({
+        data: {
+          provider: CUSTOM_PROVIDER,
+          providerPlaceId: randomUUID(),
+          name: req.name,
+          latitude: req.latitude,
+          longitude: req.longitude,
+          createdBy: userId,
+        },
+      });
+      return { kind: 'pin', location: toLocation(row) };
     }
 
     const where = {
@@ -65,10 +88,11 @@ export class LocationsService {
 }
 
 // The one LocationResponse shape, used by resolve, posts and stories.
+// created_by stays private.
 export function toLocation(row: LocationRow): LocationResponse {
   return {
     id: row.id,
-    provider: PROVIDER,
+    provider: row.provider as LocationProvider,
     providerPlaceId: row.providerPlaceId,
     name: row.name,
     address: row.address,

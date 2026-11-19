@@ -19,10 +19,12 @@ import { Trim } from '../../common/trim';
 import { CharLength } from '../../common/char-length';
 import { MediaItemDto } from './media-item.dto';
 
-// Every field is optional. Only caption and rating can be cleared with null.
-// Sending locationId or customLocationName replaces the other, and switching
-// to a customLocationName clears the rating (custom locations can't be rated).
-// `media` replaces the whole list.
+// Every field is optional. Caption and rating can be cleared with null.
+// Sending locationId or customLocationName replaces the other, and sending
+// both as null removes the location (#143 POST-4). Switching to a
+// customLocationName or to no location clears the rating, since neither can
+// be rated. The service checks the location combinations, since they depend
+// on both fields. `media` replaces the whole list.
 export class UpdatePostDto {
   @ValidateIf((_, value) => value !== undefined)
   @Matches(DATE_ONLY, { message: 'visitedOn must be YYYY-MM-DD' })
@@ -34,15 +36,15 @@ export class UpdatePostDto {
   @CharLength(0, 2200)
   caption?: string | null;
 
-  @ValidateIf((_, value) => value !== undefined)
+  @IsOptional()
   @IsUUID('all')
-  locationId?: string;
+  locationId?: string | null;
 
-  @ValidateIf((_, value) => value !== undefined)
+  @IsOptional()
   @Trim()
   @IsString()
   @CharLength(1, 100)
-  customLocationName?: string;
+  customLocationName?: string | null;
 
   // 1-5 stars for the place; null clears it
   @IsOptional()

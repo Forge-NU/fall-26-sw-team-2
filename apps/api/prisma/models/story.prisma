@@ -9,6 +9,8 @@
 // Check constraints (added in the migration):
 // - keep_on_trip requires trip_id
 // - at most one of location_id and custom_location_name is set
+// location_id can point at a custom pin (#94 LOC-2), which only this story
+// uses. A trigger deletes the pin with the story (see location.prisma).
 model Story {
   id                 String   @id @default(uuid()) @db.Uuid
   ownerId            String   @map("owner_id")

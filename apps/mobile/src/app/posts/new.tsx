@@ -118,9 +118,9 @@ export default function NewPostScreen() {
   };
 
   const submit = async () => {
-    const nextErrors = validatePostForm({ trip, photoCount: photos.length, location, caption });
+    const nextErrors = validatePostForm({ trip, photoCount: photos.length, caption });
     setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0 || !trip || !day || !location) return;
+    if (Object.keys(nextErrors).length > 0 || !trip || !day) return;
 
     setFailedDraft(null);
     const result = await submitPostDraft(
@@ -246,15 +246,9 @@ export default function NewPostScreen() {
             />
           </Section>
 
-          <Section label="Location" error={errors.location}>
-            <LocationPicker
-              label=""
-              value={location}
-              onChange={(next) => {
-                setLocation(next);
-                if (next) setErrors(({ location: _location, ...rest }) => rest);
-              }}
-            />
+          {/* Optional (#143 POST-4): a post can have no location */}
+          <Section label="Location (optional)">
+            <LocationPicker label="" trip={trip} value={location} onChange={setLocation} />
           </Section>
 
           <Section

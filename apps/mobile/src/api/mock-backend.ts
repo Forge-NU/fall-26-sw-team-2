@@ -17,6 +17,7 @@ import type {
   StoryResponse,
   TripResponse,
   TripStoriesResponse,
+  UpdatePostRequest,
   UserSummary,
   UpdateTripRequest,
 } from 'shared-types';
@@ -355,20 +356,19 @@ export async function mockCreatePost(body: CreatePostRequest): Promise<PostRespo
   if (!isDateWithin(body.visitedOn, trip.startDate, trip.endDate)) {
     mockError(400, "visitedOn must be within the trip's dates");
   }
-  if (Boolean(body.locationId) === Boolean(body.customLocationName)) {
-    mockError(400, 'Exactly one of locationId and customLocationName is required');
+  // Like the API (#143 POST-4): the location is optional, but not both kinds
+  if (body.locationId != null && body.customLocationName != null) {
+    mockError(400, 'Send at most one of locationId and customLocationName');
   }
-  if (body.rating != null && body.customLocationName) {
-    mockError(400, 'Only posts at a Mapbox place can be rated, not a custom location');
-  }
-  if (body.rating != null && (!Number.isInteger(body.rating) || body.rating < 1 || body.rating > 5)) {
-    mockError(400, 'rating must be a whole number from 1 to 5');
-  }
+  assertCustomName(body.customLocationName);
+  if (body.rating != null && body.locationId == null) mockCantRate(body.customLocationName);
+  assertRating(body.rating);
   if (body.caption && textLength(body.caption) > 2200) {
     mockError(400, 'caption must be at most 2200 characters');
   }
   const location = body.locationId ? resolvedLocations.get(body.locationId) : undefined;
   if (body.locationId && !location) mockError(400, 'Location not found');
+  if (location) assertPinUnused(location);
 
   const now = new Date().toISOString();
   const post: PostResponse = {
@@ -402,6 +402,94 @@ export async function mockCreatePost(body: CreatePostRequest): Promise<PostRespo
   return post;
 }
 
+// The API's location and rating rules for posts (#143 POST-4)
+function assertCustomName(name: string | null | undefined) {
+  if (name == null) return;
+  const trimmed = name.trim();
+  if (!trimmed || textLength(trimmed) > 100) mockError(400, 'customLocationName must be 1 to 100 characters');
+}
+
+function assertRating(rating: number | null | undefined) {
+  if (rating != null && (!Number.isInteger(rating) || rating < 1 || rating > 5)) {
+    mockError(400, 'rating must be a whole number from 1 to 5');
+  }
+}
+
+function mockCantRate(customLocationName: string | null | undefined): never {
+  mockError(
+    400,
+    customLocationName != null
+      ? "A post with only a custom location name can't be rated. Pick a place or drop a pin."
+      : "A post with no location can't be rated. Pick a place or drop a pin.",
+  );
+}
+
+// PATCH /api/posts/:id. Like the API: either location field replaces the
+// other, both null removes it (a lone null is a 400), and moving to a custom
+// name or no location clears the rating. A pin the post moved off is deleted,
+// like the API's trigger. The mock doesn't keep place rating totals.
+export async function mockUpdatePost(id: string, body: UpdatePostRequest): Promise<PostResponse> {
+  await mockDelay();
+  const post = posts.find((p) => p.id === id);
+  if (!post) mockError(404, 'Post not found');
+  const trip = findOwnTrip(post.tripId);
+
+  const { locationId, customLocationName } = body;
+  if (locationId != null && customLocationName != null) {
+    mockError(400, 'Send only one of locationId and customLocationName');
+  }
+  if ((locationId === null && customLocationName === undefined) || (customLocationName === null && locationId === undefined)) {
+    mockError(400, 'To remove the location, send both locationId and customLocationName as null');
+  }
+  assertCustomName(customLocationName);
+  assertRating(body.rating);
+  if (body.visitedOn !== undefined && !isDateWithin(body.visitedOn, trip.startDate, trip.endDate)) {
+    mockError(400, "visitedOn must be within the trip's dates");
+  }
+  if (body.caption && textLength(body.caption) > 2200) {
+    mockError(400, 'caption must be at most 2200 characters');
+  }
+  if (body.media && (body.media.length < 1 || body.media.length > 30)) {
+    mockError(400, 'media must contain 1 to 30 items');
+  }
+
+  const locationChanged = locationId !== undefined || customLocationName !== undefined;
+  const nextLocation = locationId ? resolvedLocations.get(locationId) : undefined;
+  if (locationId && !nextLocation) mockError(400, 'Location not found');
+  if (nextLocation && nextLocation.id !== post.location?.id) assertPinUnused(nextLocation);
+  const hasPlace = locationChanged ? nextLocation != null : post.location != null;
+  if (body.rating != null && !hasPlace) {
+    mockCantRate(locationChanged ? customLocationName : post.customLocationName);
+  }
+
+  const oldLocation = post.location;
+  if (body.visitedOn !== undefined) post.visitedOn = body.visitedOn;
+  if (body.caption !== undefined) post.caption = body.caption?.trim() || null;
+  if (locationChanged) {
+    post.location = nextLocation ?? null;
+    post.customLocationName = customLocationName?.trim() ?? null;
+  }
+  if (body.rating !== undefined) post.rating = body.rating;
+  if (!post.location) post.rating = null;
+  if (body.media) {
+    post.media = body.media.map((item, i) => ({
+      id: mockId('media'),
+      mediaType: item.mediaType,
+      url: `https://picsum.photos/id/${MOCK_UPLOAD_PHOTO_IDS[i % MOCK_UPLOAD_PHOTO_IDS.length]}/900/1200`,
+      width: item.width ?? null,
+      height: item.height ?? null,
+      durationMs: item.durationMs ?? null,
+    }));
+  }
+  post.updatedAt = new Date().toISOString();
+
+  if (oldLocation?.provider === 'custom' && oldLocation.id !== post.location?.id) {
+    resolvedLocations.delete(oldLocation.id);
+  }
+  refreshDerived(trip);
+  return { ...post };
+}
+
 // Places the mock search knows about, with what /retrieve would return
 const mockPlaces: (PlaceSuggestion & Extract<ResolveLocationRequest, { kind: 'mapbox' }>)[] = [
   { kind: 'mapbox', mapboxId: 'mock.pena-palace', name: 'Pena Palace', description: 'Sintra, Lisbon, Portugal', latitude: 38.787586, longitude: -9.390616, city: 'Sintra', region: 'Lisbon', countryCode: 'PT' },
@@ -431,8 +519,24 @@ export async function mockRetrievePlace(mapboxId: string): Promise<ResolveLocati
   return request;
 }
 
-// Keyed by providerPlaceId, so resolving the same place twice reuses the row
+// Keyed by id. A Mapbox place is looked up by providerPlaceId, so resolving
+// the same place twice reuses the row; a pin is always a new row.
 const resolvedLocations = new Map<string, LocationResponse>();
+
+// Like the API: a pin goes on one post or story
+function assertPinUnused(location: LocationResponse) {
+  if (location.provider !== 'custom') return;
+  const used = posts.some((p) => p.location?.id === location.id) || stories.some((s) => s.location?.id === location.id);
+  if (used) mockError(400, 'This pin is already on another post or story. Drop a new one.');
+}
+
+// A destination like "Lisbon, Portugal" matches the mock place named in it
+export async function mockGeocodePlace(text: string): Promise<{ latitude: number; longitude: number } | null> {
+  await mockDelay(150);
+  const needle = text.toLowerCase();
+  const place = mockPlaces.find((p) => needle.includes(p.name.toLowerCase()));
+  return place ? { latitude: place.latitude, longitude: place.longitude } : null;
+}
 
 export async function mockResolveLocation(body: ResolveLocationRequest): Promise<ResolveLocationResponse> {
   await mockDelay();
@@ -440,6 +544,24 @@ export async function mockResolveLocation(body: ResolveLocationRequest): Promise
   if (body.kind === 'custom') {
     if (!name || textLength(name) > 100) mockError(400, 'name must be 1 to 100 characters');
     return { kind: 'custom', name };
+  }
+  if (body.kind === 'pin') {
+    if (!name || textLength(name) > 100) mockError(400, 'name must be 1 to 100 characters');
+    const pin: LocationResponse = {
+      id: mockId('loc'),
+      provider: 'custom',
+      providerPlaceId: mockId('pin'),
+      name,
+      address: null,
+      latitude: body.latitude,
+      longitude: body.longitude,
+      city: null,
+      region: null,
+      countryCode: null,
+      rating: null,
+    };
+    resolvedLocations.set(pin.id, pin);
+    return { kind: 'pin', location: pin };
   }
   const existing = [...resolvedLocations.values()].find((l) => l.providerPlaceId === body.mapboxId);
   if (existing) return { kind: 'mapbox', location: existing };
@@ -475,6 +597,8 @@ export async function mockCreateStory(body: CreateStoryRequest): Promise<StoryRe
   if (trip && !isDateWithin(storyDate, trip.startDate, trip.endDate)) {
     mockError(400, "storyDate must be within the trip's dates");
   }
+  const storyLocation = body.locationId ? resolvedLocations.get(body.locationId) : undefined;
+  if (storyLocation) assertPinUnused(storyLocation);
   const createdAt = new Date();
   const story: StoryResponse = {
     id: mockId('story'),
@@ -482,7 +606,7 @@ export async function mockCreateStory(body: CreateStoryRequest): Promise<StoryRe
     tripId: body.tripId ?? null,
     trip: trip ? { id: trip.id, title: trip.title } : null,
     text: body.text || null,
-    location: (body.locationId && resolvedLocations.get(body.locationId)) || null,
+    location: storyLocation ?? null,
     customLocationName: body.customLocationName ?? null,
     // The mock upload has no real object behind the key, so show a stand-in photo
     imageUrl: `https://picsum.photos/id/${MOCK_UPLOAD_PHOTO_IDS[nextId % MOCK_UPLOAD_PHOTO_IDS.length]}/900/1600`,
