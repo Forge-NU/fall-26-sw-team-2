@@ -323,6 +323,8 @@ describe('Custom pins (e2e)', () => {
     it.each([
       ['a Mapbox place', () => ({ locationId: mapboxPlace.id })],
       ['a custom name', () => ({ customLocationName: `${token} renamed` })],
+      // #143 POST-4
+      ['no location', () => ({ locationId: null, customLocationName: null })],
     ])('deletes the pin when the post moves to %s', async (_label, change) => {
       const pin = await dropPin(owner);
       const post = await createPost(owner, published, {
@@ -480,6 +482,28 @@ describe('Custom pins (e2e)', () => {
       });
     });
 
+    // #143 POST-4: the rating goes, and so does the pin
+    it('removing the location of a rated pin post clears the rating and deletes the pin', async () => {
+      const pin = await dropPin(owner);
+      const post = await createPost(owner, published, {
+        locationId: pin.id,
+        rating: 5,
+      });
+
+      const res = await request(server())
+        .patch(`/api/posts/${post.id}`)
+        .set(as(owner))
+        .send({ locationId: null, customLocationName: null })
+        .expect(200);
+
+      expect(res.body).toMatchObject({
+        location: null,
+        customLocationName: null,
+        rating: null,
+      });
+      await expect(exists(pin.id)).resolves.toBe(false);
+    });
+
     it('still rejects a rating on a custom name', async () => {
       await request(server())
         .post('/api/posts')
@@ -499,10 +523,17 @@ describe('Custom pins (e2e)', () => {
     let pinTrip: Trip;
     let namePost: PostResponse;
     let nameTrip: Trip;
+    let nonePost: PostResponse;
+    let noneTrip: Trip;
 
     beforeAll(async () => {
       pinTrip = await createTrip(owner, 'published');
       nameTrip = await createTrip(owner, 'published');
+      noneTrip = await createTrip(owner, 'published');
+      // #143 POST-4: no location at all
+      nonePost = await createPost(owner, noneTrip, {
+        caption: `${token} swim`,
+      });
       const pin = await dropPin(owner, `${token} lagoon`);
       pinPost = await createPost(owner, pinTrip, {
         locationId: pin.id,
@@ -542,6 +573,17 @@ describe('Custom pins (e2e)', () => {
 
       expect(ids).toContain(pinTrip.id);
       expect(ids).not.toContain(nameTrip.id);
+      expect(ids).not.toContain(noneTrip.id);
+    });
+
+    it('finds a post with no location by caption, but never by radius or rating', async () => {
+      expect(await search({ type: 'posts' })).toContain(nonePost.id);
+      expect(await search({ type: 'posts', ...near })).not.toContain(
+        nonePost.id,
+      );
+      expect(await search({ type: 'posts', minRating: 1 })).not.toContain(
+        nonePost.id,
+      );
     });
 
     it('leaves pins out of place search', async () => {

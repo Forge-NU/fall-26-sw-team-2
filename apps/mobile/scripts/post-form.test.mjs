@@ -12,8 +12,6 @@ const trip = (overrides) => ({
   ...overrides,
 });
 
-const location = { kind: 'custom', name: "Tia Rosa's kitchen" };
-
 test('post day defaults to today inside the trip, otherwise the start date', () => {
   assert.equal(defaultVisitedOn(trip(), '2026-10-05'), '2026-10-05');
   assert.equal(defaultVisitedOn(trip(), '2026-10-20'), '2026-10-03');
@@ -35,18 +33,16 @@ test('suggested trip: active first, then a draft, then anything', () => {
   assert.equal(suggestTrip([], '2026-10-04'), null);
 });
 
-test('a post needs a trip, a photo and a location; caption is optional', () => {
-  assert.deepEqual(validatePostForm({ trip: trip(), photoCount: 1, location, caption: '' }), {});
-  const errors = validatePostForm({ trip: null, photoCount: 0, location: null, caption: '' });
-  assert.ok(errors.trip);
-  assert.ok(errors.photos);
-  assert.ok(errors.location);
+test('a post needs a trip and a photo; location (#143 POST-4) and caption are optional', () => {
+  assert.deepEqual(validatePostForm({ trip: trip(), photoCount: 1, caption: '' }), {});
+  const errors = validatePostForm({ trip: null, photoCount: 0, caption: '' });
+  assert.deepEqual(Object.keys(errors).sort(), ['photos', 'trip']);
 });
 
 test('photo and caption limits match DOC-1', () => {
-  assert.ok(validatePostForm({ trip: trip(), photoCount: 31, location, caption: '' }).photos);
-  assert.deepEqual(validatePostForm({ trip: trip(), photoCount: 30, location, caption: 'a'.repeat(2200) }), {});
-  assert.ok(validatePostForm({ trip: trip(), photoCount: 1, location, caption: 'a'.repeat(2201) }).caption);
+  assert.ok(validatePostForm({ trip: trip(), photoCount: 31, caption: '' }).photos);
+  assert.deepEqual(validatePostForm({ trip: trip(), photoCount: 30, caption: 'a'.repeat(2200) }), {});
+  assert.ok(validatePostForm({ trip: trip(), photoCount: 1, caption: 'a'.repeat(2201) }).caption);
   // ❤️ is 2 code points, like Postgres counts it
-  assert.ok(validatePostForm({ trip: trip(), photoCount: 1, location, caption: '❤️'.repeat(1101) }).caption);
+  assert.ok(validatePostForm({ trip: trip(), photoCount: 1, caption: '❤️'.repeat(1101) }).caption);
 });

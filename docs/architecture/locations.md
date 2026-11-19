@@ -19,13 +19,16 @@ Code: `apps/api/src/locations/`. Request and response types are in `apps/shared-
    - `locationId`: the `location.id` from a `mapbox` or `pin` result, or
    - `customLocationName`: the `name` from a `custom` result.
 
-Three kinds of location:
+   Or with neither. A location is optional on posts (#143 POST-4) and stories.
+
+Three kinds of location, or none:
 
 | Kind | Stored as | Coordinates | On the map and in radius search | Place search | Rated |
 |---|---|---|---|---|---|
 | Mapbox place | A shared `locations` row, `provider = 'mapbox'`. Two posts at the same place share it. | Yes | Yes | Yes | Yes, averaged over every post there |
 | Dropped pin | Its own `locations` row, `provider = 'custom'`, used by one post or story | Yes | Yes, labeled with the typed name | No | Yes, the one post's rating |
 | Custom name | `posts.custom_location_name` / `stories.custom_location_name`, no row | No | No | No | No |
+| No location | Both columns `NULL` | No | No | No | No |
 
 ## Dropped pins
 
@@ -33,12 +36,12 @@ Three kinds of location:
 
 - **Never merged.** Every pin is a new row with a generated `provider_place_id`, even at the same name and coordinates. Two people's "secret beach" aren't the same place.
 - **One owner, one use.** `locations.created_by` is the user who dropped it (null for Mapbox places). Only that user can attach it, and only to one post or story. Attaching someone else's pin, or a pin another post or story already uses, is a `400`. The check runs in the post or story transaction and locks the pin row `FOR UPDATE`, so two requests can't both take the same pin. Mapbox places aren't locked (`assertCanAttachLocation` in `apps/api/src/locations/custom-locations.ts`).
-- **Deleted with its post or story.** The `delete_unused_custom_location` trigger on `posts` and `stories` (migration `20261112120000_custom_location_pins`) deletes the pin, in the same transaction, once its post or story stops using it: deleted, deleted by a cascade (trip or account deleted), an expired story removed by the cleanup job, or a post edited to another location. A trigger rather than app code so the cascades that never reach the app are covered. It only deletes `provider = 'custom'` rows that nothing references, so Mapbox places are never deleted.
+- **Deleted with its post or story.** The `delete_unused_custom_location` trigger on `posts` and `stories` (migration `20261112120000_custom_location_pins`) deletes the pin, in the same transaction, once its post or story stops using it: deleted, deleted by a cascade (trip or account deleted), an expired story removed by the cleanup job, a post edited to another location, or a post with its location removed (#143 POST-4). A trigger rather than app code so the cascades that never reach the app are covered. It only deletes `provider = 'custom'` rows that nothing references, so Mapbox places are never deleted.
 - **Unused pins.** A pin is created when the user confirms it, before the post exists. If the composer is abandoned, the hourly stories cleanup job deletes pins over 24 hours old that no post or story uses (`StoriesCleanupService.deleteUnusedPins`). Account deletion deletes the user's unused pins right away. A post draft retried after its pin was cleaned up gets `Location not found`, and the app drops the same pin again and retries.
 - **Public.** A pin is as public as its post or story. The app shows "Anyone can see this pin." before Confirm.
 - **Search.** Post and trip radius filters (#93 SRCH-3) join `locations`, so they include pins. Place search (`type=places`) filters `provider <> 'custom'`, since a pin is a personal spot, not a shared place.
-- **Ratings.** A post with a pin has a `location_id`, so it can be rated (RATE-1), and the pin's `rating` is that post's. A post with only a custom name still can't be rated.
-- **Map (MAP-2, #46).** Not built yet. The viewport and location detail queries should treat pins like any other `locations` row: include `provider = 'custom'` rows, and label them with `name` (the typed name). A pin's location page only ever has its one post. Posts with only a custom name have no coordinates and stay off the map.
+- **Ratings.** A post with a pin has a `location_id`, so it can be rated (RATE-1), and the pin's `rating` is that post's. A post with only a custom name, or no location, still can't be rated.
+- **Map (MAP-2, #46).** Not built yet. The viewport and location detail queries should treat pins like any other `locations` row: include `provider = 'custom'` rows, and label them with `name` (the typed name). A pin's location page only ever has its one post. Posts with only a custom name, or no location, have no coordinates and stay off the map.
 
 ## `POST /api/locations/resolve`
 

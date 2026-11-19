@@ -96,7 +96,7 @@ erDiagram
 
 `users` is owned by #15. Only the fields this doc uses are shown.
 
-A trip is a dated itinerary made of posts. A post is media within a trip, with a caption, a date, and one location. Every post belongs to exactly one trip, and a post's author is always its trip's owner, so posts don't store an author.
+A trip is a dated itinerary made of posts. A post is media within a trip, with a caption, a date, and an optional location (#143 POST-4). Every post belongs to exactly one trip, and a post's author is always its trip's owner, so posts don't store an author.
 
 ## Data Model
 
@@ -156,11 +156,11 @@ status = 'draft' AND start_date <= today AND today <= end_date
 | `updated_at` | Timestamp | No | Current timestamp | | |
 
 Check constraints:
-- `posts_location_check`: exactly one of `location_id` and `custom_location_name` is set, `(location_id IS NULL) <> (custom_location_name IS NULL)`.
+- `posts_location_check`: at most one of `location_id` and `custom_location_name` is set, `NOT (location_id IS NOT NULL AND custom_location_name IS NOT NULL)`. Both null is a post with no location (#143 POST-4, migration `20261114120000_optional_post_location`). Until then it was exactly one.
 - `posts_rating_check`: `rating BETWEEN 1 AND 5`.
-- `posts_rating_location_check`: `rating IS NULL OR location_id IS NOT NULL`. A custom name has no place to average into, so it can't be rated. A dropped pin is a `locations` row, so it can.
+- `posts_rating_location_check`: `rating IS NULL OR location_id IS NOT NULL`. A custom name or no location has no place to average into, so it can't be rated. A dropped pin is a `locations` row, so it can.
 
-Trigger `posts_delete_unused_custom_location`: after a post is deleted or its `location_id` changes, deletes the old location if it's a dropped pin (`provider = 'custom'`) that no post or story uses any more. See [Dropped pins](locations.md#dropped-pins).
+Trigger `posts_delete_unused_custom_location`: after a post is deleted or its `location_id` changes (including to `NULL` when the location is removed), deletes the old location if it's a dropped pin (`provider = 'custom'`) that no post or story uses any more. See [Dropped pins](locations.md#dropped-pins).
 
 The database doesn't check that `visited_on` is within the trip's dates, because the trip's dates can change. The API checks it when a post is created or edited, and rejects a trip date change that would leave a post outside the new dates.
 
@@ -364,8 +364,8 @@ These are in `shared-types`: trips and posts in `content.ts`, `LocationResponse`
 }
 ```
 
-- Exactly one of `location` and `customLocationName` is set.
-- `rating` is this post's 1 to 5 star rating of its place. It's always `null` with a `customLocationName`.
+- At most one of `location` and `customLocationName` is set. Both are `null` for a post with no location.
+- `rating` is this post's 1 to 5 star rating of its place. It's always `null` with a `customLocationName` or no location.
 - `location.provider` is `mapbox` for a Mapbox place and `custom` for a dropped pin.
 - `media` is in carousel order.
 - Media URLs are presigned S3 GET URLs that expire after an hour. Locally, with no `S3_BUCKET_NAME` set, they point at `https://media.invalid/<key>`, which never loads.
@@ -467,7 +467,7 @@ Request:
 - `tripId`: required. Only the trip's owner can add posts to it.
 - `visitedOn`: required, within the trip's dates. The app fills it in with today if today is within the trip's dates, otherwise the trip's start date.
 - `caption`: optional, up to 2,200 characters.
-- Location: exactly one of `locationId` (an existing location row, from `POST /api/locations/resolve`) and `customLocationName` (1 to 100 characters).
+- Location: optional. At most one of `locationId` (an existing location row, from `POST /api/locations/resolve`) and `customLocationName` (1 to 100 characters). Leave both out for a post with no location.
 - `rating`: optional, a whole number from 1 to 5, and only with a `locationId`. It counts toward the place's rating once the trip is published.
 - `media`: 1 to 30 items, in carousel order. Each `s3Key` has to be one of the current user's post uploads (it starts with `users/{userId}/posts/`, the key scheme from #38), can't appear twice, and can't already belong to another post. `width` and `height` (1 to 20,000 px) and `durationMs` (up to 60,000) are optional.
 
@@ -476,7 +476,7 @@ The app only calls this after every upload has succeeded.
 Response `201`: `Post`.
 
 Errors:
-- `400` for validation, a `visitedOn` outside the trip's dates, a location that doesn't exist, a dropped pin someone else dropped or another post or story already uses, a `rating` outside 1 to 5 or with a `customLocationName`, or an invalid or already-used media key.
+- `400` for validation, both `locationId` and `customLocationName`, a `visitedOn` outside the trip's dates, a location that doesn't exist, a dropped pin someone else dropped or another post or story already uses, a `rating` outside 1 to 5 or without a `locationId`, or an invalid or already-used media key.
 - `403` if the trip is published but belongs to someone else.
 - `404` if the trip doesn't exist, or it's someone else's draft.
 
@@ -490,8 +490,9 @@ Errors: `404` if the post doesn't exist, or its trip is a draft and the viewer i
 
 Trip owner only. Any of:
 - `visitedOn`, `caption` (send `null` to clear it)
-- `locationId` or `customLocationName` (sending one replaces the other, and sending both is a 400)
-- `rating` (1 to 5, or `null` to clear it). Moving the post to another Mapbox place or pin keeps its rating. Moving it off a dropped pin deletes the pin. Switching to a `customLocationName` clears it, and sending a `rating` with a `customLocationName`, or rating a post that has one, is a 400.
+- `locationId` or `customLocationName`. Sending one replaces the other (the other can be left out or sent as `null`), and sending both with values is a 400.
+- To remove the location, send `{ "locationId": null, "customLocationName": null }` (#143 POST-4). A lone `null` (`{ "locationId": null }` on its own) is a 400, so a client can't wipe the other kind of location by accident.
+- `rating` (1 to 5, or `null` to clear it). Moving the post to another Mapbox place or pin keeps its rating. Moving it off a dropped pin, or removing its location, deletes the pin. Switching to a `customLocationName` or removing the location clears the rating and refreshes the old place's totals. Sending a `rating` in the same request, or rating a post that has a custom name or no location, is a 400.
 - `media`, which replaces the whole list. Items that are left out are deleted, including their S3 objects.
 
 A post can't be moved to another trip.

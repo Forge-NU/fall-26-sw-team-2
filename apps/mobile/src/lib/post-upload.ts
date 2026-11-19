@@ -77,12 +77,13 @@ export async function submitPostDraft(
     }
 
     onProgress({ current: total, uploaded: total, total, fraction: 1, creating: true });
-    const create = (location: PickedLocation) =>
+    // The location is optional (#143 POST-4): no location sends neither field
+    const create = (location: PickedLocation | null) =>
       createPost({
         tripId: draft.tripId,
         visitedOn: draft.visitedOn,
         caption: draft.caption.trim() || null,
-        ...toLocationFields(location),
+        ...(location && toLocationFields(location)),
         media: draft.photos.map((p) => ({
           s3Key: p.s3Key!,
           mediaType: 'image' as const,
@@ -93,10 +94,11 @@ export async function submitPostDraft(
     try {
       let post: PostResponse;
       try {
-        post = await create(draft.location!);
+        post = await create(draft.location);
       } catch (error) {
-        const location = draft.location!;
-        if (!(location.kind === 'pin' && error instanceof ApiError && error.status === 400)) throw error;
+        // The location is optional (#143 POST-4), so a draft may have none
+        const location = draft.location;
+        if (!(location?.kind === 'pin' && error instanceof ApiError && error.status === 400)) throw error;
         // An earlier try already made the post (see findPostWithLocation)
         const existing = await findPostWithLocation(location.location.id, (cursor) =>
           getTripPosts(draft.tripId, cursor),
