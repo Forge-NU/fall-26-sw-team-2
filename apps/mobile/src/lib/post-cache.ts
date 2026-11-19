@@ -35,6 +35,10 @@ export function forgetDeletedPost(post: Pick<PostResponse, 'id' | 'tripId' | 'au
     const next = removeEverywhere(data, 'post', post.id);
     if (next !== data) queryClient.setQueryData(query.queryKey, next);
   }
+  // Another screen may still show the post (it can be open twice, e.g. post
+  // detail -> View trip -> the same post). Refetching gets the 404, so it
+  // shows "Post no longer available"; closed screens refetch when reopened.
+  void queryClient.invalidateQueries({ queryKey: queryKeys.postAll(post.id) });
   // The trip's post count and cover photo come from its posts
   void queryClient.invalidateQueries({ queryKey: queryKeys.trip(post.tripId) });
   void queryClient.invalidateQueries({ queryKey: queryKeys.tripPosts(post.tripId) });

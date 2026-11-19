@@ -1,9 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { canRate, postEditValues, toUpdatePostRequest, validatePostEdit } from '../src/lib/post-edit.ts';
+import { postEditValues, postLocation, toUpdatePostRequest, validatePostEdit } from '../src/lib/post-edit.ts';
+import { canRateLocation } from '../src/lib/picked-location.ts';
 
-const pena = { id: 'loc-pena', name: 'Pena Palace', rating: { average: 4.5, count: 2 } };
-const belem = { id: 'loc-belem', name: 'Pastéis de Belém', rating: null };
+const pena = { id: 'loc-pena', provider: 'mapbox', name: 'Pena Palace', rating: { average: 4.5, count: 2 } };
+const belem = { id: 'loc-belem', provider: 'mapbox', name: 'Pastéis de Belém', rating: null };
+// A dropped pin (#94 LOC-2) is a locations row with the custom provider
+const pin = { id: 'loc-pin', provider: 'custom', name: 'Back garden', rating: null };
 
 const post = (overrides) => ({
   id: 'post-1',
@@ -49,7 +52,7 @@ test('the rating can be changed or cleared', () => {
 
 test('switching to a custom name sends no rating, since the API clears it', () => {
   const values = { ...postEditValues(post()), location: { kind: 'custom', name: ' Back garden ' } };
-  assert.equal(canRate(values.location), false);
+  assert.equal(canRateLocation(values.location), false);
   assert.deepEqual(toUpdatePostRequest(post(), values), { customLocationName: 'Back garden' });
 });
 
@@ -68,8 +71,37 @@ test('moving from a custom name to a place can add a rating', () => {
   assert.deepEqual(toUpdatePostRequest(custom, values), { locationId: 'loc-pena', rating: 5 });
 });
 
-test('a location is required and the caption has a limit', () => {
-  assert.deepEqual(validatePostEdit({ caption: '', location: null, rating: null }), { location: 'Add a location.' });
-  const errors = validatePostEdit({ caption: 'a'.repeat(2201), location: { kind: 'custom', name: 'x' }, rating: null });
+test('a dropped pin opens as a pin, and can be rated', () => {
+  assert.deepEqual(postLocation(post({ location: pin })), { kind: 'pin', location: pin });
+  const values = { ...postEditValues(post()), location: { kind: 'pin', location: pin }, rating: 3 };
+  assert.equal(canRateLocation(values.location), true);
+  assert.deepEqual(toUpdatePostRequest(post(), values), { locationId: 'loc-pin', rating: 3 });
+});
+
+test('removing the location sends both fields as null and no rating', () => {
+  const values = { ...postEditValues(post()), location: null };
+  assert.deepEqual(toUpdatePostRequest(post(), values), { locationId: null, customLocationName: null });
+  const custom = post({ location: null, customLocationName: "Tia's", rating: null });
+  assert.deepEqual(toUpdatePostRequest(custom, { ...postEditValues(custom), location: null }), {
+    locationId: null,
+    customLocationName: null,
+  });
+});
+
+test('a post with no location can still be edited', () => {
+  const none = post({ location: null, customLocationName: null, rating: null });
+  const values = { ...postEditValues(none), caption: 'Just the view.' };
+  assert.equal(values.location, null);
+  assert.deepEqual(validatePostEdit(values), {});
+  assert.deepEqual(toUpdatePostRequest(none, values), { caption: 'Just the view.' });
+  // A rating can't come along without a place
+  assert.deepEqual(toUpdatePostRequest(none, { ...values, rating: 4 }), { caption: 'Just the view.' });
+});
+
+test('the caption and a custom name have limits', () => {
+  const errors = validatePostEdit({ caption: 'a'.repeat(2201), location: null, rating: null });
   assert.ok(errors.caption);
+  assert.equal(errors.location, undefined);
+  const long = validatePostEdit({ caption: '', location: { kind: 'custom', name: 'x'.repeat(101) }, rating: null });
+  assert.ok(long.location);
 });

@@ -28,6 +28,7 @@ describe('ClerkWebhookController', () => {
       findMany: jest.fn(),
     },
     post: { groupBy: jest.fn() },
+    location: { deleteMany: jest.fn() },
     $queryRaw: jest.fn(),
     $executeRaw: jest.fn(),
     // Runs the callback against this same mock, like an interactive transaction.

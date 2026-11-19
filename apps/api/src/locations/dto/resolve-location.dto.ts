@@ -24,6 +24,14 @@ const MAPBOX_FIELDS = [
   'countryCode',
 ] as const;
 
+// A pin is a name and a point; the rest of the Mapbox fields are for places
+const PIN_FIELDS = ['latitude', 'longitude'] as const;
+
+// Kinds whose name follows the custom name rule. A pin uses the same rule as
+// posts.custom_location_name, so picking "Drop a pin" or "Just the name"
+// never changes which names are allowed.
+const CUSTOM_NAME_KINDS: unknown[] = ['custom', 'pin'];
+
 const trim = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim() : value;
 
@@ -38,45 +46,58 @@ const MAX_MAPBOX_ID_LENGTH = 256;
 const MAX_ADDRESS_LENGTH = 512;
 const MAX_AREA_NAME_LENGTH = 256;
 
-// A custom location is only a name, so reject Mapbox fields sent with it
-// instead of silently dropping them.
-function NoMapboxFieldsWhenCustom() {
+// The Mapbox fields each kind doesn't take. Rejected rather than silently
+// dropped: a custom location is only a name, and a pin is a name and a point.
+function notAllowed(kind: unknown): readonly string[] {
+  if (kind === 'custom') return MAPBOX_FIELDS;
+  if (kind === 'pin') {
+    return MAPBOX_FIELDS.filter(
+      (field) => !(PIN_FIELDS as readonly string[]).includes(field),
+    );
+  }
+  return [];
+}
+
+function OnlyFieldsForKind() {
   return (object: object, propertyName: string) => {
     registerDecorator({
-      name: 'noMapboxFieldsWhenCustom',
+      name: 'onlyFieldsForKind',
       target: object.constructor,
       propertyName,
       validator: {
         validate(kind: unknown, args: ValidationArguments) {
-          if (kind !== 'custom') return true;
           const dto = args.object as Record<string, unknown>;
-          return MAPBOX_FIELDS.every((field) => dto[field] === undefined);
+          return notAllowed(kind).every((field) => dto[field] === undefined);
         },
-        defaultMessage: () =>
-          `custom locations only take a name; remove ${MAPBOX_FIELDS.join(', ')}`,
+        defaultMessage: (args: ValidationArguments) => {
+          const fields = notAllowed(args.value).join(', ');
+          return args.value === 'pin'
+            ? `pins only take a name, latitude and longitude; remove ${fields}`
+            : `custom locations only take a name; remove ${fields}`;
+        },
       },
     });
   };
 }
 
 // Matches posts.custom_location_name, VARCHAR(100). Mapbox names go in a
-// TEXT column, so the cap only applies to custom names. (@ValidateIf would
-// skip every check on the property, not just this one.) Counts code points
+// TEXT column, so the cap only applies to custom names and pins.
+// (@ValidateIf would skip every check on the property, not just this one.) Counts code points
 // like Postgres VARCHAR does; class-validator's maxLength counts emoji such
 // as '❤️' (two code points) as one.
 const CUSTOM_NAME_MAX_LENGTH = 100;
 
-function MaxLengthWhenCustom(max: number) {
+function MaxLengthForCustomName(max: number) {
   return (object: object, propertyName: string) => {
     registerDecorator({
-      name: 'maxLengthWhenCustom',
+      name: 'maxLengthForCustomName',
       target: object.constructor,
       propertyName,
       validator: {
         validate(name: unknown, args: ValidationArguments) {
           const dto = args.object as Record<string, unknown>;
           return (
-            dto['kind'] !== 'custom' ||
+            !CUSTOM_NAME_KINDS.includes(dto['kind']) ||
             (typeof name === 'string' && [...name].length <= max)
           );
         },
@@ -88,17 +109,19 @@ function MaxLengthWhenCustom(max: number) {
 }
 
 const isMapbox = (dto: ResolveLocationDto) => dto.kind === 'mapbox';
+const hasPoint = (dto: ResolveLocationDto) =>
+  dto.kind === 'mapbox' || dto.kind === 'pin';
 
 export class ResolveLocationDto {
-  @IsIn(['mapbox', 'custom'])
-  @NoMapboxFieldsWhenCustom()
-  kind!: 'mapbox' | 'custom';
+  @IsIn(['mapbox', 'custom', 'pin'])
+  @OnlyFieldsForKind()
+  kind!: 'mapbox' | 'custom' | 'pin';
 
   @Transform(trim)
   @IsString()
   @IsNotEmpty()
   @MaxLength(MAX_NAME_LENGTH)
-  @MaxLengthWhenCustom(CUSTOM_NAME_MAX_LENGTH)
+  @MaxLengthForCustomName(CUSTOM_NAME_MAX_LENGTH)
   name!: string;
 
   @ValidateIf(isMapbox)
@@ -108,13 +131,13 @@ export class ResolveLocationDto {
   @MaxLength(MAX_MAPBOX_ID_LENGTH)
   mapboxId?: string;
 
-  @ValidateIf(isMapbox)
+  @ValidateIf(hasPoint)
   @IsNumber()
   @Min(-90)
   @Max(90)
   latitude?: number;
 
-  @ValidateIf(isMapbox)
+  @ValidateIf(hasPoint)
   @IsNumber()
   @Min(-180)
   @Max(180)

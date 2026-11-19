@@ -17,13 +17,13 @@ import { Spacing } from '@/constants/theme';
 import { usePost, useUpdatePost } from '@/hooks/use-post';
 import { POST_LIMITS } from '@/lib/post-form';
 import {
-  canRate,
   postEditValues,
   toUpdatePostRequest,
   validatePostEdit,
   type PostEditErrors,
   type PostEditValues,
 } from '@/lib/post-edit';
+import { canRateLocation } from '@/lib/picked-location';
 import { charCount } from '@/lib/trip-form';
 
 const SAVE_ERRORS = {
@@ -57,7 +57,7 @@ function EditPostForm({ post, onDone }: { post: PostResponse; onDone: () => void
   const [errors, setErrors] = useState<PostEditErrors>({});
   const set = (next: Partial<PostEditValues>) => setValues((current) => ({ ...current, ...next }));
 
-  const ratable = canRate(values.location);
+  const ratable = canRateLocation(values.location);
   // Picking a custom name drops the rating, so say so rather than losing it quietly
   const ratingCleared = post.rating != null && !ratable;
   const captionLength = charCount(values.caption.trim());
@@ -85,7 +85,7 @@ function EditPostForm({ post, onDone }: { post: PostResponse; onDone: () => void
             value={values.location}
             onChange={(location) => {
               set({ location });
-              if (location) setErrors(({ location: _location, ...rest }) => rest);
+              setErrors(({ location: _location, ...rest }) => rest);
             }}
           />
         </Section>
@@ -95,9 +95,7 @@ function EditPostForm({ post, onDone }: { post: PostResponse; onDone: () => void
             <StarRating value={values.rating} onChange={(rating) => set({ rating })} size={28} />
           ) : (
             <AppText variant="label" style={styles.muted}>
-              {ratingCleared
-                ? "Custom places can't be rated, so saving this clears your rating."
-                : "Custom places can't be rated. Pick a place from search to rate it."}
+              {unratableReason(values.location === null, ratingCleared)}
             </AppText>
           )}
         </Section>
@@ -127,6 +125,14 @@ function EditPostForm({ post, onDone }: { post: PostResponse; onDone: () => void
       </View>
     </KeyboardAvoidingView>
   );
+}
+
+// Why there are no stars: a custom name or no location can't be rated (RATE-1, POST-4)
+function unratableReason(noLocation: boolean, clearsRating: boolean): string {
+  const what = noLocation ? 'A post with no location' : 'A custom place name';
+  return clearsRating
+    ? `${what} can't be rated, so saving this clears your rating.`
+    : `${what} can't be rated. Pick a place or drop a pin to rate it.`;
 }
 
 type SectionProps = {

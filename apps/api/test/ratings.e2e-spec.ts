@@ -233,6 +233,27 @@ describe('Place ratings (e2e)', () => {
       await expect(totals()).resolves.toEqual({ ratingCount: 0, ratingSum: 0 });
     });
 
+    // #143 POST-4
+    it('clears the rating when the post has its location removed', async () => {
+      const trip = await createTrip(owner, true);
+      await createPost(trip, { rating: 2 });
+      const post = await createPost(trip, { rating: 5 });
+      await expect(totals()).resolves.toEqual({ ratingCount: 2, ratingSum: 7 });
+
+      const removed = await patchPost(post.id, {
+        locationId: null,
+        customLocationName: null,
+      });
+
+      expect(removed).toMatchObject({
+        rating: null,
+        location: null,
+        customLocationName: null,
+      });
+      // Only the other post's rating is left at the place
+      await expect(totals()).resolves.toEqual({ ratingCount: 1, ratingSum: 2 });
+    });
+
     it('updates the place when the post is deleted', async () => {
       const trip = await createTrip(owner, true);
       await createPost(trip, { rating: 5 });
@@ -318,7 +339,8 @@ describe('Place ratings (e2e)', () => {
       }
     });
 
-    it('rejects a rating on a post with a custom location', async () => {
+    // A dropped pin can be rated (test/custom-locations.e2e-spec.ts)
+    it('rejects a rating on a post with only a custom location name', async () => {
       const trip = await createTrip(owner, true);
 
       const res = await server()
@@ -333,7 +355,7 @@ describe('Place ratings (e2e)', () => {
         )
         .expect(400);
       expect((res.body as { message: string }).message).toMatch(
-        /Only posts at a Mapbox place can be rated/,
+        /only a custom location name can't be rated/,
       );
 
       // Already custom
@@ -353,6 +375,38 @@ describe('Place ratings (e2e)', () => {
         .patch(`/api/posts/${rated.id}`)
         .set(as(owner))
         .send({ customLocationName: 'Back home', rating: 4 })
+        .expect(400);
+
+      // Nothing changed
+      await expect(totals()).resolves.toEqual({ ratingCount: 1, ratingSum: 4 });
+    });
+
+    it('rejects a rating on a post with no location', async () => {
+      const trip = await createTrip(owner, true);
+
+      const res = await server()
+        .post('/api/posts')
+        .set(as(owner))
+        .send(postBody(trip, owner, { locationId: undefined, rating: 4 }))
+        .expect(400);
+      expect((res.body as { message: string }).message).toMatch(
+        /no location can't be rated/,
+      );
+
+      // Already without a location
+      const none = await createPost(trip, { locationId: undefined });
+      await server()
+        .patch(`/api/posts/${none.id}`)
+        .set(as(owner))
+        .send({ rating: 4 })
+        .expect(400);
+
+      // Removing it in the same request
+      const rated = await createPost(trip, { rating: 4 });
+      await server()
+        .patch(`/api/posts/${rated.id}`)
+        .set(as(owner))
+        .send({ locationId: null, customLocationName: null, rating: 4 })
         .expect(400);
 
       // Nothing changed
@@ -408,6 +462,26 @@ describe('Place ratings (e2e)', () => {
       await expect(
         row({ customLocationName: 'Back home', rating: 3 }),
       ).rejects.toThrow(/posts_rating_location_check/);
+      await expect(row({ rating: 3 })).rejects.toThrow(
+        /posts_rating_location_check/,
+      );
+    });
+
+    // #143 POST-4: at most one kind of location, and none is fine
+    it('allows a post with no location, but not one with both kinds', async () => {
+      const trip = await createTrip(owner);
+      const row = (data: Record<string, unknown>) =>
+        prisma.post.create({
+          data: { tripId: trip.id, visitedOn: new Date('2026-09-13'), ...data },
+        });
+
+      await expect(row({})).resolves.toMatchObject({
+        locationId: null,
+        customLocationName: null,
+      });
+      await expect(
+        row({ locationId: place.id, customLocationName: 'Back home' }),
+      ).rejects.toThrow(/posts_location_check/);
     });
   });
 });

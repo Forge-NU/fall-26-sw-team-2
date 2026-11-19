@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { getErrorMessage } from '@/api/client';
-import { tripErrorState } from '@/components/trips/trip-error-state';
+import { leaveTrip, tripErrorState } from '@/components/trips/trip-error-state';
 import { AppText } from '@/components/ui/app-text';
 import { Button } from '@/components/ui/button';
 import { Media } from '@/components/ui/media';
@@ -13,6 +13,7 @@ import { useToast } from '@/components/ui/toast-provider';
 import { Palette } from '@/constants/palette';
 import { Radii, Spacing, Typography } from '@/constants/theme';
 import { usePublishTrip, useTrip, useTripPosts } from '@/hooks/use-trips';
+import { countPlaces } from '@/lib/post-location';
 import { TRIP_ERROR_FALLBACKS } from '@/lib/trips';
 import { tripDayCount } from '@/utils/local-date';
 
@@ -34,7 +35,7 @@ export default function PublishTripScreen() {
   if (trip.data && posts.data) {
     const days = tripDayCount(trip.data.startDate, trip.data.endDate);
     const postCount = posts.data.length;
-    const places = new Set(posts.data.map((post) => post.location?.id ?? post.customLocationName)).size;
+    const places = countPlaces(posts.data);
     const photos = posts.data.flatMap((post) => post.media).slice(0, PREVIEW_COUNT);
     const published = trip.data.status === 'published';
 
@@ -113,7 +114,7 @@ export default function PublishTripScreen() {
       header={
         <ScreenHeader
           title="Publish trip"
-          left={{ icon: 'arrow-left', label: 'Back', onPress: () => router.back() }}
+          left={{ icon: 'arrow-left', label: 'Back', onPress: leaveTrip }}
         />
       }>
       {body}

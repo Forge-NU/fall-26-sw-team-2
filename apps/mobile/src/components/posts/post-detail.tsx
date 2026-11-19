@@ -32,7 +32,10 @@ export function PostDetail({ post, onCommentPress, fromTrip = false }: PostDetai
   const placeRating = post.location?.rating;
 
   const openTrip = () =>
-    fromTrip ? router.back() : router.push({ pathname: '/trips/[id]', params: { id: post.tripId } });
+    // Pushes the trip page when there's nothing to go back to, e.g. a deep link
+    fromTrip && router.canGoBack()
+      ? router.back()
+      : router.push({ pathname: '/trips/[id]', params: { id: post.tripId } });
 
   return (
     <View style={styles.post}>

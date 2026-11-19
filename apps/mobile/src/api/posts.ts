@@ -6,10 +6,12 @@ import { mockFindSavedPost } from '@/api/engagement';
 import {
   mockCreatePost,
   mockDeletePost,
+  mockFindTripPost,
   mockGetPost,
   mockGetTripPosts,
   mockUpdatePost,
 } from '@/api/mock-backend';
+import { mockFindProfilePost } from '@/api/profiles';
 
 // Date order, oldest first. Posts on the same date are in the order they were added.
 export const getTripPosts = withMock({
@@ -36,15 +38,17 @@ export const getPost = withMock({
   live: true,
   real: (id: string, signal?: AbortSignal) =>
     apiGet<PostResponse>(`/api/posts/${encodeURIComponent(id)}`, undefined, { signal }),
+  // The mocks keep posts in three places: trips (mock-backend), Saved and profiles
   mock: async (id: string, _signal?: AbortSignal) => {
-    const saved = mockFindSavedPost(id);
-    if (!saved) return mockGetPost(id);
+    const other = mockFindTripPost(id) ? undefined : (mockFindSavedPost(id) ?? mockFindProfilePost(id));
+    if (!other) return mockGetPost(id);
     await mockDelay();
-    return { ...saved };
+    return { ...other };
   },
 });
 
-// Trip owner only
+// Owner edits, for post detail (#43 POST-3). To remove the location, send
+// { locationId: null, customLocationName: null } (#143 POST-4).
 export const updatePost = withMock({
   live: true,
   real: (id: string, body: UpdatePostRequest) =>

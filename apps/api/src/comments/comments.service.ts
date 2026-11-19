@@ -36,7 +36,7 @@ const COMMENTS = keyset<
   Prisma.CommentOrderByWithRelationInput
 >([
   { field: 'createdAt', direction: 'asc', type: 'date' },
-  { field: 'id', direction: 'asc', type: 'string' },
+  { field: 'id', direction: 'asc', type: 'uuid' },
 ]);
 
 const tripVisibilitySelect = {

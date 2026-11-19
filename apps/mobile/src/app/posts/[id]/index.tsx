@@ -40,7 +40,8 @@ export default function PostDetailScreen() {
   return (
     <Screen
       loading={post.isPending}
-      error={post.data ? null : post.error}
+      // A 404 wins over cached data: the post was deleted while this was open
+      error={post.data && !gone ? null : post.error}
       onRetry={gone ? undefined : () => void post.refetch()}
       errorState={
         gone
