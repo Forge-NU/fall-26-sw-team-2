@@ -11,6 +11,7 @@ import {
   locationName,
   locationSubtitle,
   toLocationFields,
+  findPostWithLocation,
 } from '../src/lib/picked-location.ts';
 import { choosePinStart, latestPostPoint, parsePoint, roundPoint, WORLD_CENTER } from '../src/lib/pin-start.ts';
 import { todayLocalIso } from '../src/utils/local-date.ts';
@@ -202,4 +203,26 @@ test('mock: a pin name follows the custom name rule', async () => {
 test('mock: a destination geocodes to the mock place named in it', async () => {
   assert.deepEqual(await mockGeocodePlace('Lisbon, Portugal'), { latitude: 38.722252, longitude: -9.139337 });
   assert.equal(await mockGeocodePlace('Kyoto, Japan'), null);
+});
+
+test('findPostWithLocation finds the post an earlier try made with the pin, on any page', async () => {
+  const pages = {
+    null: { items: [{ id: 'p1', location: null }, { id: 'p2', location: { id: 'place' } }], nextCursor: 'c1' },
+    c1: { items: [{ id: 'p3', location: { id: 'pin' } }], nextCursor: null },
+  };
+  const seen = [];
+  const found = await findPostWithLocation('pin', async (cursor) => {
+    seen.push(cursor);
+    return pages[cursor];
+  });
+  assert.equal(found?.id, 'p3');
+  assert.deepEqual(seen, [null, 'c1']);
+});
+
+test('findPostWithLocation is null when no post has the pin', async () => {
+  const found = await findPostWithLocation('pin', async () => ({
+    items: [{ id: 'p1', location: { id: 'other' } }],
+    nextCursor: null,
+  }));
+  assert.equal(found, null);
 });

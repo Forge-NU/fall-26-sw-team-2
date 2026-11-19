@@ -4,8 +4,9 @@ import Animated, { SlideInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/ui/app-text';
-import { Icon } from '@/components/icon';
-import { Palette, Radii, Spacing, Theme } from '@/constants/theme';
+import { SheetTokens } from '@/constants/sheet-tokens';
+import { Radii, Spacing, Theme } from '@/constants/theme';
+import { IconButton } from '@/components/ui/icon-button';
 
 type BottomSheetProps = {
   visible: boolean;
@@ -26,7 +27,7 @@ export function BottomSheet({
   onClose,
   title,
   subtitle,
-  closeSize = 18,
+  closeSize = Spacing.four,
   gap = Spacing.three,
   onDismiss,
   children,
@@ -43,7 +44,7 @@ export function BottomSheet({
         <Pressable style={styles.scrim} onPress={onClose} accessibilityLabel="Close" />
         <Animated.View
           entering={SlideInDown.duration(220)}
-          style={[styles.sheet, { gap, paddingBottom: Math.max(insets.bottom, 12) }]}>
+          style={[styles.sheet, { gap, paddingBottom: Math.max(insets.bottom, Spacing.three) }]}>
           <View style={styles.handleRow}>
             <View style={styles.handle} />
           </View>
@@ -58,14 +59,7 @@ export function BottomSheet({
                 </AppText>
               )}
             </View>
-            <Pressable
-              onPress={onClose}
-              accessibilityRole="button"
-              accessibilityLabel="Close"
-              hitSlop={8}
-              style={styles.close}>
-              <Icon name="x" size={closeSize} />
-            </Pressable>
+            <IconButton icon="x" iconSize={closeSize} accessibilityLabel="Close" onPress={onClose} style={styles.close} />
           </View>
           {children}
         </Animated.View>
@@ -84,20 +78,20 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.scrim,
   },
   sheet: {
-    backgroundColor: Palette.warmWhite,
-    borderTopLeftRadius: Radii.pill,
-    borderTopRightRadius: Radii.pill,
-    paddingTop: Spacing.two,
-    paddingHorizontal: Spacing.three,
+    backgroundColor: SheetTokens.background,
+    borderTopLeftRadius: SheetTokens.radius,
+    borderTopRightRadius: SheetTokens.radius,
+    paddingTop: SheetTokens.paddingTop,
+    paddingHorizontal: SheetTokens.paddingHorizontal,
   },
   handleRow: {
     alignItems: 'center',
   },
   handle: {
-    width: 36,
-    height: 4,
+    width: SheetTokens.handle.width,
+    height: SheetTokens.handle.height,
     borderRadius: Radii.circle,
-    backgroundColor: Palette.lightPink,
+    backgroundColor: SheetTokens.handle.color,
   },
   heading: {
     flexDirection: 'row',
@@ -108,10 +102,8 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: Spacing.one,
   },
+  // Lines the icon up with the sheet's edge instead of the button's padding
   close: {
-    minWidth: 32,
-    minHeight: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
+    marginRight: -Spacing.two,
   },
 });

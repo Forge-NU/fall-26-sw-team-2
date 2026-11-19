@@ -5,8 +5,8 @@ import type { PostResponse } from 'shared-types';
 
 import { ApiError } from '@/api/client';
 import { resolveLocation } from '@/api/locations';
-import { createPost } from '@/api/posts';
-import { isExpiredPinError, toLocationFields, type PickedLocation } from '@/lib/picked-location';
+import { createPost, getTripPosts } from '@/api/posts';
+import { findPostWithLocation, isExpiredPinError, toLocationFields, type PickedLocation } from '@/lib/picked-location';
 import { uploadPhoto } from '@/lib/media/upload-photo';
 import { deleteDraft, saveDraft, type PostDraft } from '@/lib/post-drafts';
 import { RETRY_DELAYS_MS } from '@/lib/retry';
@@ -96,10 +96,18 @@ export async function submitPostDraft(
       try {
         post = await create(draft.location);
       } catch (error) {
+        // The location is optional (#143 POST-4), so a draft may have none
         const location = draft.location;
-        if (!(location && error instanceof ApiError && isExpiredPinError(location, error.status, error.message))) {
-          throw error;
+        if (!(location?.kind === 'pin' && error instanceof ApiError && error.status === 400)) throw error;
+        // An earlier try already made the post (see findPostWithLocation)
+        const existing = await findPostWithLocation(location.location.id, (cursor) =>
+          getTripPosts(draft.tripId, cursor),
+        ).catch(() => null);
+        if (existing) {
+          await deleteDraft(draft.id);
+          return { status: 'created', post: existing };
         }
+        if (!isExpiredPinError(location, error.status, error.message)) throw error;
         // The draft sat long enough for the unused pin to be cleaned up: drop it again
         const pin = await resolveLocation({
           kind: 'pin',

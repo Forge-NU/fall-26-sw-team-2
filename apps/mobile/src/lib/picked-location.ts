@@ -44,6 +44,24 @@ export function isExpiredPinError(
   return value.kind === 'pin' && status === 400 && message.includes('Location not found');
 }
 
+// A pin is only ever on one post or story, and only this draft attaches its
+// pin. So if the post is rejected but a post in the trip already has the pin,
+// an earlier try went through and only its response was lost (a timeout, or
+// the app closed). That post is the result, rather than a stuck draft.
+export async function findPostWithLocation<T extends { location: { id: string } | null }>(
+  locationId: string,
+  fetchPage: (cursor: string | null) => Promise<{ items: T[]; nextCursor: string | null }>,
+): Promise<T | null> {
+  let cursor: string | null = null;
+  do {
+    const page = await fetchPage(cursor);
+    const match = page.items.find((item) => item.location?.id === locationId);
+    if (match) return match;
+    cursor = page.nextCursor;
+  } while (cursor);
+  return null;
+}
+
 // Too long for a custom name or a pin, counted in code points like Postgres
 export function isCustomNameTooLong(name: string): boolean {
   return [...name].length > CUSTOM_LOCATION_MAX;

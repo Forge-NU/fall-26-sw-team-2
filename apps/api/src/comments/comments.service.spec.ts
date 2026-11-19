@@ -9,6 +9,7 @@ import { validate } from 'class-validator';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
+import { encodeCursor } from '../common/pagination';
 import { CommentsService } from './comments.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
 
@@ -277,6 +278,17 @@ describe('CommentsService', () => {
       await expect(
         service.listForPost(viewerId, postId, { cursor: replyId }),
       ).rejects.toThrow('Invalid cursor');
+    });
+
+    it('rejects a cursor whose comment ID is not a UUID', async () => {
+      const cursor = encodeCursor(`comments:${postId}`, [
+        new Date('2026-10-20T12:00:00Z'),
+        'not-a-uuid',
+      ]);
+      await expect(
+        service.listForPost(viewerId, postId, { cursor }),
+      ).rejects.toThrow('Invalid cursor');
+      expect(prisma.comment.findMany).not.toHaveBeenCalled();
     });
 
     it("returns 404 for a post you can't see", async () => {

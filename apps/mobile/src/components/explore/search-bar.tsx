@@ -7,10 +7,22 @@ interface Props {
   value: string;
   onChangeText: (text: string) => void;
   filtersHighlighted: boolean;
+  /** Whether a filters menu is open, for screen readers */
+  filtersExpanded: boolean;
+  filterCount?: number;
+  onFocus?: () => void;
   onPressFilters: () => void;
 }
 
-export function SearchBar({ value, onChangeText, filtersHighlighted, onPressFilters }: Props) {
+export function SearchBar({
+  value,
+  onChangeText,
+  filtersHighlighted,
+  filtersExpanded,
+  onPressFilters,
+  filterCount = 0,
+  onFocus,
+}: Props) {
   return (
     <View style={styles.bar}>
       <MaterialCommunityIcons name="magnify" size={26} color={colors.coral} />
@@ -18,7 +30,10 @@ export function SearchBar({ value, onChangeText, filtersHighlighted, onPressFilt
         style={styles.input}
         value={value}
         onChangeText={onChangeText}
-        placeholder="Search places, trips, things to do"
+        onFocus={onFocus}
+        placeholder="Search people, places, trips, posts"
+        // The API rejects longer queries (SRCH-3), so Retry could never succeed
+        maxLength={200}
         placeholderTextColor={colors.textMuted}
         returnKeyType="search"
         autoCorrect={false}
@@ -33,9 +48,9 @@ export function SearchBar({ value, onChangeText, filtersHighlighted, onPressFilt
         onPress={onPressFilters}
         style={[styles.filters, filtersHighlighted && styles.filtersOn]}
         accessibilityRole="button"
-        accessibilityState={{ expanded: filtersHighlighted }}
+        accessibilityState={{ expanded: filtersExpanded }}
       >
-        <Text style={[styles.filtersText, filtersHighlighted && styles.filtersTextOn]}>Filters</Text>
+        <Text style={[styles.filtersText, filtersHighlighted && styles.filtersTextOn]}>{filterCount ? `Filters · ${filterCount}` : 'Filters'}</Text>
       </Pressable>
     </View>
   );
