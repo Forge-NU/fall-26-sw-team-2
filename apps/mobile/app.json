@@ -8,7 +8,6 @@
     "scheme": "mobile",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon",
       "bundleIdentifier": "com.forgenu.yuji"
     },
     "android": {
@@ -44,8 +43,8 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#FFFCFA",
-          "image": "./assets/images/yuji/logo.png",
-          "imageWidth": 90
+          "image": "./assets/images/yuji/wordmark@3x.png",
+          "imageWidth": 120
         }
       ],
       "@clerk/expo",

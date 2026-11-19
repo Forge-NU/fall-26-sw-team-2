@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/ui/app-text';
 import { BottomSheet } from '@/components/bottom-sheet';
 import { Icon, IconName } from '@/components/icon';
-import { Palette, Radii } from '@/constants/theme';
+import { Palette, Radii, Spacing } from '@/constants/theme';
 
 type PostChooserSheetProps = {
   visible: boolean;
@@ -59,7 +59,7 @@ function PostOption({
       onPress={onPress}
       style={({ pressed }) => [
         styles.option,
-        { borderColor: tone === 'coral' ? 'rgba(252,122,108,0.15)' : 'rgba(125,197,199,0.15)' },
+        { borderColor: tone === 'coral' ? Palette.lightPink : Palette.lightTeal },
         pressed && styles.pressed,
       ]}>
       <View style={[styles.symbol, { backgroundColor: Palette[tone] }]}>
@@ -75,16 +75,16 @@ function PostOption({
 
 const styles = StyleSheet.create({
   options: {
-    gap: 12,
-    paddingBottom: 12,
+    gap: Spacing.two + Spacing.one,
+    paddingBottom: Spacing.two + Spacing.one,
   },
   option: {
     height: 90,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    padding: 14,
-    borderRadius: Radii.small,
+    gap: Spacing.two + Spacing.one,
+    padding: Spacing.three,
+    borderRadius: Radii.pill,
     borderWidth: 1,
     backgroundColor: Palette.peach,
   },

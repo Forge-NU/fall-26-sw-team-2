@@ -1,0 +1,18 @@
+# Keep the API image's build context small. Only apps/api and apps/shared-types
+# are copied in, plus the workspace package.json files.
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+!**/.env.example
+.git
+.github
+.claude
+docs
+issue-drafts
+apps/mobile/*
+!apps/mobile/package.json
+infra/*
+!infra/package.json
+apps/api/src/generated
+apps/api/coverage

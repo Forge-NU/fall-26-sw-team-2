@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, radius, shadow } from '@/components/explore/explore-theme';
+import { ShadowTokens } from '@/constants/shadow-tokens';
+import { Palette, Radii, Spacing, Typography } from '@/constants/theme';
 import type { Audience } from '@/components/explore/types';
 
 const OPTIONS: { value: Audience; label: string }[] = [
@@ -39,13 +40,20 @@ const styles = StyleSheet.create({
   track: {
     flexDirection: 'row',
     width: '74%',
-    padding: 5,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surface,
-    ...shadow,
+    padding: Spacing.one,
+    borderRadius: Radii.circle,
+    backgroundColor: Palette.white,
+    ...ShadowTokens.floating,
   },
-  segment: { flex: 1, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: radius.pill },
-  segmentActive: { backgroundColor: colors.forest },
-  label: { fontSize: 15, fontWeight: '500', color: colors.textMuted },
-  labelActive: { color: '#FFFFFF', fontWeight: '700' },
+  segment: {
+    flex: 1,
+    minHeight: Spacing.five + Spacing.two,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: Radii.circle,
+  },
+  // Same as the active day on the itinerary page
+  segmentActive: { backgroundColor: Palette.black },
+  label: { ...Typography.label, color: Palette.placeholderGray },
+  labelActive: { color: Palette.warmWhite },
 });

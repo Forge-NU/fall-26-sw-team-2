@@ -1,0 +1,88 @@
+name: Deploy API
+
+# Deploys the API to staging on every push to main that changes it: CDK builds the
+# image from apps/api/Dockerfile and updates the YujiStagingApi stack. The new task
+# applies pending migrations before it starts, and ECS rolls back if it never gets
+# healthy. The data stack (database, bucket, secrets) is only deployed by hand.
+# Setup: docs/process/deployment.md.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/**'
+      - 'apps/shared-types/**'
+      - 'infra/**'
+      - 'package-lock.json'
+      - '.dockerignore'
+      - '.github/workflows/deploy-api.yml'
+  workflow_dispatch:
+
+# One deploy at a time, in order. A deploy in progress is never cancelled midway.
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # Until the deploy user's key is in the repo secrets, skip instead of failing.
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.key.outputs.ready }}
+    steps:
+      - id: key
+        env:
+          KEY_ID: ${{ secrets.AWS_DEPLOY_ACCESS_KEY_ID }}
+        run: |
+          if [ -n "$KEY_ID" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Skipping the deploy until the AWS_DEPLOY_ACCESS_KEY_ID secret is set (see docs/process/deployment.md)."
+          fi
+
+  deploy:
+    needs: check
+    if: needs.check.outputs.ready == 'true'
+    # ARM runner, so the arm64 image builds natively (free for public repos).
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: 'npm'
+
+      # Only the CDK workspace; the image installs the API's own dependencies.
+      - name: Install dependencies
+        run: npm ci -w infra
+
+      # The yuji-github-deploy user (YujiCi stack), which can only assume the CDK
+      # deploy roles. OIDC isn't available in the project's AWS account.
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_DEPLOY_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_DEPLOY_SECRET_ACCESS_KEY }}
+          aws-region: us-east-2
+
+      - name: Deploy
+        working-directory: infra
+        run: npx cdk deploy YujiStagingApi --exclusively --require-approval never --outputs-file "$RUNNER_TEMP/outputs.json"
+
+      - name: Check the API is up
+        run: |
+          url=$(jq -r '.YujiStagingApi.ApiUrl' "$RUNNER_TEMP/outputs.json")
+          for attempt in 1 2 3 4 5 6; do
+            if curl -sf "$url/api/health"; then
+              echo
+              echo "### Deployed to [$url]($url/api/health)" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::$url/api/health didn't answer after the deploy."
+          exit 1
