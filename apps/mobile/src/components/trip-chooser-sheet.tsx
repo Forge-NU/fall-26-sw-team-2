@@ -30,7 +30,7 @@ type TripChooserSheetProps = {
   onDismiss?: () => void;
 };
 
-/** Pick one of your trips. Used by the story composer and by "Add places to itinerary". */
+/** Pick one of your trips. Used by the story composer. */
 export function TripChooserSheet({
   visible,
   title = 'Choose a trip',

@@ -1,9 +1,4 @@
 {
-  "src/app/(tabs)/(feed)/itinerary/[id].tsx": {
-    "no-restricted-syntax": {
-      "count": 17
-    }
-  },
   "src/components/auth-screen.tsx": {
     "no-restricted-syntax": {
       "count": 5
@@ -22,16 +17,6 @@
   "src/components/explore/search-results.tsx": {
     "no-restricted-syntax": {
       "count": 19
-    }
-  },
-  "src/components/itinerary/day-at-a-glance.tsx": {
-    "no-restricted-syntax": {
-      "count": 9
-    }
-  },
-  "src/components/itinerary/day-moments.tsx": {
-    "no-restricted-syntax": {
-      "count": 12
     }
   },
   "src/components/onboarding-screen.tsx": {

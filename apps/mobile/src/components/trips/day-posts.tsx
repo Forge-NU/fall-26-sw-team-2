@@ -60,7 +60,7 @@ function PostRow({ post }: { post: PostResponse }) {
   );
 }
 
-const THUMB = 44;
+export const THUMB = 44;
 
 const styles = StyleSheet.create({
   list: { gap: Spacing.three },

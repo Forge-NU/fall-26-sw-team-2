@@ -81,7 +81,13 @@ function SavedTrips() {
     <FlatList
       data={uniqueById(trips.items)}
       keyExtractor={(trip) => trip.id}
-      renderItem={({ item }) => <TripCard trip={item} stats={tripStats(item)} />}
+      renderItem={({ item }) => (
+        <TripCard
+          trip={item}
+          stats={tripStats(item)}
+          onPress={() => router.push({ pathname: '/trips/[id]', params: { id: item.id } })}
+        />
+      )}
       ListHeaderComponent={<Intro />}
       ListEmptyComponent={
         <ListEmpty

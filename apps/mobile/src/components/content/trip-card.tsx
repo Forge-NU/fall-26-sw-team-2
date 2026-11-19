@@ -4,7 +4,6 @@ import { useState } from "react";
 import type { PostResponse, TripResponse } from "shared-types";
 import { Icon } from "@/components/icon";
 import { AppText } from "@/components/ui/app-text";
-import { Button } from "@/components/ui/button";
 import { Media } from "@/components/ui/media";
 import { Palette, Radii, Spacing } from "@/constants/theme";
 import { ContentTokens } from "@/constants/content-tokens";
@@ -56,9 +55,7 @@ export type TripCardProps = {
   onPress?: () => void;
   onUserPress?: () => void;
   onDayPress?: (visitedOn: string) => void;
-  onDaySelect?: (day: number) => void;
   onShare?: () => void;
-  onAddPlaces?: () => void;
 };
 export function TripCard({
   trip,
@@ -73,9 +70,7 @@ export function TripCard({
   onPress,
   onUserPress,
   onDayPress,
-  onDaySelect,
   onShare,
-  onAddPlaces,
 }: TripCardProps) {
   const [width, setWidth] = useState(0);
   const previews =
@@ -105,9 +100,8 @@ export function TripCard({
           (Date.parse(trip.endDate) - Date.parse(trip.startDate)) / 86400000,
         ) + 1
       : previews.length;
-  const canOpenDay = Boolean(onDaySelect || onDayPress);
+  const canOpenDay = Boolean(onDayPress);
   const openDay = (day: TripDayPreview) => {
-    onDaySelect?.(day.day);
     if (day.visitedOn) onDayPress?.(day.visitedOn);
   };
   return (
@@ -254,14 +248,6 @@ export function TripCard({
           {onShare && <ShareAction label="Share itinerary" onPress={onShare} />}
         </View>
       )}
-      {onAddPlaces && (
-        <Button
-          title="Add places to itinerary"
-          variant="teal"
-          style={styles.fullWidth}
-          onPress={onAddPlaces}
-        />
-      )}
     </View>
   );
 }
@@ -344,8 +330,5 @@ const styles = StyleSheet.create({
   },
   caption: {
     gap: Spacing.one,
-  },
-  fullWidth: {
-    alignSelf: "stretch",
   },
 });

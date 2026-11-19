@@ -7,9 +7,10 @@ import type { PostResponse, StoryResponse, TripResponse } from 'shared-types';
 import { StatRow } from '@/components/content/stat-row';
 import { UserRow } from '@/components/content/user-row';
 import { PostDraftsBanner } from '@/components/posts/post-drafts-banner';
+import { DayAtAGlance } from '@/components/trips/day-at-a-glance';
 import { DayPosts } from '@/components/trips/day-posts';
 import { DayStories } from '@/components/trips/day-stories';
-import { tripErrorState } from '@/components/trips/trip-error-state';
+import { leaveTrip, tripErrorState } from '@/components/trips/trip-error-state';
 import { AppText } from '@/components/ui/app-text';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -24,7 +25,9 @@ import { useTripStories } from '@/hooks/use-stories';
 import { useTrip, useTripPosts } from '@/hooks/use-trips';
 import { useCurrentUser } from '@/lib/current-user';
 import { countPlaces } from '@/lib/post-location';
+import { shareTrip } from '@/lib/share-trip';
 import { storiesOnDay } from '@/lib/stories';
+import { dayPlaces, initialDay } from '@/lib/trip-page';
 import { isActiveTrip } from '@/lib/trips';
 import {
   formatDate,
@@ -37,14 +40,16 @@ import {
 } from '@/utils/local-date';
 
 export default function TripScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // `day` (YYYY-MM-DD) opens on that day, e.g. from a day tile on a feed card
+  const { id, day } = useLocalSearchParams<{ id: string; day?: string }>();
   const trip = useTrip(id);
   const posts = useTripPosts(id);
   // Not part of loading or errors: the page works without its stories
   const stories = useTripStories(id);
   const user = useCurrentUser();
 
-  const isOwner = trip.data?.owner.id === user.id;
+  const data = trip.data;
+  const isOwner = data?.owner.id === user.id;
   const error = trip.error ?? posts.error;
   const refetch = () => {
     void trip.refetch();
@@ -60,21 +65,28 @@ export default function TripScreen() {
       errorState={tripErrorState(error)}
       header={
         <ScreenHeader
-          left={{ icon: 'arrow-left', label: 'Back', onPress: () => router.back() }}
+          left={{ icon: 'arrow-left', label: 'Back', onPress: leaveTrip }}
           right={
-            isOwner ? (
-              <IconButton
-                icon="pencil"
-                accessibilityLabel="Edit trip"
-                onPress={() => router.push({ pathname: '/trips/[id]/edit', params: { id } })}
-              />
-            ) : null
+            <>
+              {/* Published only: a link to a draft opens "not found" for anyone else */}
+              {data?.status === 'published' ? (
+                <IconButton icon="share" accessibilityLabel="Share trip" onPress={() => shareTrip(data)} />
+              ) : null}
+              {isOwner ? (
+                <IconButton
+                  icon="pencil"
+                  accessibilityLabel="Edit trip"
+                  onPress={() => router.push({ pathname: '/trips/[id]/edit', params: { id } })}
+                />
+              ) : null}
+            </>
           }
         />
       }>
-      {trip.data && posts.data ? (
+      {data && posts.data ? (
         <TripBody
-          trip={trip.data}
+          dayParam={day}
+          trip={data}
           posts={posts.data}
           stories={stories.data ?? []}
           isOwner={isOwner}
@@ -87,6 +99,8 @@ export default function TripScreen() {
 }
 
 type TripBodyProps = {
+  /** The `day` route param; ignored unless it's one of the trip's days */
+  dayParam?: string;
   trip: TripResponse;
   posts: PostResponse[];
   /** Kept stories ("Add to trip"), including ones that left the stories bar */
@@ -96,17 +110,19 @@ type TripBodyProps = {
   onRefresh: () => void;
 };
 
-function TripBody({ trip, posts, stories, isOwner, refreshing, onRefresh }: TripBodyProps) {
+function TripBody({ dayParam, trip, posts, stories, isOwner, refreshing, onRefresh }: TripBodyProps) {
   const today = todayLocalIso();
   const days = tripDays(trip.startDate, trip.endDate);
   const active = isActiveTrip(trip, today);
-  // Null until the user picks a day, so the default can use stories that load after the page
-  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  // Null until the user picks a day (or a link names one), so the default can
+  // use stories that load after the page
+  const [selectedDay, setSelectedDay] = useState<string | null>(() => initialDay(dayParam, days));
   const fallbackDay = defaultDay(trip, posts, stories, today);
   // The trip's dates can change under the selection after an edit
   const day = [selectedDay, fallbackDay].find((d): d is string => d !== null && days.includes(d)) ?? days[0];
   const dayPosts = posts.filter((post) => post.visitedOn === day);
   const dayStories = storiesOnDay(stories, day);
+  const dayStops = dayPlaces(dayPosts);
   // Posts with no location (#143 POST-4) don't count as a place
   const places = countPlaces(posts);
 
@@ -185,6 +201,9 @@ function TripBody({ trip, posts, stories, isOwner, refreshing, onRefresh }: Trip
             </View>
 
             {dayStories.length > 0 ? <DayStories tripId={trip.id} day={day} stories={dayStories} /> : null}
+
+            {/* With one stop it would only repeat the place header in the post list */}
+            {dayStops.length > 1 ? <DayAtAGlance places={dayStops} /> : null}
 
             {dayPosts.length > 0 ? (
               <DayPosts posts={dayPosts} />

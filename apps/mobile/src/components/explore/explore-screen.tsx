@@ -341,9 +341,9 @@ export default function ExploreScreen() {
           {previewContent && ('trip' in previewContent ? <TripCard trip={previewContent.trip} /> : <PostCard post={previewContent.post} />)}
           {previewContent && 'post' in previewContent && !previewContent.post.tripId.startsWith('search-trip-') &&
             <Button title="View trip" onPress={() => {
-              const id = previewContent.post.tripId;
+              const { tripId: id, visitedOn: day } = previewContent.post;
               setPreviewContent(null);
-              router.push({ pathname: '/trips/[id]', params: { id } });
+              router.push({ pathname: '/trips/[id]', params: { id, day } });
             }} />}
         </ScrollView>
       </BottomSheet>
