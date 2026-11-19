@@ -12,6 +12,7 @@ import { StatRow, type Stat } from "./stat-row";
 import { CardLink } from "./card-link";
 import { ShareAction } from "./share-action";
 import { formatDateRange } from "@/utils/local-date";
+import { postPlaceName } from "@/lib/post-location";
 
 type TripSummary = Pick<
   TripResponse,
@@ -80,10 +81,12 @@ export function TripCard({
             (Date.parse(date) - Date.parse(trip.startDate)) / 86400000,
           ) + 1
         : 1,
+      // The day's first post that has a location (#143 POST-4: not every post does)
       title:
-        posts?.find((post) => post.visitedOn === date)?.location?.name ??
-        posts?.find((post) => post.visitedOn === date)?.customLocationName ??
-        trip.destination,
+        posts
+          ?.filter((post) => post.visitedOn === date)
+          .map(postPlaceName)
+          .find((name) => name !== null) ?? trip.destination,
       visitedOn: date,
       coverUrl: posts
         ?.filter((post) => post.visitedOn === date)

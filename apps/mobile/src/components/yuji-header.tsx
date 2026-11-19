@@ -1,6 +1,7 @@
 import { Image } from 'expo-image';
 import { StyleSheet, View } from 'react-native';
 
+import { NotificationBell } from '@/components/notifications/notification-bell';
 import { AppText } from '@/components/ui/app-text';
 import { Spacing } from '@/constants/theme';
 
@@ -26,7 +27,10 @@ export function YujiHeader() {
         <YujiLogo />
         <AppText variant="caption">GO SOMEWHERE</AppText>
       </View>
-      {/* Leaderboard and Notifications buttons go here once those features exist */}
+      <View style={styles.actions}>
+        {/* The Leaderboard button goes here once leaderboards exist */}
+        <NotificationBell />
+      </View>
     </View>
   );
 }
@@ -38,5 +42,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  // Lines the bell up with the gutter instead of the button's padding, like ScreenHeader
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: -Spacing.two,
   },
 });

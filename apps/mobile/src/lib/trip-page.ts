@@ -2,30 +2,14 @@
 // node tests can import it.
 import type { PostResponse, TripResponse } from 'shared-types';
 
-export function postPlaceName(post: PostResponse): string {
-  return post.location?.name ?? post.customLocationName ?? 'Unknown place';
-}
-
-export type PlaceGroup = { key: string; name: string; posts: PostResponse[] };
-
-/** Back-to-back posts at the same place, grouped in visit order. */
-export function groupByPlace(posts: PostResponse[]): PlaceGroup[] {
-  const groups: PlaceGroup[] = [];
-  for (const post of posts) {
-    const key = post.location?.id ?? `custom:${post.customLocationName}`;
-    const last = groups[groups.length - 1];
-    if (last?.key === key) last.posts.push(post);
-    else groups.push({ key, name: postPlaceName(post), posts: [post] });
-  }
-  return groups;
-}
+import { groupByPlace } from '@/lib/post-location';
 
 export type DayPlace = {
   key: string;
   name: string;
   /** The city, or the address when there's no city. Null for custom places. */
   subtitle: string | null;
-  /** First photo of the first post there, if any. */
+  /** First photo (not video) of the first post there that has one, if any. */
   coverUrl?: string;
   /** Placeholder tint seed for `Media`. */
   coverSeed: string;
@@ -35,20 +19,31 @@ export type DayPlace = {
 /**
  * "The day, at a glance": each place in the order it was visited. A place
  * visited twice with something in between shows twice, like the post list.
+ * Posts with no location (#143 POST-4) aren't a stop, so they're left out.
  */
 export function dayPlaces(posts: PostResponse[]): DayPlace[] {
-  return groupByPlace(posts).map((group, i) => {
+  return groupByPlace(posts).flatMap((group, i) => {
+    if (group.key === null || group.name === null) return [];
     const first = group.posts[0];
     const location = first.location;
-    const withMedia = group.posts.find((post) => post.media.length > 0);
-    return {
-      key: `${group.key}-${i}`,
-      name: group.name,
-      subtitle: location?.city ?? location?.address ?? null,
-      coverUrl: withMedia?.media[0].url,
-      coverSeed: withMedia?.id ?? first.id,
-      postCount: group.posts.length,
-    };
+    let cover: { url: string; seed: string } | undefined;
+    for (const post of group.posts) {
+      const photo = post.media.find((item) => item.mediaType === 'image');
+      if (photo) {
+        cover = { url: photo.url, seed: post.id };
+        break;
+      }
+    }
+    return [
+      {
+        key: `${group.key}-${i}`,
+        name: group.name,
+        subtitle: location?.city ?? location?.address ?? null,
+        coverUrl: cover?.url,
+        coverSeed: cover?.seed ?? first.id,
+        postCount: group.posts.length,
+      },
+    ];
   });
 }
 

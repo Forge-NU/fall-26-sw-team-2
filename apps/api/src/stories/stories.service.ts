@@ -18,6 +18,7 @@ import {
 import { toUserSummary, userSummarySelect } from '../common/user-summary';
 import { formatDateOnly, parseDateOnly } from '../common/dates';
 import { toLocation } from '../locations/locations.service';
+import { assertCanAttachLocation } from '../locations/custom-locations';
 import { canViewTrip, isActiveTrip, resolveToday } from '../trips/trip-rules';
 import { lockTripForShare } from '../trips/trip-locks';
 import { CreateStoryDto } from './dto/create-story.dto';
@@ -80,9 +81,6 @@ export class StoriesService {
       throw new BadRequestException('keepOnTrip needs a tripId');
     }
     assertStoryKey(userId, dto.s3Key);
-    if (dto.locationId) {
-      await this.assertLocationExists(dto.locationId);
-    }
     const today = resolveToday(dto.date);
     const tripId = dto.tripId;
     // The day the story is from, defaulting to today. With a trip it can be
@@ -121,6 +119,11 @@ export class StoriesService {
           }
         }
 
+        // In the transaction, so a pin can't go on two stories at once
+        if (dto.locationId) {
+          await assertCanAttachLocation(tx, userId, dto.locationId);
+        }
+
         // Both times come from the database's clock, the one reads compare
         // expires_at against, so a story lives exactly 24 hours. (Prisma
         // would fill createdAt from this server's clock.)
@@ -147,6 +150,8 @@ export class StoriesService {
   }
 
   // Owner only. Anyone else gets 404, the same as a story that doesn't exist.
+  // A pin on the story is deleted with it (the delete_unused_custom_location
+  // trigger).
   async remove(userId: string, id: string): Promise<void> {
     const story = await this.prisma.story.findUnique({
       where: { id },
@@ -273,16 +278,6 @@ export class StoriesService {
       ),
       nextCursor: page.nextCursor,
     };
-  }
-
-  private async assertLocationExists(locationId: string) {
-    const location = await this.prisma.location.findUnique({
-      where: { id: locationId },
-      select: { id: true },
-    });
-    if (!location) {
-      throw new BadRequestException('Location not found');
-    }
   }
 
   private async toResponse(

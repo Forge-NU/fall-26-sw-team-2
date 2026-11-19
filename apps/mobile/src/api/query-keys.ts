@@ -20,4 +20,6 @@ export const queryKeys = {
   searchPreview: ['search', 'all'] as const,
   search: (tab: 'all' | 'people' | 'places' | 'trips' | 'posts', q: string, filters: string) =>
     ['search', tab, q, filters] as const,
+  notifications: ['me', 'notifications', 'list'] as const,
+  unreadNotifications: ['me', 'notifications', 'unread-count'] as const,
 };

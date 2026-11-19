@@ -18,9 +18,9 @@ import { Trim } from '../../common/trim';
 import { CharLength } from '../../common/char-length';
 import { MediaItemDto } from './media-item.dto';
 
-// Exactly one of locationId and customLocationName is required, and a rating
-// only goes with a locationId; the service checks both, since they depend on
-// more than one field.
+// The location is optional (#143 POST-4): at most one of locationId and
+// customLocationName, and a rating only goes with a locationId. The service
+// checks both, since they depend on more than one field.
 export class CreatePostDto {
   @IsUUID('all')
   tripId: string;

@@ -12,8 +12,10 @@ export function leaveTrip() {
 
 // `Screen`'s errorState for the trip screens. A deleted trip (or someone
 // else's draft) can't come back with a retry, so it offers Go back instead.
+// So does a 400: loading a trip only gets one for an id that isn't a UUID
+// (a bad link, or a mock feed card until FEED-2 #27), which no retry fixes.
 export function tripErrorState(error: unknown): Partial<EmptyStateProps> {
-  if (error instanceof ApiError && error.status === 404) {
+  if (error instanceof ApiError && (error.status === 404 || error.status === 400)) {
     return {
       icon: 'map-outline',
       title: 'Trip not found',

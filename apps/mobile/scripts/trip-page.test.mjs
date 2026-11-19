@@ -1,43 +1,28 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import {
-  dayPlaces,
-  groupByPlace,
-  initialDay,
-  postPlaceName,
-  tripShareContent,
-} from '../src/lib/trip-page.ts';
+import { dayPlaces, initialDay, tripShareContent } from '../src/lib/trip-page.ts';
 
 const location = (id, name, extra = {}) => ({ id, name, address: null, city: null, ...extra });
-const media = (url) => ({ id: url, mediaType: 'image', url, width: 1, height: 1, durationMs: null });
+// A URL ending in .mp4 is a video
+const media = (url) => ({
+  id: url,
+  mediaType: url.endsWith('.mp4') ? 'video' : 'image',
+  url,
+  width: 1,
+  height: 1,
+  durationMs: null,
+});
+// `place` is a location, a custom name, or null for no location (#143 POST-4)
 const post = (id, place, photos = []) => ({
   id,
-  location: typeof place === 'string' ? null : place,
+  location: typeof place === 'object' ? place : null,
   customLocationName: typeof place === 'string' ? place : null,
   media: photos.map(media),
 });
 
 const belem = location('loc-belem', 'Torre de Belém', { city: 'Lisbon', address: 'Av. Brasília' });
 const pasteis = location('loc-pasteis', 'Pastéis de Belém', { address: 'R. de Belém 84' });
-
-test('postPlaceName uses the location, then the custom name', () => {
-  assert.equal(postPlaceName(post('a', belem)), 'Torre de Belém');
-  assert.equal(postPlaceName(post('b', 'Aunt’s flat')), 'Aunt’s flat');
-  assert.equal(postPlaceName({ location: null, customLocationName: null }), 'Unknown place');
-});
-
-test('groupByPlace groups back-to-back posts and keeps visit order', () => {
-  const posts = [post('a', belem), post('b', belem), post('c', 'Tram 28'), post('d', belem)];
-  assert.deepEqual(
-    groupByPlace(posts).map((g) => [g.name, g.posts.map((p) => p.id)]),
-    [
-      ['Torre de Belém', ['a', 'b']],
-      ['Tram 28', ['c']],
-      ['Torre de Belém', ['d']],
-    ],
-  );
-});
 
 test('dayPlaces lists each stop with a subtitle, cover and post count', () => {
   const places = dayPlaces([
@@ -73,6 +58,30 @@ test('dayPlaces lists each stop with a subtitle, cover and post count', () => {
     },
   ]);
   assert.deepEqual(dayPlaces([]), []);
+});
+
+test('dayPlaces leaves out posts with no location', () => {
+  const places = dayPlaces([post('a', null), post('b', belem), post('c', null), post('d', 'Tram 28')]);
+  assert.deepEqual(
+    places.map((p) => [p.key, p.name]),
+    [
+      ['loc-belem-1', 'Torre de Belém'],
+      ['custom:Tram 28-3', 'Tram 28'],
+    ],
+  );
+  assert.deepEqual(dayPlaces([post('a', null)]), []);
+});
+
+test('dayPlaces covers a stop with its first photo, skipping videos', () => {
+  const [onlyVideo, videoFirst] = dayPlaces([
+    post('a', belem, ['https://img/a.mp4']),
+    post('b', pasteis, ['https://img/b.mp4', 'https://img/b.jpg']),
+    post('c', pasteis, ['https://img/c.jpg']),
+  ]);
+  assert.equal(onlyVideo.coverUrl, undefined);
+  assert.equal(onlyVideo.coverSeed, 'a');
+  assert.equal(videoFirst.coverUrl, 'https://img/b.jpg');
+  assert.equal(videoFirst.coverSeed, 'b');
 });
 
 test('initialDay accepts only one of the trip’s days', () => {

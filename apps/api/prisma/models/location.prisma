@@ -1,8 +1,17 @@
-// Shared rows for Mapbox places, deduplicated by (provider, provider_place_id).
-// Custom locations are stored on the post instead, so a location never
-// belongs to one user and is never deleted.
-// Check constraints (added in the migration): latitude -90 to 90, longitude
-// -180 to 180; 0 <= rating_count and rating_count <= rating_sum <= 5 * rating_count.
+// Two kinds of row (docs/architecture/locations.md):
+// - provider = 'mapbox': a shared Mapbox place, deduplicated by
+//   (provider, provider_place_id). Many posts and stories can use it, and it's
+//   never deleted.
+// - provider = 'custom': a pin a user dropped (#94 LOC-2). Never deduplicated
+//   (provider_place_id is a generated UUID), and belongs to the one post or
+//   story that uses it. Triggers on posts and stories delete it once that post
+//   or story stops using it (deleted, cascaded, or moved to another location),
+//   and the cleanup job deletes pins nobody attached after 24 hours.
+// A custom name without a pin isn't a row; it's posts.custom_location_name.
+// Check constraints (added in the migrations): latitude -90 to 90, longitude
+// -180 to 180; 0 <= rating_count and rating_count <= rating_sum <=
+// 5 * rating_count; provider is 'mapbox' or 'custom'; created_by only on
+// custom rows.
 model Location {
   id              String   @id @default(uuid()) @db.Uuid
   provider        String   @db.VarChar(20)
@@ -19,13 +28,18 @@ model Location {
   // recomputing. The average is rating_sum / rating_count.
   ratingCount     Int      @default(0) @map("rating_count")
   ratingSum       Int      @default(0) @map("rating_sum")
+  // Who dropped the pin, so only they can attach it. Null for Mapbox places,
+  // and for a pin whose user was deleted (the cleanup job removes those).
+  createdBy       String?  @map("created_by")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
+  creator User?   @relation(fields: [createdBy], references: [id], onDelete: SetNull)
   posts   Post[]
   stories Story[]
 
   @@unique([provider, providerPlaceId])
   @@index([latitude, longitude])
+  @@index([createdBy])
   @@map("locations")
 }
