@@ -56,7 +56,10 @@ function RatingPinBase({ item, weight, selected, calloutLine, onPress }: Props) 
       onPress={() => onPress(item)}
       accessibilityLabel={`${item.name}, rated ${rating}, ${item.stats.reviews} reviews`}
     >
-      <View style={[styles.frame, { width, height }]}>
+      {/* collapsable={false}: this wrapper only has layout styles, so React Native would
+          otherwise flatten it away. The map would then size the marker to its first child
+          (the name label), so only the label took taps and the tip sat off the coordinate. */}
+      <View collapsable={false} style={[styles.frame, { width, height }]}>
         {selected ? (
           <View style={styles.callout}>
             <Text allowFontScaling={false} style={styles.calloutTitle} numberOfLines={2}>

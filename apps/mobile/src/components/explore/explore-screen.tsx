@@ -5,6 +5,8 @@ import { Animated, Keyboard, Platform, Pressable, StyleSheet, Text, View } from 
 import MapView, { type Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { newSearchSessionToken, retrievePlace } from '@/api/locations';
+import type { PlaceSuggestion } from '@/api/types';
 import { savedPlaces, useSavedPlaces } from '@/components/saved/saved-places';
 import { AudienceToggle } from '@/components/explore/audience-toggle';
 import { FiltersMenu } from '@/components/explore/filters-menu';
@@ -21,9 +23,29 @@ import { colors, formatCount, radius, shadow } from '@/components/explore/explor
 import type { LatLng, PinItem, Place, SearchResult } from '@/components/explore/types';
 import { useToast } from '@/components/ui/toast-provider';
 import { useExplore } from '@/hooks/use-explore';
+import { usePlaceSearch } from '@/hooks/use-place-search';
 import { regionFor, zoomRegion } from '@/lib/map-zoom';
 
 const SEARCH_BAR_HEIGHT = 56;
+
+// How far to zoom for a real-world place, by its Mapbox feature type.
+function deltaForFeature(type: string | undefined): number {
+  switch (type) {
+    case 'country':
+      return 14;
+    case 'region':
+      return 4;
+    case 'district':
+      return 1;
+    case 'place':
+    case 'locality':
+      return 0.15;
+    case 'neighborhood':
+      return 0.04;
+    default:
+      return 0.02; // a point of interest, address or street
+  }
+}
 
 export default function ExploreScreen() {
   const insets = useSafeAreaInsets();
@@ -43,6 +65,12 @@ export default function ExploreScreen() {
   const ex = useExplore(LISBON_REGION);
   const saved = useSavedPlaces();
   const { setSelectedId, setQuery, onRegionChange } = ex;
+
+  // Real-world places from Mapbox, shown under the app's own results. A Mapbox
+  // session is the /suggest calls plus one /retrieve, so start a new one after each pick.
+  const [searchSession, setSearchSession] = useState(newSearchSessionToken);
+  const world = usePlaceSearch(ex.query, searchSession);
+  const [openingWorldId, setOpeningWorldId] = useState<string | null>(null);
 
   const headerTop = insets.top + 8;
   const half = Math.round(screenH * 0.52);
@@ -90,6 +118,38 @@ export default function ExploreScreen() {
     [animateTo, aspect],
   );
 
+  // Open on the user's location. Lisbon stays as the fallback if they decline or it fails.
+  const [mapReady, setMapReady] = useState(false);
+  const [userStart, setUserStart] = useState<LatLng | null>(null);
+  const centeredOnUserRef = useRef(false);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (cancelled || status !== 'granted') return;
+        setLocationOn(true);
+        // The last known fix is instant; a fresh one can take a few seconds.
+        const pos =
+          (await Location.getLastKnownPositionAsync()) ??
+          (await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }));
+        if (!cancelled) setUserStart({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+      } catch {
+        // Location Services off or the request failed: stay on the default region.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // The map ignores camera moves made before it has loaded, so wait for both.
+  useEffect(() => {
+    if (!mapReady || !userStart || centeredOnUserRef.current) return;
+    centeredOnUserRef.current = true;
+    flyTo(userStart, 0.02);
+  }, [mapReady, userStart, flyTo]);
+
   const selectPlace = useCallback(
     (place: Place) => {
       Keyboard.dismiss();
@@ -117,6 +177,23 @@ export default function ExploreScreen() {
     Keyboard.dismiss();
     setQuery('');
     flyTo(r.target.area.coordinate, 0.06);
+  };
+
+  const openWorldPlace = async (pl: PlaceSuggestion) => {
+    if (openingWorldId) return;
+    setOpeningWorldId(pl.mapboxId);
+    try {
+      const found = await retrievePlace(pl.mapboxId, searchSession);
+      if (found.kind !== 'mapbox') return;
+      Keyboard.dismiss();
+      setQuery('');
+      flyTo({ latitude: found.latitude, longitude: found.longitude }, deltaForFeature(pl.featureType));
+    } catch {
+      showToast({ message: 'Couldn’t open that place. Try again.', variant: 'error' });
+    } finally {
+      setOpeningWorldId(null);
+      setSearchSession(newSearchSessionToken());
+    }
   };
 
   const zoomBy = (factor: number) => animateTo(zoomRegion(targetRegionRef.current, factor), 250);
@@ -165,6 +242,7 @@ export default function ExploreScreen() {
         showsPointsOfInterests={false}
         showsCompass={false}
         toolbarEnabled={false}
+        onMapReady={() => setMapReady(true)}
         onRegionChangeComplete={(r) => {
           targetRegionRef.current = r;
           onRegionChange(r);
@@ -248,6 +326,10 @@ export default function ExploreScreen() {
               filter={ex.kindFilter}
               onFilterChange={ex.setKindFilter}
               onSelect={openResult}
+              worldPlaces={world.suggestions}
+              worldSearching={world.searching}
+              worldOpeningId={openingWorldId}
+              onSelectWorld={(pl) => void openWorldPlace(pl)}
             />
           )}
         </Sheet>

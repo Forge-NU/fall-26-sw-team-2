@@ -1,5 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+
+import type { PlaceSuggestion } from '@/api/types';
 
 import { colors, radius } from '@/components/explore/explore-theme';
 import type { KindFilter, ResultKind, SearchResult } from '@/components/explore/types';
@@ -23,9 +25,28 @@ interface Props {
   filter: KindFilter;
   onFilterChange: (f: KindFilter) => void;
   onSelect: (result: SearchResult) => void;
+  /** Real-world places from Mapbox, listed under the app's own results. */
+  worldPlaces: PlaceSuggestion[];
+  worldSearching: boolean;
+  /** Id of the place being looked up after a tap, to show a spinner on that row. */
+  worldOpeningId: string | null;
+  onSelectWorld: (place: PlaceSuggestion) => void;
 }
 
-export function SearchResults({ query, results, filter, onFilterChange, onSelect }: Props) {
+export function SearchResults({
+  query,
+  results,
+  filter,
+  onFilterChange,
+  onSelect,
+  worldPlaces,
+  worldSearching,
+  worldOpeningId,
+  onSelectWorld,
+}: Props) {
+  // "Things to do" only makes sense for the app's own places.
+  const world = filter === 'activity' ? [] : worldPlaces;
+  const total = results.length + world.length;
   return (
     <View style={styles.root}>
       <View style={styles.header}>
@@ -34,7 +55,7 @@ export function SearchResults({ query, results, filter, onFilterChange, onSelect
             Results for “{query.trim()}”
           </Text>
           <Text style={styles.count}>
-            {results.length} {results.length === 1 ? 'result' : 'results'}
+            {total} {total === 1 ? 'result' : 'results'}
           </Text>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
@@ -61,7 +82,20 @@ export function SearchResults({ query, results, filter, onFilterChange, onSelect
         contentContainerStyle={styles.list}
         ItemSeparatorComponent={Separator}
         ListEmptyComponent={
-          <Text style={styles.empty}>No matches. Try a city or neighborhood, or switch to Global.</Text>
+          world.length === 0 && !worldSearching ? (
+            <Text style={styles.empty}>No matches. Try a city or neighborhood, or switch to Global.</Text>
+          ) : undefined
+        }
+        ListFooterComponent={
+          filter === 'activity' ? undefined : (
+            <WorldSection
+              places={world}
+              searching={worldSearching}
+              openingId={worldOpeningId}
+              showHeader={results.length > 0}
+              onSelect={onSelectWorld}
+            />
+          )
         }
         renderItem={({ item }) => (
           <Pressable
@@ -86,6 +120,58 @@ export function SearchResults({ query, results, filter, onFilterChange, onSelect
           </Pressable>
         )}
       />
+    </View>
+  );
+}
+
+interface WorldProps {
+  places: PlaceSuggestion[];
+  searching: boolean;
+  openingId: string | null;
+  showHeader: boolean;
+  onSelect: (place: PlaceSuggestion) => void;
+}
+
+function WorldSection({ places, searching, openingId, showHeader, onSelect }: WorldProps) {
+  if (places.length === 0) {
+    return searching ? <ActivityIndicator style={styles.spinner} color={colors.coral} /> : null;
+  }
+  return (
+    <View>
+      {showHeader ? <Text style={styles.section}>More places</Text> : null}
+      {places.map((pl, i) => (
+        <View key={pl.mapboxId}>
+          {i > 0 ? <Separator /> : null}
+          <Pressable
+            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+            onPress={() => onSelect(pl)}
+            accessibilityRole="button"
+            accessibilityLabel={`${pl.name}${pl.description ? `, ${pl.description}` : ''}. Show on map`}
+          >
+            <View style={styles.icon}>
+              <MaterialCommunityIcons name="map-search-outline" size={24} color={colors.forest} />
+            </View>
+            <View style={styles.rowText}>
+              <Text style={styles.name} numberOfLines={1}>
+                {pl.name}
+              </Text>
+              {pl.description ? (
+                <Text style={styles.subtitle} numberOfLines={1}>
+                  {pl.description}
+                </Text>
+              ) : null}
+              <Text style={styles.stats} numberOfLines={1}>
+                Show on map
+              </Text>
+            </View>
+            {openingId === pl.mapboxId ? (
+              <ActivityIndicator color={colors.coral} />
+            ) : (
+              <MaterialCommunityIcons name="chevron-right" size={24} color={colors.text} />
+            )}
+          </Pressable>
+        </View>
+      ))}
     </View>
   );
 }
@@ -129,5 +215,7 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 14, color: colors.textMuted },
   stats: { fontSize: 14, color: colors.text },
   sep: { height: 1, backgroundColor: colors.line },
+  section: { fontSize: 14, fontWeight: '600', color: colors.textMuted, paddingTop: 20, paddingBottom: 4 },
+  spinner: { paddingVertical: 20 },
   empty: { fontSize: 14, color: colors.textMuted, paddingVertical: 20, lineHeight: 20 },
 });

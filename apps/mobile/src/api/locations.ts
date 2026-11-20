@@ -34,6 +34,7 @@ type SuggestResponse = {
   suggestions: {
     mapbox_id: string;
     name: string;
+    feature_type?: string;
     place_formatted?: string;
     full_address?: string;
   }[];
@@ -51,6 +52,7 @@ export async function searchPlaces(query: string, sessionToken: string): Promise
     mapboxId: s.mapbox_id,
     name: s.name,
     description: s.place_formatted ?? s.full_address ?? null,
+    featureType: s.feature_type,
   }));
 }
 
