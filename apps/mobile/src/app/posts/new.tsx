@@ -256,9 +256,13 @@ export default function NewPostScreen() {
               label=""
               value={location}
               onChange={(next) => {
+                // A rating belongs to one place, so a different place (or a custom name) starts unrated
+                const samePlace =
+                  next?.kind === 'mapbox' &&
+                  location?.kind === 'mapbox' &&
+                  next.location.id === location.location.id;
+                if (!samePlace) setRating(null);
                 setLocation(next);
-                // Only a place from search can be rated, so a custom name drops the rating
-                if (!canRate(next)) setRating(null);
                 if (next) setErrors(({ location: _location, ...rest }) => rest);
               }}
             />
@@ -270,7 +274,7 @@ export default function NewPostScreen() {
           </Section>
 
           {canRate(location) ? (
-            <Section label="Rate this place" aside="Optional">
+            <Section label="Rate this place">
               <StarRating
                 value={rating}
                 onChange={setRating}
