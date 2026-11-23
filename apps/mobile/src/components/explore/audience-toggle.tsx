@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: Radii.circle,
   },
-  // Same as the active day on the itinerary page
+  // Active segment
   segmentActive: { backgroundColor: Palette.black },
   label: { ...Typography.label, color: Palette.placeholderGray },
   labelActive: { color: Palette.warmWhite },

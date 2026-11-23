@@ -28,4 +28,7 @@ model User {
   notificationsActedOn Notification[]   @relation("NotificationActor")
   placeSaves           PlaceSave[]
   bucketItemsAdded     TripBucketItem[]
+
+  // Custom pins they dropped (#94 LOC-2)
+  pins        Location[]
 }

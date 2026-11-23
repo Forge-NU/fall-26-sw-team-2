@@ -20,6 +20,7 @@ import { canViewTrip, visibleTripWhere } from '../trips/trip-rules';
 import { lockTripForShare } from '../trips/trip-locks';
 import { toLocation } from '../locations/locations.service';
 import { refreshLocationRatings } from '../locations/location-ratings';
+import { assertCanAttachLocation } from '../locations/custom-locations';
 import { CreatePostDto } from './dto/create-post.dto';
 import { MediaItemDto } from './dto/media-item.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
@@ -71,8 +72,16 @@ const USER_POSTS = keyset<
   { field: 'id', direction: 'desc', type: 'uuid' },
 ]);
 
-const CUSTOM_LOCATION_RATING =
-  'Only posts at a Mapbox place can be rated, not a custom location';
+// A rating is for the post's place, so it needs a locationId. A dropped pin is
+// a locations row, so a post there can be rated. A custom name or no location
+// has no place to rate.
+function cantRate(customLocationName: string | null | undefined) {
+  return new BadRequestException(
+    customLocationName != null
+      ? "A post with only a custom location name can't be rated. Pick a place or drop a pin."
+      : "A post with no location can't be rated. Pick a place or drop a pin.",
+  );
+}
 
 @Injectable()
 export class PostsService {
@@ -85,16 +94,14 @@ export class PostsService {
   async create(userId: string, dto: CreatePostDto): Promise<PostResponse> {
     await this.tripsService.getOwnedTrip(userId, dto.tripId);
 
-    if ((dto.locationId != null) === (dto.customLocationName != null)) {
+    // The location is optional (#143 POST-4), but it's one kind or the other
+    if (dto.locationId != null && dto.customLocationName != null) {
       throw new BadRequestException(
-        'Send exactly one of locationId and customLocationName',
+        'Send at most one of locationId and customLocationName',
       );
     }
-    if (dto.rating != null && dto.customLocationName != null) {
-      throw new BadRequestException(CUSTOM_LOCATION_RATING);
-    }
-    if (dto.locationId) {
-      await this.assertLocationExists(dto.locationId);
+    if (dto.rating != null && dto.locationId == null) {
+      throw cantRate(dto.customLocationName);
     }
 
     assertMediaDurations(dto.media);
@@ -107,6 +114,10 @@ export class PostsService {
         const trip = await this.lockedTrip(tx, dto.tripId);
         const visitedOn = parseDateOnly(dto.visitedOn);
         assertWithinTrip(trip, visitedOn);
+        // In the transaction, so a pin can't go on two posts at once
+        if (dto.locationId) {
+          await assertCanAttachLocation(tx, userId, dto.locationId);
+        }
 
         const created = await tx.post.create({
           data: {
@@ -172,16 +183,26 @@ export class PostsService {
   ): Promise<PostResponse> {
     const post = await this.getOwnedPost(userId, id);
 
-    if (dto.locationId !== undefined && dto.customLocationName !== undefined) {
+    const { locationId, customLocationName } = dto;
+    if (locationId != null && customLocationName != null) {
       throw new BadRequestException(
         'Send only one of locationId and customLocationName',
       );
     }
-    if (dto.rating != null && dto.customLocationName !== undefined) {
-      throw new BadRequestException(CUSTOM_LOCATION_RATING);
+    // Removing the location takes both as null, so a lone null can't wipe
+    // the other kind of location by accident
+    if (
+      (locationId === null && customLocationName === undefined) ||
+      (customLocationName === null && locationId === undefined)
+    ) {
+      throw new BadRequestException(
+        'To remove the location, send both locationId and customLocationName as null',
+      );
     }
-    if (dto.locationId) {
-      await this.assertLocationExists(dto.locationId);
+    const locationChanged =
+      locationId !== undefined || customLocationName !== undefined;
+    if (dto.rating != null && locationChanged && locationId == null) {
+      throw cantRate(customLocationName);
     }
     if (dto.media) {
       assertMediaDurations(dto.media);
@@ -200,20 +221,24 @@ export class PostsService {
         // removed keys and the old location and rating are worked out from
         // what's actually there
         const current = await this.lockPost(tx, id);
-
-        const locationChanged =
-          dto.locationId !== undefined || dto.customLocationName !== undefined;
-        const nextLocationId =
-          dto.customLocationName !== undefined
-            ? null
-            : (dto.locationId ?? current.location_id);
-        if (dto.rating != null && nextLocationId == null) {
-          throw new BadRequestException(CUSTOM_LOCATION_RATING);
+        // This post can keep its own pin
+        if (locationId) {
+          await assertCanAttachLocation(tx, userId, locationId, {
+            postId: id,
+          });
         }
-        // The rating was for the place, so switching to a custom location
-        // (which can't be rated) clears it
+
+        // A custom name, or no location, leaves no locations row
+        const nextLocationId = locationChanged
+          ? (locationId ?? null)
+          : current.location_id;
+        if (dto.rating != null && nextLocationId == null) {
+          throw cantRate(current.custom_location_name);
+        }
+        // The rating was for the place, so switching to a custom name or no
+        // location (neither can be rated) clears it
         const nextRating =
-          dto.customLocationName !== undefined
+          nextLocationId == null
             ? null
             : dto.rating !== undefined
               ? dto.rating
@@ -238,19 +263,18 @@ export class PostsService {
           await tx.postMedia.deleteMany({ where: { postId: id } });
         }
 
+        // Moving off a pin, or removing it, deletes it (the
+        // delete_unused_custom_location trigger, in this transaction)
         const edited = await tx.post.update({
           where: { id },
           data: {
             visitedOn: dto.visitedOn ? parseDateOnly(dto.visitedOn) : undefined,
             caption:
               dto.caption === undefined ? undefined : dto.caption || null,
-            ...(dto.locationId !== undefined && {
-              locationId: dto.locationId,
-              customLocationName: null,
-            }),
-            ...(dto.customLocationName !== undefined && {
-              locationId: null,
-              customLocationName: dto.customLocationName,
+            // Either kind replaces the other, and both null removes it
+            ...(locationChanged && {
+              locationId: locationId ?? null,
+              customLocationName: customLocationName ?? null,
             }),
             rating: nextRating,
             ...(media && { media: { create: toMediaRows(media) } }),
@@ -278,8 +302,9 @@ export class PostsService {
     return this.toResponse(updated);
   }
 
-  // Hard delete. Media rows cascade; their S3 objects are deleted after the
-  // rows are gone.
+  // Hard delete. Media rows cascade, and a pin on the post is deleted by the
+  // delete_unused_custom_location trigger. The S3 objects are deleted after
+  // the rows are gone.
   async remove(userId: string, id: string): Promise<void> {
     const post = await this.getOwnedPost(userId, id);
 
@@ -423,8 +448,12 @@ export class PostsService {
   // depend on. 404 if it was deleted since the ownership check.
   private async lockPost(tx: Prisma.TransactionClient, id: string) {
     const [row] = await tx.$queryRaw<
-      { location_id: string | null; rating: number | null }[]
-    >`SELECT location_id, rating FROM posts WHERE id = ${id}::uuid FOR UPDATE`;
+      {
+        location_id: string | null;
+        custom_location_name: string | null;
+        rating: number | null;
+      }[]
+    >`SELECT location_id, custom_location_name, rating FROM posts WHERE id = ${id}::uuid FOR UPDATE`;
     if (!row) {
       throw new NotFoundException('Post not found');
     }
@@ -447,16 +476,6 @@ export class PostsService {
     }
 
     return post;
-  }
-
-  private async assertLocationExists(locationId: string) {
-    const location = await this.prisma.location.findUnique({
-      where: { id: locationId },
-      select: { id: true },
-    });
-    if (!location) {
-      throw new BadRequestException('Location not found');
-    }
   }
 
   // Keys come from the upload endpoint (#38), which puts every post upload

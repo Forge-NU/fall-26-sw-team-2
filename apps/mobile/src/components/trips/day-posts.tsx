@@ -6,35 +6,24 @@ import { AppText } from '@/components/ui/app-text';
 import { Media } from '@/components/ui/media';
 import { Palette } from '@/constants/palette';
 import { Radii, Spacing, Typography } from '@/constants/theme';
+import { groupByPlace, postPlaceName } from '@/lib/post-location';
 
-export function postPlaceName(post: PostResponse): string {
-  return post.location?.name ?? post.customLocationName ?? 'Unknown place';
-}
-
-// Back-to-back posts at the same place share one header, like the wireframe
-function groupByPlace(posts: PostResponse[]) {
-  const groups: { key: string; name: string; posts: PostResponse[] }[] = [];
-  for (const post of posts) {
-    const key = post.location?.id ?? `custom:${post.customLocationName}`;
-    const last = groups[groups.length - 1];
-    if (last?.key === key) last.posts.push(post);
-    else groups.push({ key, name: postPlaceName(post), posts: [post] });
-  }
-  return groups;
-}
-
-// One day's posts on the trip page (wireframe 02)
+// One day's posts on the trip page (wireframe 02). Back-to-back posts at the
+// same place share one header, like the wireframe. Posts with no location
+// (#143 POST-4) get no header.
 export function DayPosts({ posts }: { posts: PostResponse[] }) {
   return (
     <View style={styles.list}>
       {groupByPlace(posts).map((group, i) => (
-        <View key={`${group.key}-${i}`} style={styles.group}>
-          <View style={styles.place}>
-            <Ionicons name="location-outline" size={14} color={Palette.placeholderGray} />
-            <AppText variant="caption" style={styles.muted}>
-              {group.name}
-            </AppText>
-          </View>
+        <View key={`${group.key ?? 'none'}-${i}`} style={styles.group}>
+          {group.name ? (
+            <View style={styles.place}>
+              <Ionicons name="location-outline" size={14} color={Palette.placeholderGray} />
+              <AppText variant="caption" style={styles.muted}>
+                {group.name}
+              </AppText>
+            </View>
+          ) : null}
           {group.posts.map((post) => (
             <PostRow key={post.id} post={post} />
           ))}
@@ -48,9 +37,10 @@ export function DayPosts({ posts }: { posts: PostResponse[] }) {
 function PostRow({ post }: { post: PostResponse }) {
   const cover = post.media[0];
   const count = post.media.length;
+  const label = [postPlaceName(post), post.caption].filter(Boolean).join('. ') || 'Post';
 
   return (
-    <View style={styles.row} accessible accessibilityLabel={`${postPlaceName(post)}. ${post.caption ?? ''}`}>
+    <View style={styles.row} accessible accessibilityLabel={label}>
       {/* A plain tile when there are no photos, so it doesn't read as a failed image */}
       {cover ? (
         <Media seed={post.id} url={cover.url} iconSize={Spacing.three} style={styles.thumb} />
@@ -70,7 +60,7 @@ function PostRow({ post }: { post: PostResponse }) {
   );
 }
 
-const THUMB = 44;
+export const THUMB = 44;
 
 const styles = StyleSheet.create({
   list: { gap: Spacing.three },

@@ -14,8 +14,7 @@ import { isShownNotification } from '@/lib/notifications';
 // everything as read (#129 DOC-3).
 export default function NotificationsScreen() {
   const list = useNotifications();
-  // The list's own fetch for this open, so read-all can't reach the server first
-  const markAllRead = useMarkAllReadOnOpen(list.isFetchedAfterMount && !list.isFetching && !list.isError);
+  const markAllRead = useMarkAllReadOnOpen(list);
   const rows = list.items.filter(isShownNotification);
 
   const openTrip = (id: string) => router.push({ pathname: '/trips/[id]', params: { id } });

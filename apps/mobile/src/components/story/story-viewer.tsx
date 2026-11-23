@@ -134,9 +134,10 @@ export function StoryViewer({
     });
   }
 
-  function openTrip(tripId: string) {
+  // Opens on the story's day
+  function openTrip(tripId: string, day: string) {
     onClose();
-    router.push({ pathname: '/trips/[id]', params: { id: tripId } });
+    router.push({ pathname: '/trips/[id]', params: { id: tripId, day } });
   }
 
   return (
@@ -234,7 +235,7 @@ export function StoryViewer({
             <Pressable
               accessibilityRole="link"
               accessibilityLabel={`Open trip ${trip.title}`}
-              onPress={() => openTrip(trip.id)}
+              onPress={() => openTrip(trip.id, story.storyDate)}
               style={({ pressed }) => [styles.chip, styles.tripChip, pressed && styles.pressed]}>
               <Icon name="route" size={14} color="black" />
               <AppText variant="caption" numberOfLines={1} style={styles.chipText}>

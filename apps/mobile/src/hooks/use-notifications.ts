@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { NotificationResponse, UnreadCountResponse } from 'shared-types';
 
 import { ApiError, getErrorMessage } from '@/api/client';
@@ -12,9 +12,11 @@ import {
 } from '@/api/notifications';
 import { queryKeys } from '@/api/query-keys';
 import { useInfiniteList } from '@/hooks/use-infinite-list';
+import { useCurrentUser } from '@/lib/current-user';
 import {
   conflictMessage,
   findInviteStatus,
+  loadedSinceOpen,
   setInviteStatus,
   type NotificationPages,
 } from '@/lib/notifications';
@@ -42,12 +44,12 @@ export function useNotifications() {
 }
 
 /**
- * Marks everything as read once the inbox's list has loaded, and clears the
- * badge right away. Waiting for the list means its rows still come back
- * unread, so they show their dots. Leaving the inbox refetches the count, and
- * marks the list stale so the next open loads it again before marking.
+ * Marks everything as read once the inbox has loaded, and clears the badge
+ * then. Waiting for the list keeps rows that were unread showing as unread on
+ * this visit; marking at the same time as the fetch could return them already
+ * read. Leaving the inbox refetches the count, and the list on the next open.
  */
-export function useMarkAllReadOnOpen(listLoaded: boolean) {
+export function useMarkAllReadOnOpen(list: { dataUpdatedAt: number; isFetching: boolean }) {
   const queryClient = useQueryClient();
   const { mutate } = useMutation({
     meta: { toast: false },
@@ -60,12 +62,14 @@ export function useMarkAllReadOnOpen(listLoaded: boolean) {
     onError: () => void queryClient.invalidateQueries({ queryKey: queryKeys.unreadNotifications, exact: true }),
   });
 
+  const [openedAt] = useState(Date.now);
   const marked = useRef(false);
+  const loaded = loadedSinceOpen(openedAt, list);
   useEffect(() => {
-    if (!listLoaded || marked.current) return;
+    if (!loaded || marked.current) return;
     marked.current = true;
     mutate();
-  }, [listLoaded, mutate]);
+  }, [loaded, mutate]);
 
   useEffect(
     () => () => {
@@ -89,6 +93,7 @@ export type InviteAnswer = 'accepted' | 'declined';
  */
 export function useAnswerInvite() {
   const queryClient = useQueryClient();
+  const user = useCurrentUser();
   const key = queryKeys.notifications;
   return useMutation({
     meta: { toast: false },
@@ -111,8 +116,14 @@ export function useAnswerInvite() {
       showToast({ message: getErrorMessage(error), variant: 'error' });
     },
     onSuccess: (_invite, { answer }) => {
-      // You're on a new trip, so its page and your trip lists change
-      if (answer === 'accepted') void queryClient.invalidateQueries({ queryKey: ['trips'] });
+      if (answer !== 'accepted') return;
+      // You're on a new trip, so its page changes (['trips'] covers every trip
+      // and its posts), and it joins your trip lists: the profile grid and the
+      // post composer's picker (userTrips covers both), and the story
+      // composer's active trips. Same lists as creating a trip (use-trips.ts).
+      void queryClient.invalidateQueries({ queryKey: ['trips'] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.userTrips(user.id) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.activeTrips });
     },
   });
 }

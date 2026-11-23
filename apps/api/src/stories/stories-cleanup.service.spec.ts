@@ -9,7 +9,12 @@ const rows = (...keys: string[]) => keys.map((s3_key) => ({ s3_key }));
 describe('StoriesCleanupService', () => {
   let service: StoriesCleanupService;
 
-  const prisma = { $queryRaw: jest.fn() };
+  const raw = { $queryRaw: jest.fn(), $executeRaw: jest.fn() };
+  // The pin sweep runs each batch in a transaction; the raw mocks are its tx
+  const prisma = {
+    ...raw,
+    $transaction: jest.fn((fn: (tx: typeof raw) => unknown) => fn(raw)),
+  };
   const storage = { deleteObjects: jest.fn() };
 
   beforeEach(async () => {
@@ -77,5 +82,60 @@ describe('StoriesCleanupService', () => {
     await service.deleteExpired();
 
     expect(prisma.$queryRaw.mock.calls[0]).toContain(1000);
+  });
+
+  describe('deleteUnusedPins', () => {
+    const ids = (...list: string[]) => list.map((id) => ({ id }));
+
+    it('locks pins over 24 hours old that no post or story uses, then deletes them', async () => {
+      prisma.$queryRaw.mockResolvedValueOnce(ids('a', 'b', 'c'));
+      prisma.$executeRaw.mockResolvedValueOnce(3);
+
+      await expect(service.deleteUnusedPins()).resolves.toBe(3);
+
+      const [[select, ...selectValues]] = prisma.$queryRaw.mock.calls as [
+        [string[], ...unknown[]],
+      ];
+      const selectSql = select.join('?');
+      expect(selectSql).toContain("l.provider = 'custom'");
+      expect(selectSql).toContain('make_interval(hours => ?)');
+      expect(selectSql).toContain('NOT EXISTS (SELECT 1 FROM posts');
+      expect(selectSql).toContain('NOT EXISTS (SELECT 1 FROM stories');
+      expect(selectSql).toContain('FOR UPDATE SKIP LOCKED');
+      expect(selectValues).toEqual([24, 1000]);
+
+      const [[remove, ...removeValues]] = prisma.$executeRaw.mock.calls as [
+        [string[], ...unknown[]],
+      ];
+      const removeSql = remove.join('?');
+      // Checked again in a new statement, so a pin attached just before the
+      // lock is kept rather than failing the delete
+      expect(removeSql).toContain('NOT EXISTS (SELECT 1 FROM posts');
+      expect(removeSql).toContain('NOT EXISTS (SELECT 1 FROM stories');
+      expect(removeValues).toEqual([['a', 'b', 'c']]);
+      // Pins have no S3 objects
+      expect(storage.deleteObjects).not.toHaveBeenCalled();
+    });
+
+    it('keeps going in batches until a batch finds fewer pins than its size', async () => {
+      prisma.$queryRaw
+        .mockResolvedValueOnce(ids('a', 'b'))
+        .mockResolvedValueOnce(ids('c', 'd'))
+        .mockResolvedValueOnce(ids('e'));
+      prisma.$executeRaw
+        .mockResolvedValueOnce(2)
+        .mockResolvedValueOnce(1) // one was attached in between and kept
+        .mockResolvedValueOnce(1);
+
+      await expect(service.deleteUnusedPins(2)).resolves.toBe(4);
+      expect(prisma.$queryRaw).toHaveBeenCalledTimes(3);
+    });
+
+    it('stops without deleting when nothing is old and unused', async () => {
+      prisma.$queryRaw.mockResolvedValueOnce([]);
+
+      await expect(service.deleteUnusedPins()).resolves.toBe(0);
+      expect(prisma.$executeRaw).not.toHaveBeenCalled();
+    });
   });
 });

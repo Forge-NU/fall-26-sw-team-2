@@ -43,7 +43,8 @@ export type TripStoriesResponse = PaginatedResponse<StoryResponse>;
 
 /**
  * Body of POST /api/stories. At most one of locationId and
- * customLocationName, and keepOnTrip only with a tripId.
+ * customLocationName, and keepOnTrip only with a tripId. locationId can be a
+ * dropped pin, if this user dropped it and no other post or story uses it.
  */
 export type CreateStoryRequest = {
   s3Key: string;

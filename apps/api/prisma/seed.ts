@@ -3,8 +3,8 @@
 // duplicate anything. #45 (DEV-1) owns the seed script overall; this covers
 // the users the trips need plus the #3 tables (trips, posts, post_media,
 // locations), follow relationships for #10, stories (#23), likes and saves
-// (#49), comments (#50), place ratings (RATE-1), and shared trips, buckets,
-// saved places and notifications (#131 COLLAB-1).
+// (#49), comments (#50), place ratings (RATE-1), a dropped pin (LOC-2), and
+// shared trips, buckets, saved places and notifications (#131 COLLAB-1).
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client';
@@ -138,6 +138,20 @@ const locations = [
   },
 ];
 
+// A pin Maya dropped (#94 LOC-2): a beach Mapbox doesn't list, so it's a
+// custom locations row that only her post uses. It shows on the map and in
+// radius search, and her rating is its rating.
+const pins = [
+  {
+    id: '00000000-0000-4000-a000-000000000009',
+    providerPlaceId: 'seed.pin.praia-da-ursa-cove',
+    name: 'Hidden cove below Praia da Ursa',
+    latitude: 38.789811,
+    longitude: -9.499287,
+    createdBy: 'user_seed_maya',
+  },
+];
+
 // UTC midnight, `offset` days from today. Used for the active trip so it
 // stays active whenever the seed is run.
 function daysFromToday(offset: number) {
@@ -241,7 +255,7 @@ type SeedPost = {
 // Place ratings this gives, counting only published trips:
 // Pastéis de Belém 4.3 (3), Belém Tower 4.0 (2), Pena Palace 4.0 (1; Alex's
 // draft rating doesn't count), Miradouro de Santa Luzia, Nyhavn and Tivoli
-// one each, and LX Factory and Torvehallerne none.
+// one each, LX Factory and Torvehallerne none, and Maya's pin 5.0 (1).
 const posts: SeedPost[] = [
   {
     id: '00000000-0000-4000-9000-000000000001',
@@ -293,7 +307,7 @@ const posts: SeedPost[] = [
     mediaCount: 3,
   },
   {
-    // Custom location (no Mapbox place), so it shows on the post but not the map
+    // Custom name only (no pin), so it shows on the post but not the map
     id: '00000000-0000-4000-9000-000000000006',
     tripId: trips[0].id,
     ownerId: 'user_seed_maya',
@@ -379,6 +393,17 @@ const posts: SeedPost[] = [
     locationId: locations[1].id,
     rating: 4,
     mediaCount: 1,
+  },
+  {
+    // On the pin above
+    id: '00000000-0000-4000-9000-000000000015',
+    tripId: trips[0].id,
+    ownerId: 'user_seed_maya',
+    visitedOn: new Date('2026-09-15'),
+    caption: 'Scrambled down from Praia da Ursa. Had the cove to ourselves.',
+    locationId: pins[0].id,
+    rating: 5,
+    mediaCount: 2,
   },
 ];
 
@@ -680,6 +705,15 @@ async function main() {
     });
   }
 
+  for (const { id, ...pin } of pins) {
+    const data = { ...pin, provider: 'custom' };
+    await prisma.location.upsert({
+      where: { id },
+      update: data,
+      create: { id, ...data },
+    });
+  }
+
   for (const { id, ...trip } of trips) {
     await prisma.trip.upsert({
       where: { id },
@@ -793,12 +827,12 @@ async function main() {
   await prisma.$transaction((tx) =>
     refreshLocationRatings(
       tx,
-      locations.map((l) => l.id),
+      [...locations, ...pins].map((l) => l.id),
     ),
   );
 
   console.log(
-    `Seeded ${users.length} users, ${follows.length} follows, ${locations.length} locations, ${trips.length} trips, ${posts.length} posts, ${stories.length} stories, ${postLikes.length} likes, ${tripSaves.length + postSaves.length} saves, ${comments.length} comments, ${tripMembers.length} trip members, ${tripInvites.length} invites, ${notifications.length} notifications, ${bucketItems.length} bucket places, ${placeSaves.length} saved places`,
+    `Seeded ${users.length} users, ${follows.length} follows, ${locations.length} locations, ${pins.length} pins, ${trips.length} trips, ${posts.length} posts, ${stories.length} stories, ${postLikes.length} likes, ${tripSaves.length + postSaves.length} saves, ${comments.length} comments, ${tripMembers.length} trip members, ${tripInvites.length} invites, ${notifications.length} notifications, ${bucketItems.length} bucket places, ${placeSaves.length} saved places`,
   );
 }
 
