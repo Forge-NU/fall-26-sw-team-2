@@ -66,13 +66,17 @@ test('rows read "{name} invited you to {trip}" and "{name} joined {trip}"', () =
   assert.equal(notificationParts({ ...joined, actor: { ...maya, firstName: '', lastName: '' } }).name, 'maya.chen');
 });
 
-test('only a trip you are on opens: someone joining yours, or an invite you accepted', () => {
-  assert.equal(notificationTripId(joined), 't1');
-  assert.equal(notificationTripId(invite('i1', 'accepted')), 't1');
+test('only a trip you can see opens: someone joining yours, or an invite you accepted', () => {
+  assert.equal(notificationTripId(joined, true), 't1');
+  assert.equal(notificationTripId(invite('i1', 'accepted'), true), 't1');
   for (const status of ['pending', 'declined', 'cancelled']) {
-    assert.equal(notificationTripId(invite('i1', status)), null, status);
+    assert.equal(notificationTripId(invite('i1', status), true), null, status);
   }
-  assert.equal(notificationTripId({ ...joined, trip: null }), null);
+  assert.equal(notificationTripId({ ...joined, trip: null }, true), null);
+  // Until COLLAB-2, members can't see drafts, so an accepted invite doesn't
+  // open its trip. The owner can always open theirs.
+  assert.equal(notificationTripId(invite('i1', 'accepted')), null);
+  assert.equal(notificationTripId(joined), 't1');
 });
 
 test('types this version of the app does not know stay hidden', () => {

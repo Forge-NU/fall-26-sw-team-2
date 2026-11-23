@@ -95,11 +95,15 @@ export class InvitesService {
   }
 
   private async toResponse(row: InviteRow): Promise<TripInviteResponse> {
+    const [inviter, invitee] = await Promise.all([
+      toUserSummary(row.inviter, this.storage),
+      toUserSummary(row.invitee, this.storage),
+    ]);
     return {
       id: row.id,
       tripId: row.tripId,
-      inviter: await toUserSummary(row.inviter, this.storage),
-      invitee: await toUserSummary(row.invitee, this.storage),
+      inviter,
+      invitee,
       status: row.status,
       createdAt: row.createdAt.toISOString(),
       respondedAt: row.respondedAt?.toISOString() ?? null,

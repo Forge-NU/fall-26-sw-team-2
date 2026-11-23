@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
-import { AppState } from 'react-native';
+import { useEffect, useRef } from 'react';
 import type { NotificationResponse, UnreadCountResponse } from 'shared-types';
 
 import { ApiError, getErrorMessage } from '@/api/client';
@@ -21,23 +20,18 @@ import {
 } from '@/lib/notifications';
 import { showToast } from '@/lib/toast';
 
-/** The bell's count. Refetches when the app comes back to the foreground. */
+/**
+ * The bell's count. Refetches whenever the app comes back to the foreground
+ * (focusManager is wired to AppState in the root layout), even if it's fresh.
+ */
 export function useUnreadCount() {
-  const query = useQuery({
+  return useQuery({
     queryKey: queryKeys.unreadNotifications,
     queryFn: ({ signal }) => getUnreadCount(signal),
+    refetchOnWindowFocus: 'always',
     // A badge that didn't refresh isn't worth a toast
     meta: { toast: false },
   });
-  const { refetch } = query;
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (state) => {
-      // Every tab's header has a bell, so join a fetch that's already running
-      if (state === 'active') void refetch({ cancelRefetch: false });
-    });
-    return () => subscription.remove();
-  }, [refetch]);
-  return query;
 }
 
 export function useNotifications() {
@@ -48,10 +42,12 @@ export function useNotifications() {
 }
 
 /**
- * Marks everything as read when the inbox opens, and clears the badge right
- * away. Leaving the inbox refetches the count, and the list on the next open.
+ * Marks everything as read once the inbox's list has loaded, and clears the
+ * badge right away. Waiting for the list means its rows still come back
+ * unread, so they show their dots. Leaving the inbox refetches the count, and
+ * marks the list stale so the next open loads it again before marking.
  */
-export function useMarkAllReadOnOpen() {
+export function useMarkAllReadOnOpen(listLoaded: boolean) {
   const queryClient = useQueryClient();
   const { mutate } = useMutation({
     meta: { toast: false },
@@ -64,13 +60,20 @@ export function useMarkAllReadOnOpen() {
     onError: () => void queryClient.invalidateQueries({ queryKey: queryKeys.unreadNotifications, exact: true }),
   });
 
+  const marked = useRef(false);
   useEffect(() => {
+    if (!listLoaded || marked.current) return;
+    marked.current = true;
     mutate();
-    return () => {
+  }, [listLoaded, mutate]);
+
+  useEffect(
+    () => () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.unreadNotifications, exact: true });
       void queryClient.invalidateQueries({ queryKey: queryKeys.notifications, exact: true });
-    };
-  }, [mutate, queryClient]);
+    },
+    [queryClient],
+  );
 
   /** Marks rows that arrived since the inbox opened, e.g. after a pull to refresh */
   return () => mutate();

@@ -23,7 +23,7 @@ const INBOX = keyset<
   Prisma.NotificationOrderByWithRelationInput
 >([
   { field: 'createdAt', direction: 'desc', type: 'date' },
-  { field: 'id', direction: 'desc', type: 'string' },
+  { field: 'id', direction: 'desc', type: 'uuid' },
 ]);
 
 const notificationInclude = {

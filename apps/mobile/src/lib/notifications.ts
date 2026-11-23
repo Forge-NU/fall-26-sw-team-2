@@ -1,5 +1,7 @@
 import type { InfiniteData } from '@tanstack/react-query';
-import type { NotificationResponse, PaginatedResponse, TripInviteStatus, UserSummary } from 'shared-types';
+import type { NotificationResponse, PaginatedResponse, TripInviteStatus } from 'shared-types';
+
+import { displayName } from '@/lib/display-name';
 
 export type NotificationPages = InfiniteData<PaginatedResponse<NotificationResponse>>;
 
@@ -14,11 +16,6 @@ export function badgeText(count: number | undefined): string | null {
 
 export function bellLabel(count: number | undefined): string {
   return count && count > 0 ? `Notifications, ${count} unread` : 'Notifications';
-}
-
-/** Same rule as UserRow: full name, or the username when there's no name. */
-export function displayName(user: UserSummary): string {
-  return `${user.firstName} ${user.lastName}`.trim() || (user.username ?? '');
 }
 
 /** What an answered invite says in place of Accept and Decline */
@@ -47,14 +44,24 @@ export function notificationParts(n: NotificationResponse): { name: string; verb
 }
 
 /**
+ * Whether members can open a shared trip yet. Until #133 COLLAB-2, only the
+ * owner can see a draft, and most shared trips are drafts while people plan
+ * them, so an accepted invite would open "Trip not found". Set to true when
+ * COLLAB-2 lets members see drafts.
+ */
+export const MEMBERS_SEE_DRAFTS = false;
+
+/**
  * The trip a tap opens, or null when the row isn't tappable. You can only open
  * a trip you're on: someone joining yours, or an invite you accepted. A pending,
- * declined or cancelled invite's trip may be a draft you can't see.
+ * declined or cancelled invite's trip may be a draft you can't see, and so is an
+ * accepted one until members can see drafts. "Joined" rows go to the owner,
+ * who can always see their own trip.
  */
-export function notificationTripId(n: NotificationResponse): string | null {
+export function notificationTripId(n: NotificationResponse, membersSeeDrafts = MEMBERS_SEE_DRAFTS): string | null {
   if (!n.trip) return null;
   if (n.type === 'trip_invite_accepted') return n.trip.id;
-  return n.invite?.status === 'accepted' ? n.trip.id : null;
+  return membersSeeDrafts && n.invite?.status === 'accepted' ? n.trip.id : null;
 }
 
 /** Sets one invite's status in every loaded page, for the optimistic Accept / Decline. */

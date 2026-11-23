@@ -20,7 +20,7 @@ import type {
 
 import { apiGet, apiRequest } from '@/api/client';
 import { mockDelay, mockError, mockPage, withMock } from '@/api/mock';
-import { maya, me, mockOwnTrips, priya } from '@/api/mock-backend';
+import { maya, me, mockOthersTrip, mockOwnTrips, priya } from '@/api/mock-backend';
 import { mockBucketCount } from '@/api/bucket';
 
 /** The API's limit, from apps/api/src/trips/trip-rules.ts */
@@ -35,7 +35,10 @@ export const listTripMembers = withMock<[tripId: string, signal?: AbortSignal], 
   real: (tripId, signal) => apiGet(`${tripPath(tripId)}/members`, undefined, { signal }),
   mock: async (tripId) => {
     await mockDelay();
-    return { items: tripOf(tripId, `${tripPath(tripId)}/members`).members.map((m) => ({ ...m })) };
+    const path = `${tripPath(tripId)}/members`;
+    const trip = tripOf(tripId, path);
+    if (!trip.members.some((m) => m.id === me.id)) mockError(403, "You're not on this trip", path);
+    return { items: trip.members.map((m) => ({ ...m })) };
   },
 });
 
@@ -97,8 +100,9 @@ export const sendTripInvite = withMock<[tripId: string, body: CreateTripInviteRe
       INVITABLE.find((user) => user.username === username.trim().replace(/^@/, '').toLowerCase()) ??
       mockError(404, 'User not found', path);
     if (trip.members.some((m) => m.id === invitee.id)) mockError(409, `${invitee.firstName} is already on this trip`, path);
-    if (trip.invites.some((i) => i.invitee.id === invitee.id)) mockError(409, `${invitee.firstName} is already invited`, path);
-    if (trip.members.length + trip.invites.length >= MAX_TRIP_PEOPLE) {
+    const pending = trip.invites.filter((i) => i.status === 'pending');
+    if (pending.some((i) => i.invitee.id === invitee.id)) mockError(409, `${invitee.firstName} is already invited`, path);
+    if (trip.members.length + pending.length >= MAX_TRIP_PEOPLE) {
       mockError(409, `A trip has up to ${MAX_TRIP_PEOPLE} people, counting pending invites`, path);
     }
     const invite: TripInviteResponse = {
@@ -124,30 +128,40 @@ export const listTripInvites = withMock<[tripId: string, signal?: AbortSignal], 
     const path = `${tripPath(tripId)}/invites`;
     const trip = tripOf(tripId, path);
     if (trip.ownerId !== me.id) mockError(403, 'Only the owner can see invites', path);
-    return { items: trip.invites.map((i) => ({ ...i })) };
+    return { items: trip.invites.filter((i) => i.status === 'pending').map((i) => ({ ...i })) };
   },
 });
 
-/** Owner only. 409 if it isn't pending anymore. */
+/**
+ * Owner only. 403 for the invitee (decline instead), 409 if it isn't pending
+ * anymore. The invite stays, as cancelled, like the real one.
+ */
 export const cancelTripInvite = withMock<[inviteId: string], TripInviteResponse>({
   live: false, // true once #134 COLLAB-3 merges
   real: (inviteId) => apiRequest('DELETE', invitePath(inviteId)),
   mock: async (inviteId) => {
     await mockDelay();
     seedTrips();
+    const path = invitePath(inviteId);
     for (const trip of trips.values()) {
-      const index = trip.invites.findIndex((i) => i.id === inviteId);
-      if (index === -1) continue;
-      const [invite] = trip.invites.splice(index, 1);
-      return { ...invite, status: 'cancelled', respondedAt: new Date().toISOString() };
+      const invite = trip.invites.find((i) => i.id === inviteId);
+      if (!invite) continue;
+      if (invite.invitee.id === me.id) mockError(403, 'Decline the invite instead', path);
+      if (trip.ownerId !== me.id) break; // Not yours to see
+      if (invite.status !== 'pending') mockError(409, 'This invite is no longer pending', path);
+      invite.status = 'cancelled';
+      invite.respondedAt = new Date().toISOString();
+      return { ...invite };
     }
-    return mockError(404, 'Invite not found', invitePath(inviteId));
+    return mockError(404, 'Invite not found', path);
   },
 });
 
 // Mock data: each of the mock user's trips. The first has Maya as a
-// collaborator and a pending invite to Priya. Other trips are a 404, as if
-// you weren't on them.
+// collaborator and a pending invite to Priya. There's also Maya's published
+// trip with Priya, which the mock user can see but isn't on (403), and a
+// pending invite from Maya to the mock user on it. Other trips are a 404, as
+// if you couldn't see them.
 
 type MockSharedTrip = { ownerId: string; members: TripMemberResponse[]; invites: TripInviteResponse[] };
 
@@ -174,6 +188,28 @@ function seedTrips() {
       { ownerId: me.id, members: [{ ...me, role: 'owner', joinedAt: trip.createdAt }], invites: [] },
     ]),
   );
+  const others = mockOthersTrip(maya, 'Lisbon tram day', 'Lisbon, Portugal', ago(-30).slice(0, 10), ago(-28).slice(0, 10));
+  others.status = 'published';
+  others.publishedAt = ago(3);
+  trips.set(others.id, {
+    ownerId: maya.id,
+    members: [
+      { ...maya, role: 'owner', joinedAt: others.createdAt },
+      { ...priya, role: 'collaborator', joinedAt: ago(3) },
+    ],
+    invites: [
+      {
+        id: `invite-${nextId++}`,
+        tripId: others.id,
+        inviter: maya,
+        invitee: me,
+        status: 'pending',
+        createdAt: ago(1),
+        respondedAt: null,
+      },
+    ],
+  });
+
   const [first] = mockOwnTrips();
   const shared = first && trips.get(first.id);
   if (!shared) return;
@@ -187,6 +223,15 @@ function seedTrips() {
     createdAt: ago(1),
     respondedAt: null,
   });
+}
+
+/** Maya's mock trip that the mock user can see but isn't on, and her invite to them, for the 403 states */
+export function mockOthersSharedTrip(): { tripId: string; inviteId: string } {
+  seedTrips();
+  for (const [tripId, trip] of trips) {
+    if (trip.ownerId !== me.id) return { tripId, inviteId: trip.invites[0].id };
+  }
+  throw new Error('No mock trip of someone else');
 }
 
 function tripOf(tripId: string, path: string): MockSharedTrip {

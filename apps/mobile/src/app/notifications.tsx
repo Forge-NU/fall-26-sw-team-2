@@ -13,8 +13,9 @@ import { isShownNotification } from '@/lib/notifications';
 // The inbox behind the header's bell (#137 NOTIF-2). Opening it marks
 // everything as read (#129 DOC-3).
 export default function NotificationsScreen() {
-  const markAllRead = useMarkAllReadOnOpen();
   const list = useNotifications();
+  // The list's own fetch for this open, so read-all can't reach the server first
+  const markAllRead = useMarkAllReadOnOpen(list.isFetchedAfterMount && !list.isFetching && !list.isError);
   const rows = list.items.filter(isShownNotification);
 
   const openTrip = (id: string) => router.push({ pathname: '/trips/[id]', params: { id } });

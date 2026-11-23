@@ -43,11 +43,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  brand: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-  },
   // Lines the bell up with the gutter instead of the button's padding, like ScreenHeader
   actions: {
     flexDirection: 'row',

@@ -10,6 +10,7 @@ import {
   listPlanningTrips,
   listTripInvites,
   listTripMembers,
+  mockOthersSharedTrip,
   removeTripMember,
   sendTripInvite,
 } from '../src/api/collaboration.ts';
@@ -70,7 +71,20 @@ test('invites: one pending per person, and the owner can cancel', async () => {
   assert.equal(cancelled.status, 'cancelled');
   assert.ok(cancelled.respondedAt);
   assert.ok(!(await listTripInvites(shared.id)).items.some((i) => i.id === invite.id));
-  await assert.rejects(cancelTripInvite(invite.id), status(404));
+  await assert.rejects(cancelTripInvite(invite.id), status(409)); // not pending anymore
+  await assert.rejects(cancelTripInvite('not-an-invite'), status(404));
+  // Cancelled invites don't block inviting them again
+  const again = await sendTripInvite(shared.id, { username: 'sofia.silva' });
+  await cancelTripInvite(again.id);
+});
+
+test("a trip you can see but aren't on is a 403, and you can't cancel an invite to you", async () => {
+  const planning = new Set((await listPlanningTrips(null)).items.map((trip) => trip.id));
+  const { tripId, inviteId } = mockOthersSharedTrip();
+  assert.ok(!planning.has(tripId));
+  await assert.rejects(listTripMembers(tripId), status(403));
+  await assert.rejects(listTripInvites(tripId), status(403));
+  await assert.rejects(cancelTripInvite(inviteId), status(403));
 });
 
 test("the owner can remove a collaborator but can't leave", async () => {
