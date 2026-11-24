@@ -1,0 +1,40 @@
+enum TripInviteStatus {
+  pending
+  accepted
+  declined
+  cancelled
+
+  @@map("trip_invite_status")
+}
+
+// An owner's invite to join their trip (#131 COLLAB-1, rules in #129 DOC-3).
+// Invites don't expire. Answered and cancelled invites stay, so the inbox can
+// show what happened, and the owner can invite the same person again.
+//
+// Added in the migration, since Prisma can't express them:
+// - a partial unique index on (trip_id, invitee_id) WHERE status = 'pending':
+//   one pending invite per person per trip
+// - checks: inviter_id <> invitee_id, and responded_at is set exactly when
+//   status isn't pending
+model TripInvite {
+  id          String           @id @default(uuid()) @db.Uuid
+  tripId      String           @map("trip_id") @db.Uuid
+  inviterId   String           @map("inviter_id")
+  inviteeId   String           @map("invitee_id")
+  status      TripInviteStatus @default(pending)
+  createdAt   DateTime         @default(now()) @map("created_at")
+  // When it was accepted, declined or cancelled
+  respondedAt DateTime?        @map("responded_at")
+
+  trip          Trip           @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  inviter       User           @relation("TripInviteInviter", fields: [inviterId], references: [id], onDelete: Cascade)
+  invitee       User           @relation("TripInviteInvitee", fields: [inviteeId], references: [id], onDelete: Cascade)
+  notifications Notification[]
+
+  // A trip's pending invites, and the people cap
+  @@index([tripId, status])
+  // Deleting an account cascades through these
+  @@index([inviteeId])
+  @@index([inviterId])
+  @@map("trip_invites")
+}

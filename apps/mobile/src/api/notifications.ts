@@ -1,20 +1,19 @@
-// Notifications inbox for NOTIF-2 (#137), on NOTIF-1's endpoints (#132) and
-// COLLAB-3's accept / decline (#134).
-//
-// STAND-IN until #131 COLLAB-1: COLLAB-1 owns this file's mocks and the types
-// in shared-types/src/collaboration.ts. Swap in theirs, then set `live: true`
-// once #132 NOTIF-1 (inbox) and #134 COLLAB-3 (accept / decline) merge.
+// Notifications inbox for NOTIF-2 (#137): #132 NOTIF-1's inbox endpoints and
+// #134 COLLAB-3's accept / decline, built with the contract in #131 COLLAB-1
+// (docs/architecture/shared-trips.md). Sending invites is still mocked, in
+// api/collaboration.ts.
 import type {
-  NotificationInvite,
   NotificationResponse,
   PaginatedResponse,
+  TripInviteResponse,
+  TripInviteStatus,
   UnreadCountResponse,
   UserSummary,
 } from 'shared-types';
 
 import { apiGet, apiRequest } from '@/api/client';
 import { mockDelay, mockError, mockPage, withMock } from '@/api/mock';
-import { maya, mockOthersTrip, mockOwnTrips, priya } from '@/api/mock-backend';
+import { maya, me, mockOthersTrip, mockOwnTrips, priya } from '@/api/mock-backend';
 import { addDays, todayLocalIso } from '@/utils/local-date';
 
 const invitePath = (id: string) => `/api/invites/${encodeURIComponent(id)}`;
@@ -24,7 +23,7 @@ export const listNotifications = withMock<
   [cursor: string | null, signal?: AbortSignal],
   PaginatedResponse<NotificationResponse>
 >({
-  live: false, // STAND-IN: true once #132 NOTIF-1 merges
+  live: true,
   real: (cursor, signal) => apiGet('/api/me/notifications', { cursor, limit: 20 }, { signal }),
   mock: async (cursor) => {
     await mockDelay();
@@ -33,7 +32,7 @@ export const listNotifications = withMock<
 });
 
 export const getUnreadCount = withMock<[signal?: AbortSignal], UnreadCountResponse>({
-  live: false, // STAND-IN: true once #132 NOTIF-1 merges
+  live: true,
   real: (signal) => apiGet('/api/me/notifications/unread-count', undefined, { signal }),
   mock: async () => {
     await mockDelay();
@@ -43,7 +42,7 @@ export const getUnreadCount = withMock<[signal?: AbortSignal], UnreadCountRespon
 
 /** Marks everything as read. The inbox calls it when it opens. */
 export const markAllNotificationsRead = withMock<[], void>({
-  live: false, // STAND-IN: true once #132 NOTIF-1 merges
+  live: true,
   real: async () => {
     await apiRequest('POST', '/api/me/notifications/read-all');
   },
@@ -54,19 +53,19 @@ export const markAllNotificationsRead = withMock<[], void>({
   },
 });
 
-// STAND-IN: COLLAB-3 hasn't said what accept / decline return. The inbox only
-// needs the 2xx, and a 409 when the invite isn't pending anymore.
-
-/** Joins the trip as a collaborator. 409 when the invite isn't pending anymore. */
-export const acceptInvite = withMock<[inviteId: string], NotificationInvite>({
-  live: false, // STAND-IN: true once #134 COLLAB-3 merges
+/**
+ * Joins the trip as a collaborator, and the owner gets a notification.
+ * 404 for someone else's invite, 409 when it isn't pending anymore.
+ */
+export const acceptInvite = withMock<[inviteId: string], TripInviteResponse>({
+  live: true,
   real: (inviteId) => apiRequest('POST', `${invitePath(inviteId)}/accept`),
   mock: (inviteId) => mockRespond(inviteId, 'accepted'),
 });
 
-/** 409 when the invite isn't pending anymore. */
-export const declineInvite = withMock<[inviteId: string], NotificationInvite>({
-  live: false, // STAND-IN: true once #134 COLLAB-3 merges
+/** Sends nothing back to the owner. 404 for someone else's invite, 409 when it isn't pending anymore. */
+export const declineInvite = withMock<[inviteId: string], TripInviteResponse>({
+  live: true,
   real: (inviteId) => apiRequest('POST', `${invitePath(inviteId)}/decline`),
   mock: (inviteId) => mockRespond(inviteId, 'declined'),
 });
@@ -107,7 +106,7 @@ function mockNotifications(): NotificationResponse[] {
     destination: string,
     startIn: number,
     days: number,
-    status: NotificationInvite['status'],
+    status: TripInviteStatus,
     minutesAgo: number,
   ): NotificationResponse => {
     const start = addDays(today, startIn);
@@ -151,13 +150,24 @@ function copy(n: NotificationResponse): NotificationResponse {
   return { ...n, invite: n.invite && { ...n.invite } };
 }
 
-async function mockRespond(inviteId: string, status: 'accepted' | 'declined'): Promise<NotificationInvite> {
+async function mockRespond(inviteId: string, status: 'accepted' | 'declined'): Promise<TripInviteResponse> {
   await mockDelay();
   const path = `${invitePath(inviteId)}/${status === 'accepted' ? 'accept' : 'decline'}`;
-  const invite =
-    mockNotifications().find((n) => n.invite?.id === inviteId)?.invite ?? mockError(404, 'Invite not found', path);
+  const notification =
+    mockNotifications().find((n) => n.invite?.id === inviteId) ?? mockError(404, 'Invite not found', path);
+  const invite = notification.invite!;
   if (cancelOnAnswer.has(inviteId) && invite.status === 'pending') invite.status = 'cancelled';
   if (invite.status !== 'pending') mockError(409, 'This invite is no longer pending', path);
   invite.status = status;
-  return { ...invite };
+  // Answering it counts as reading it, like the API
+  notification.readAt ??= new Date().toISOString();
+  return {
+    id: invite.id,
+    tripId: notification.trip!.id,
+    inviter: notification.actor,
+    invitee: me,
+    status,
+    createdAt: notification.createdAt,
+    respondedAt: new Date().toISOString(),
+  };
 }

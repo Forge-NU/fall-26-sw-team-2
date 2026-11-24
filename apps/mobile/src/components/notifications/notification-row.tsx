@@ -11,7 +11,7 @@ import { NotificationTokens } from '@/constants/notification-tokens';
 import { Palette, Radii, Spacing } from '@/constants/theme';
 import { useAnswerInvite, type InviteAnswer } from '@/hooks/use-notifications';
 import { formatTimeAgo } from '@/lib/comment-cache';
-import { INVITE_STATE_TEXT, notificationParts, notificationTripId } from '@/lib/notifications';
+import { INVITE_STATE_TEXT, MEMBERS_SEE_DRAFTS, notificationParts, notificationTripId } from '@/lib/notifications';
 import { formatDateRange } from '@/utils/local-date';
 
 type NotificationRowProps = {
@@ -51,7 +51,7 @@ export function NotificationRow({ notification, unread, onOpenTrip }: Notificati
       { inviteId: invite.id, answer: inviteAnswer },
       {
         onSuccess: () => {
-          if (inviteAnswer === 'accepted' && notification.trip) onOpenTrip(notification.trip.id);
+          if (inviteAnswer === 'accepted' && MEMBERS_SEE_DRAFTS && notification.trip) onOpenTrip(notification.trip.id);
         },
       },
     );

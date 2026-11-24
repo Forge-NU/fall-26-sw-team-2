@@ -65,7 +65,8 @@ function mockTrip(title: string, destination: string, startDate: string, endDate
   };
 }
 
-function mockLocation(name: string, city: string, latitude: number, longitude: number): LocationResponse {
+/** A Mapbox place, for other features' mocks */
+export function mockLocation(name: string, city: string, latitude: number, longitude: number): LocationResponse {
   return {
     id: mockId('loc'),
     provider: 'mapbox',
@@ -548,6 +549,11 @@ export async function mockRetrievePlace(mapboxId: string): Promise<ResolveLocati
 // Keyed by id. A Mapbox place is looked up by providerPlaceId, so resolving
 // the same place twice reuses the row; a pin is always a new row.
 const resolvedLocations = new Map<string, LocationResponse>();
+
+/** A place picked in mock place search, for other features' mocks (buckets, saved places) */
+export function mockResolvedLocation(id: string): LocationResponse | undefined {
+  return resolvedLocations.get(id);
+}
 
 // Like the API: a pin goes on one post or story
 function assertPinUnused(location: LocationResponse) {

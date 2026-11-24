@@ -13,6 +13,8 @@ export const queryKeys = {
   followList: (userId: string, list: 'followers' | 'following') => ['users', userId, list] as const,
   storiesFeed: ['stories', 'feed'] as const,
   tripStories: (tripId: string) => ['trips', tripId, 'stories'] as const,
+  notifications: ['me', 'notifications', 'list'] as const,
+  unreadNotifications: ['me', 'notifications', 'unread-count'] as const,
   // One search: the "All" preview or one type's pages, for the text and the
   // filters that apply (as JSON). Follows update the cached people searches
   // and previews (useFollow).
@@ -20,6 +22,4 @@ export const queryKeys = {
   searchPreview: ['search', 'all'] as const,
   search: (tab: 'all' | 'people' | 'places' | 'trips' | 'posts', q: string, filters: string) =>
     ['search', tab, q, filters] as const,
-  notifications: ['me', 'notifications', 'list'] as const,
-  unreadNotifications: ['me', 'notifications', 'unread-count'] as const,
 };
