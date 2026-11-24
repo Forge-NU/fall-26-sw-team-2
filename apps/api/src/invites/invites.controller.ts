@@ -1,5 +1,6 @@
 import {
   Controller,
+  Delete,
   HttpCode,
   Param,
   ParseUUIDPipe,
@@ -10,12 +11,20 @@ import { ClerkAuthGuard } from '../auth/clerk-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { InvitesService } from './invites.service';
 
-// POST /api/trips/:id/invites, GET /api/trips/:id/invites and
-// DELETE /api/invites/:id (cancel) come with the rest of #134 COLLAB-3.
+// One invite (#134 COLLAB-3): the owner cancels it, the invitee answers it.
+// Sending and listing a trip's invites are in TripInvitesController.
 @Controller('invites')
 @UseGuards(ClerkAuthGuard)
 export class InvitesController {
   constructor(private readonly invitesService: InvitesService) {}
+
+  @Delete(':id')
+  cancel(
+    @CurrentUser() userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.invitesService.cancel(userId, id);
+  }
 
   @Post(':id/accept')
   @HttpCode(200)

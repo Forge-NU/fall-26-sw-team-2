@@ -74,6 +74,13 @@ export default function TripScreen() {
               ) : null}
               {isOwner ? (
                 <IconButton
+                  icon="user-plus"
+                  accessibilityLabel="Invite people"
+                  onPress={() => router.push({ pathname: '/trips/[id]/invite', params: { id } })}
+                />
+              ) : null}
+              {isOwner ? (
+                <IconButton
                   icon="pencil"
                   accessibilityLabel="Edit trip"
                   onPress={() => router.push({ pathname: '/trips/[id]/edit', params: { id } })}

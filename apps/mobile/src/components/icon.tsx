@@ -49,6 +49,7 @@ const Icons = {
   'star-outline': { glyph: 'star-outline' },
   trophy: { glyph: 'trophy-outline' },
   type: { glyph: 'text-outline' },
+  'user-plus': { glyph: 'person-add-outline' },
   'user-round': { glyph: 'person-outline' },
   x: { glyph: 'close' },
 } satisfies Record<string, { glyph: IoniconName; rotate?: string }>;

@@ -20,7 +20,7 @@ const DEBOUNCE_MS = 300;
 const NO_PAGES = ['search', 'none'] as const;
 
 /** `value`, once it has stopped changing for `ms` */
-function useDebounced<T>(value: T, ms: number) {
+export function useDebounced<T>(value: T, ms: number) {
   const [debounced, setDebounced] = useState(value);
   useEffect(() => {
     const timer = setTimeout(() => setDebounced(value), ms);

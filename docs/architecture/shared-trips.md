@@ -21,7 +21,7 @@ This is the contract for the whole batch: the tables, who can do what, and every
 | Tables, migration, seed rows | `apps/api/prisma/models/`, `migrations/20261117133117_shared_trips` | This PR |
 | `tripRole`, `MAX_TRIP_PEOPLE`, `MAX_BUCKET_PLACES` | `apps/api/src/trips/trip-rules.ts` | This PR |
 | Notifications inbox: list, unread count, read-all | `apps/api/src/notifications/` | This PR (the main part of #132 NOTIF-1) |
-| Accept and decline an invite | `apps/api/src/invites/` | This PR (part of #134 COLLAB-3) |
+| Invites: send, list, cancel, accept and decline | `apps/api/src/invites/` | Built (accept and decline in #131 COLLAB-1, the rest in #134 COLLAB-3) |
 | Everything else in [Endpoints](#endpoints) | | Mocked, built in the issue listed |
 
 ## Data Model
@@ -143,8 +143,8 @@ All need a signed-in user. Errors use the [standard shape](api-conventions.md#er
 | Endpoint | Built in |
 |---|---|
 | `GET /api/trips/:id/members`, `DELETE /api/trips/:id/members/:userId`, `GET /api/me/trips/planning` | #133 COLLAB-2 |
-| `POST /api/trips/:id/invites`, `GET /api/trips/:id/invites`, `DELETE /api/invites/:id` | #134 COLLAB-3 |
-| `POST /api/invites/:id/accept`, `POST /api/invites/:id/decline` | This PR, for #134 COLLAB-3 |
+| `POST /api/trips/:id/invites`, `GET /api/trips/:id/invites`, `DELETE /api/invites/:id` | #134 COLLAB-3 (built) |
+| `POST /api/invites/:id/accept`, `POST /api/invites/:id/decline` | #131 COLLAB-1, for #134 COLLAB-3 (built) |
 | `GET /api/me/notifications`, `GET /api/me/notifications/unread-count`, `POST /api/me/notifications/read-all` | This PR, for #132 NOTIF-1 |
 | `POST /api/locations/:id/save`, `DELETE /api/locations/:id/save`, `GET /api/me/saved/places` | #135 PLACE-1 |
 | `GET /api/trips/:id/bucket`, `POST /api/trips/:id/bucket`, `PATCH /api/bucket-items/:id`, `DELETE /api/bucket-items/:id`, `GET /api/locations/:id/saved-in` | #136 BUCKET-1 |
@@ -165,23 +165,23 @@ The owner removes a collaborator, or a collaborator passes their own id to leave
 **`GET /api/me/trips/planning`** → 200 paginated `PlanningTripResponse`
 Trips you own or joined, drafts and published, by `startDate` then `id`, soonest first. Each is a `TripResponse` plus `myRole`, `memberCount` (everyone, counting the owner) and `bucketCount`. Joined trips don't show on your profile.
 
-### Invites (#134 COLLAB-3)
+### Invites (#134 COLLAB-3, built)
 
-**`POST /api/trips/:id/invites`** body `CreateTripInviteRequest` `{ username }` → 201 `TripInviteResponse`
-Owner only. Anyone can be invited; following isn't required. Creates a `trip_invite` notification for the invitee. Takes a lock on the trip so two invites can't both pass the cap.
+**`POST /api/trips/:id/invites`** body `CreateTripInviteRequest` `{ username }` → 201 `TripInviteResponse` (built)
+Owner only. Anyone can be invited; following isn't required. The username is matched case-insensitively. Creates a `trip_invite` notification for the invitee. Takes a lock on the trip so two invites can't both pass the cap.
 - 400 inviting yourself
-- 403 you're a collaborator
+- 403 you're a collaborator, or it's a published trip you're not on
 - 404 no such trip, one you can't see, or no user with that username
 - 409 they're already on the trip, already have a pending invite, or the trip has `MAX_TRIP_PEOPLE` people counting pending invites
 
-**`GET /api/trips/:id/invites`** → 200 `TripInvitesResponse`
+**`GET /api/trips/:id/invites`** → 200 `TripInvitesResponse` (built)
 The trip's pending invites, newest first. Owner only.
-- 403 you're a collaborator
+- 403 you're a collaborator, or it's a published trip you're not on
 - 404 no such trip, or one you can't see
 
-**`DELETE /api/invites/:id`** → 200 `TripInviteResponse` with `status: 'cancelled'`
-The owner cancels a pending invite. The invitee's notification stays and shows it as cancelled.
-- 403 you're the invitee (decline instead)
+**`DELETE /api/invites/:id`** → 200 `TripInviteResponse` with `status: 'cancelled'` (built)
+The owner cancels a pending invite. The invitee's notification stays and shows it as cancelled, and is marked read so it drops out of their unread count.
+- 403 you're the invitee and it's still pending (decline instead)
 - 404 no such invite, or one that isn't yours to see
 - 409 it isn't pending anymore
 
