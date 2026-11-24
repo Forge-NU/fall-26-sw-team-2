@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, Share, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { TripCard } from '@/components/content/trip-card';
 import { StoriesRow } from '@/components/feed/stories-row';
@@ -10,6 +10,7 @@ import { YujiHeader } from '@/components/yuji-header';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 import { feedTrips, type FeedTrip } from '@/data/feed-trips';
 import type { FeedTab } from '@/data/mock';
+import { shareTrip } from '@/lib/share-trip';
 
 const FeedTabs: { key: FeedTab; label: string }[] = [
   { key: 'local', label: 'Local' },
@@ -45,10 +46,15 @@ export default function FeedScreen() {
   );
 }
 
+// Cards open the shared trip page. Until FEED-2 (#27) replaces the mock trips,
+// their ids aren't real trips: the page shows "Trip not found" with Go back
+// (the API rejects the id with a 400, or the mocks 404 it), and Share sends a
+// link that won't open.
 function FeedCard({ card }: { card: FeedTrip }) {
   const { trip } = card;
-  const openDay = (day: number) =>
-    router.push({ pathname: '/itinerary/[id]', params: { id: trip.id, day: String(day) } });
+  // `visitedOn` (YYYY-MM-DD) opens the page on that day's tab
+  const openTrip = (day?: string) =>
+    router.push({ pathname: '/trips/[id]', params: day ? { id: trip.id, day } : { id: trip.id } });
 
   return (
     <TripCard
@@ -62,9 +68,9 @@ function FeedCard({ card }: { card: FeedTrip }) {
       stats={[{ key: 'saves', label: 'saves', icon: 'bookmark', count: trip.saveCount }]}
       caption={card.caption}
       lovedBy={card.lovedBy}
-      onPress={() => openDay(1)}
-      onDaySelect={openDay}
-      onShare={() => void Share.share({ message: trip.title })}
+      onPress={() => openTrip()}
+      onDayPress={openTrip}
+      onShare={() => shareTrip(trip)}
     />
   );
 }

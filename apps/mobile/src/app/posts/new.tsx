@@ -26,7 +26,8 @@ import { preparePhoto } from '@/lib/media/prepare-photo';
 import { deleteDraft, getDraft, listDrafts, newDraftId, type DraftPhoto, type PostDraft } from '@/lib/post-drafts';
 import { defaultVisitedOn, POST_LIMITS, suggestTrip, validatePostForm, type PostFormErrors } from '@/lib/post-form';
 import { isDraftInFlight, submitPostDraft, type UploadProgress } from '@/lib/post-upload';
-import { canRate } from '@/lib/rating';
+import { canRateLocation } from '@/lib/picked-location';
+import { isSameRatablePlace } from '@/lib/rating';
 import { charCount } from '@/lib/trip-form';
 import { formatWeekdayDate, todayLocalIso, tripDayNumber, tripDays } from '@/utils/local-date';
 
@@ -77,7 +78,7 @@ export default function NewPostScreen() {
       setVisitedOn(draft.visitedOn);
       setPhotos(draft.photos);
       setLocation(draft.location);
-      setRating(canRate(draft.location) ? (draft.rating ?? null) : null);
+      setRating(canRateLocation(draft.location) ? (draft.rating ?? null) : null);
       setCaption(draft.caption);
       setFailedDraft(draft);
     })();
@@ -122,9 +123,9 @@ export default function NewPostScreen() {
   };
 
   const submit = async () => {
-    const nextErrors = validatePostForm({ trip, photoCount: photos.length, location, caption });
+    const nextErrors = validatePostForm({ trip, photoCount: photos.length, caption });
     setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0 || !trip || !day || !location) return;
+    if (Object.keys(nextErrors).length > 0 || !trip || !day) return;
 
     setFailedDraft(null);
     const result = await submitPostDraft(
@@ -134,7 +135,7 @@ export default function NewPostScreen() {
         visitedOn: day,
         caption,
         location,
-        rating: canRate(location) ? rating : null,
+        rating: canRateLocation(location) ? rating : null,
         photos,
         status: 'uploading',
         error: null,
@@ -251,29 +252,26 @@ export default function NewPostScreen() {
             />
           </Section>
 
-          <Section label="Location" error={errors.location}>
+          {/* Optional (#143 POST-4): a post can have no location */}
+          <Section label="Location (optional)">
             <LocationPicker
               label=""
+              trip={trip}
               value={location}
               onChange={(next) => {
                 // A rating belongs to one place, so a different place (or a custom name) starts unrated
-                const samePlace =
-                  next?.kind === 'mapbox' &&
-                  location?.kind === 'mapbox' &&
-                  next.location.id === location.location.id;
-                if (!samePlace) setRating(null);
+                if (!isSameRatablePlace(location, next)) setRating(null);
                 setLocation(next);
-                if (next) setErrors(({ location: _location, ...rest }) => rest);
               }}
             />
             {location?.kind === 'custom' ? (
               <AppText variant="caption" color="placeholderGray">
-                Pick a place from search to rate it
+                Pick a place from search or drop a pin to rate it
               </AppText>
             ) : null}
           </Section>
 
-          {canRate(location) ? (
+          {canRateLocation(location) ? (
             <Section label="Rate this place">
               <StarRating
                 value={rating}

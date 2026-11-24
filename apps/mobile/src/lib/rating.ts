@@ -1,6 +1,6 @@
 // Star ratings (RATE-2 #92). A post rates its place 1-5 stars; a place shows
 // the average of those ratings. Rules from RATE-1 (#91).
-import type { PickedLocation } from '@/components/location/location-picker';
+import type { PickedLocation } from '@/lib/picked-location';
 
 export const RATING_MAX = 5;
 
@@ -46,9 +46,13 @@ export function stepRating(current: number | null, step: 1 | -1): number | null 
   return Math.min(next, RATING_MAX);
 }
 
-// TODO(#94 LOC-2): a custom location with a dropped pin can be rated too
-// (mvp-decisions.md), once pins exist here and in the API
-/** Only a Mapbox place can be rated: a custom name isn't a place others can find. */
-export function canRate(location: PickedLocation | null | undefined): boolean {
-  return location?.kind === 'mapbox';
+/**
+ * Whether a new pick is the same ratable place as before, so the rating stays.
+ * Mapbox places and dropped pins are compared by their locations row; a custom
+ * name or no location never matches. Which picks can be rated at all is
+ * canRateLocation in lib/picked-location.ts.
+ */
+export function isSameRatablePlace(before: PickedLocation | null, after: PickedLocation | null): boolean {
+  if (!before || !after || before.kind === 'custom' || after.kind === 'custom') return false;
+  return before.location.id === after.location.id;
 }

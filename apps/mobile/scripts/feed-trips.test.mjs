@@ -20,7 +20,8 @@ test('maps a mock itinerary to a published TripResponse', () => {
   assert.equal(trip.saveCount, 84);
   assert.equal(trip.savedByMe, false);
   assert.equal(trip.coverImageUrl, null);
-  assert.equal(trip.postCount, lisbon.days.reduce((n, day) => n + day.moments.length, 0));
+  // Five posts on day 1 and one on each of the other four days
+  assert.equal(trip.postCount, 9);
   assert.deepEqual(trip.owner, {
     id: 'maya',
     firstName: 'Maya',

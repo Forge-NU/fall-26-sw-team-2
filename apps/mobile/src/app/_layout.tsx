@@ -1,8 +1,9 @@
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, focusManager } from "@tanstack/react-query";
 import { DefaultTheme, Stack, ThemeProvider } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
 import { useEffect } from "react";
+import { AppState, Platform } from "react-native";
 import { Theme, Typography } from '@/constants/theme';
 import { ToastProvider } from "@/components/ui/toast-provider";
 
@@ -36,6 +37,16 @@ function AuthProvider({ children }: { children: ReactNode }) {
 }
 
 void SplashScreen.preventAutoHideAsync();
+
+// React Query refetches stale queries when the window regains focus, which on
+// native means the app coming back to the foreground. The web build already
+// gets this from the browser.
+if (Platform.OS !== "web") {
+  focusManager.setEventListener((handleFocus) => {
+    const subscription = AppState.addEventListener("change", (state) => handleFocus(state === "active"));
+    return () => subscription.remove();
+  });
+}
 
 const navigationTheme = {
   ...DefaultTheme,
@@ -86,6 +97,7 @@ export default function TabLayout() {
                 <Stack.Screen name="trips/new" options={{ presentation: "modal" }} />
                 <Stack.Screen name="trips/[id]/edit" options={{ presentation: "modal" }} />
                 <Stack.Screen name="posts/new" options={{ presentation: "modal" }} />
+                <Stack.Screen name="notifications" />
                 <Stack.Screen
                   name="stories/[ownerId]"
                   options={{ presentation: "fullScreenModal", animation: "fade" }}

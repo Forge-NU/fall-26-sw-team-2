@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  canRate,
   formatRating,
+  isSameRatablePlace,
   ratingLabel,
   ratingValueText,
   starFills,
@@ -56,8 +56,16 @@ test('swiping steps one star at a time, and down from 1 clears', () => {
   assert.equal(stepRating(null, -1), null);
 });
 
-test('only a place from search can be rated', () => {
-  assert.equal(canRate({ kind: 'mapbox', location: { id: 'loc-1' } }), true);
-  assert.equal(canRate({ kind: 'custom', name: "Tia Rosa's kitchen" }), false);
-  assert.equal(canRate(null), false);
+test('a rating stays only when the same place or pin is picked again', () => {
+  const belem = { kind: 'mapbox', location: { id: 'loc-1' } };
+  const cove = { kind: 'pin', location: { id: 'pin-1' } };
+  const kitchen = { kind: 'custom', name: "Tia Rosa's kitchen" };
+  assert.equal(isSameRatablePlace(belem, { kind: 'mapbox', location: { id: 'loc-1' } }), true);
+  assert.equal(isSameRatablePlace(cove, { kind: 'pin', location: { id: 'pin-1' } }), true);
+  assert.equal(isSameRatablePlace(belem, { kind: 'mapbox', location: { id: 'loc-2' } }), false);
+  assert.equal(isSameRatablePlace(belem, cove), false);
+  assert.equal(isSameRatablePlace(belem, kitchen), false);
+  assert.equal(isSameRatablePlace(kitchen, { ...kitchen }), false);
+  assert.equal(isSameRatablePlace(null, belem), false);
+  assert.equal(isSameRatablePlace(belem, null), false);
 });

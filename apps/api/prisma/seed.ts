@@ -3,7 +3,8 @@
 // duplicate anything. #45 (DEV-1) owns the seed script overall; this covers
 // the users the trips need plus the #3 tables (trips, posts, post_media,
 // locations), follow relationships for #10, stories (#23), likes and saves
-// (#49), comments (#50), and place ratings (RATE-1).
+// (#49), comments (#50), place ratings (RATE-1), a dropped pin (LOC-2), and
+// shared trips, buckets, saved places and notifications (#131 COLLAB-1).
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client';
@@ -137,6 +138,20 @@ const locations = [
   },
 ];
 
+// A pin Maya dropped (#94 LOC-2): a beach Mapbox doesn't list, so it's a
+// custom locations row that only her post uses. It shows on the map and in
+// radius search, and her rating is its rating.
+const pins = [
+  {
+    id: '00000000-0000-4000-a000-000000000009',
+    providerPlaceId: 'seed.pin.praia-da-ursa-cove',
+    name: 'Hidden cove below Praia da Ursa',
+    latitude: 38.789811,
+    longitude: -9.499287,
+    createdBy: 'user_seed_maya',
+  },
+];
+
 // UTC midnight, `offset` days from today. Used for the active trip so it
 // stays active whenever the seed is run.
 function daysFromToday(offset: number) {
@@ -240,7 +255,7 @@ type SeedPost = {
 // Place ratings this gives, counting only published trips:
 // Pastéis de Belém 4.3 (3), Belém Tower 4.0 (2), Pena Palace 4.0 (1; Alex's
 // draft rating doesn't count), Miradouro de Santa Luzia, Nyhavn and Tivoli
-// one each, and LX Factory and Torvehallerne none.
+// one each, LX Factory and Torvehallerne none, and Maya's pin 5.0 (1).
 const posts: SeedPost[] = [
   {
     id: '00000000-0000-4000-9000-000000000001',
@@ -292,7 +307,7 @@ const posts: SeedPost[] = [
     mediaCount: 3,
   },
   {
-    // Custom location (no Mapbox place), so it shows on the post but not the map
+    // Custom name only (no pin), so it shows on the post but not the map
     id: '00000000-0000-4000-9000-000000000006',
     tripId: trips[0].id,
     ownerId: 'user_seed_maya',
@@ -378,6 +393,17 @@ const posts: SeedPost[] = [
     locationId: locations[1].id,
     rating: 4,
     mediaCount: 1,
+  },
+  {
+    // On the pin above
+    id: '00000000-0000-4000-9000-000000000015',
+    tripId: trips[0].id,
+    ownerId: 'user_seed_maya',
+    visitedOn: new Date('2026-09-15'),
+    caption: 'Scrambled down from Praia da Ursa. Had the cove to ourselves.',
+    locationId: pins[0].id,
+    rating: 5,
+    mediaCount: 2,
   },
 ];
 
@@ -529,6 +555,130 @@ const comments: SeedComment[] = [
   },
 ];
 
+// Shared trips (#131 COLLAB-1). Alex's Sintra draft is shared: Maya joined,
+// Priya's invite is still pending, and both of them have added places to its
+// bucket. Maya invited Alex to Porto, and he declined.
+const SINTRA = '00000000-0000-4000-b000-000000000004';
+const PORTO = '00000000-0000-4000-b000-000000000002';
+
+const tripMembers = [
+  { tripId: SINTRA, userId: 'user_seed_maya', joinedAt: hoursAgo(30) },
+];
+
+const tripInvites = [
+  {
+    id: '00000000-0000-4000-e000-000000000001',
+    tripId: SINTRA,
+    inviterId: 'user_seed_alex',
+    inviteeId: 'user_seed_maya',
+    status: 'accepted' as const,
+    createdAt: hoursAgo(32),
+    respondedAt: hoursAgo(30),
+  },
+  {
+    id: '00000000-0000-4000-e000-000000000002',
+    tripId: SINTRA,
+    inviterId: 'user_seed_alex',
+    inviteeId: 'user_seed_priya',
+    status: 'pending' as const,
+    createdAt: hoursAgo(5),
+    respondedAt: null,
+  },
+  {
+    id: '00000000-0000-4000-e000-000000000003',
+    tripId: PORTO,
+    inviterId: 'user_seed_maya',
+    inviteeId: 'user_seed_alex',
+    status: 'declined' as const,
+    createdAt: hoursAgo(72),
+    respondedAt: hoursAgo(70),
+  },
+];
+
+const notifications = [
+  {
+    id: '00000000-0000-4000-f000-000000000001',
+    recipientId: 'user_seed_maya',
+    actorId: 'user_seed_alex',
+    type: 'trip_invite' as const,
+    tripId: SINTRA,
+    inviteId: tripInvites[0].id,
+    readAt: hoursAgo(30),
+    createdAt: hoursAgo(32),
+  },
+  {
+    id: '00000000-0000-4000-f000-000000000002',
+    recipientId: 'user_seed_alex',
+    actorId: 'user_seed_maya',
+    type: 'trip_invite_accepted' as const,
+    tripId: SINTRA,
+    inviteId: null,
+    readAt: null,
+    createdAt: hoursAgo(30),
+  },
+  {
+    id: '00000000-0000-4000-f000-000000000003',
+    recipientId: 'user_seed_priya',
+    actorId: 'user_seed_alex',
+    type: 'trip_invite' as const,
+    tripId: SINTRA,
+    inviteId: tripInvites[1].id,
+    readAt: null,
+    createdAt: hoursAgo(5),
+  },
+  {
+    id: '00000000-0000-4000-f000-000000000004',
+    recipientId: 'user_seed_alex',
+    actorId: 'user_seed_maya',
+    type: 'trip_invite' as const,
+    tripId: PORTO,
+    inviteId: tripInvites[2].id,
+    readAt: hoursAgo(70),
+    createdAt: hoursAgo(72),
+  },
+];
+
+const bucketItems = [
+  {
+    id: '00000000-0000-4000-6000-000000000001',
+    tripId: SINTRA,
+    // Pena Palace
+    locationId: '00000000-0000-4000-a000-000000000005',
+    addedById: 'user_seed_alex',
+    note: 'Book the first entry slot, it gets packed by 11',
+    createdAt: hoursAgo(31),
+  },
+  {
+    id: '00000000-0000-4000-6000-000000000002',
+    tripId: SINTRA,
+    // Belém Tower, on the way back to Lisbon
+    locationId: '00000000-0000-4000-a000-000000000001',
+    addedById: 'user_seed_maya',
+    note: null,
+    createdAt: hoursAgo(29),
+  },
+];
+
+const placeSaves = [
+  // Nyhavn and Torvehallerne
+  {
+    userId: 'user_seed_maya',
+    locationId: '00000000-0000-4000-a000-000000000006',
+    createdAt: hoursAgo(48),
+  },
+  {
+    userId: 'user_seed_maya',
+    locationId: '00000000-0000-4000-a000-000000000008',
+    createdAt: hoursAgo(20),
+  },
+  // LX Factory
+  {
+    userId: 'user_seed_priya',
+    locationId: '00000000-0000-4000-a000-000000000004',
+    createdAt: hoursAgo(10),
+  },
+];
+
 async function main() {
   for (const user of users) {
     await prisma.user.upsert({
@@ -548,6 +698,15 @@ async function main() {
 
   for (const { id, ...location } of locations) {
     const data = { ...location, provider: 'mapbox' };
+    await prisma.location.upsert({
+      where: { id },
+      update: data,
+      create: { id, ...data },
+    });
+  }
+
+  for (const { id, ...pin } of pins) {
+    const data = { ...pin, provider: 'custom' };
     await prisma.location.upsert({
       where: { id },
       update: data,
@@ -635,17 +794,45 @@ async function main() {
     });
   }
 
+  // Shared trips. Keyed rows skip duplicates; rows with an id are upserted.
+  await prisma.tripMember.createMany({
+    data: tripMembers,
+    skipDuplicates: true,
+  });
+  for (const { id, ...invite } of tripInvites) {
+    await prisma.tripInvite.upsert({
+      where: { id },
+      update: invite,
+      create: { id, ...invite },
+    });
+  }
+  for (const { id, ...notification } of notifications) {
+    await prisma.notification.upsert({
+      where: { id },
+      update: notification,
+      create: { id, ...notification },
+    });
+  }
+  for (const { id, ...item } of bucketItems) {
+    await prisma.tripBucketItem.upsert({
+      where: { id },
+      update: item,
+      create: { id, ...item },
+    });
+  }
+  await prisma.placeSave.createMany({ data: placeSaves, skipDuplicates: true });
+
   // The place totals are derived from the posts, so recompute them for every
   // seeded place rather than seeding them
   await prisma.$transaction((tx) =>
     refreshLocationRatings(
       tx,
-      locations.map((l) => l.id),
+      [...locations, ...pins].map((l) => l.id),
     ),
   );
 
   console.log(
-    `Seeded ${users.length} users, ${follows.length} follows, ${locations.length} locations, ${trips.length} trips, ${posts.length} posts, ${stories.length} stories, ${postLikes.length} likes, ${tripSaves.length + postSaves.length} saves, ${comments.length} comments`,
+    `Seeded ${users.length} users, ${follows.length} follows, ${locations.length} locations, ${pins.length} pins, ${trips.length} trips, ${posts.length} posts, ${stories.length} stories, ${postLikes.length} likes, ${tripSaves.length + postSaves.length} saves, ${comments.length} comments, ${tripMembers.length} trip members, ${tripInvites.length} invites, ${notifications.length} notifications, ${bucketItems.length} bucket places, ${placeSaves.length} saved places`,
   );
 }
 

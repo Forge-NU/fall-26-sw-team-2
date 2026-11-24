@@ -10,6 +10,7 @@ import { MediaCarousel, type Photo } from "./media-carousel";
 import { contentStyles } from "./content-styles";
 import { ShareAction } from "./share-action";
 import { ContentTokens } from "@/constants/content-tokens";
+import { postPlaceName } from "@/lib/post-location";
 
 export type PostCardProps = {
   post: PostResponse;
@@ -31,7 +32,8 @@ export function PostCard({
   const photos = post.media.filter(
     (item): item is Photo => item.mediaType === "image",
   );
-  const location = post.location?.name ?? post.customLocationName;
+  // No location (#143 POST-4): the row under the name shows the date instead, without the pin icon
+  const location = postPlaceName(post);
   return (
     <View style={contentStyles.card}>
       <UserRow

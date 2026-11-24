@@ -41,7 +41,7 @@ export function itineraryToTrip(itinerary: Itinerary): TripResponse {
     endDate,
     status: 'published',
     publishedAt,
-    postCount: itinerary.days.reduce((total, day) => total + day.moments.length, 0),
+    postCount: itinerary.days.reduce((total, day) => total + day.postCount, 0),
     coverImageUrl: itinerary.days[0]?.coverUrl ?? null,
     saveCount: itinerary.saves,
     savedByMe: false,

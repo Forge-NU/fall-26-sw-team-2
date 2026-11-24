@@ -10,6 +10,7 @@ import { Palette, Spacing } from '@/constants/theme';
 import { useInfiniteList } from '@/hooks/use-infinite-list';
 import { commentKeys, formatTimeAgo } from '@/lib/comment-cache';
 import { uniqueById } from '@/lib/engagement-cache';
+import { displayName } from '@/lib/display-name';
 
 type CommentActions = {
   myId: string | undefined;
@@ -75,7 +76,7 @@ function Replies({ comment, ...actions }: CommentActions & { comment: CommentRes
 
 function CommentRow({ comment, myId, onReply, onDelete }: CommentActions & { comment: CommentResponse }) {
   const { author, replyTo } = comment;
-  const name = `${author.firstName} ${author.lastName}`.trim() || (author.username ?? '');
+  const name = displayName(author);
   const mine = author.id === myId;
   return (
     <View style={styles.row}>

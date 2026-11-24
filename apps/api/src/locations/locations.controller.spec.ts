@@ -47,16 +47,16 @@ describe('LocationsController', () => {
       const result = { kind: 'custom', name: "Tia Rosa's kitchen" };
       mockLocationsService.resolve.mockResolvedValue(result);
 
-      await expect(controller.resolve(dto)).resolves.toEqual(result);
+      await expect(controller.resolve('user_1', dto)).resolves.toEqual(result);
 
-      expect(mockLocationsService.resolve).toHaveBeenCalledWith(dto);
+      expect(mockLocationsService.resolve).toHaveBeenCalledWith('user_1', dto);
     });
 
     it('propagates errors from the service', async () => {
       mockLocationsService.resolve.mockRejectedValue(new Error('boom'));
 
       await expect(
-        controller.resolve({ kind: 'custom', name: 'x' }),
+        controller.resolve('user_1', { kind: 'custom', name: 'x' }),
       ).rejects.toThrow('boom');
     });
   });
