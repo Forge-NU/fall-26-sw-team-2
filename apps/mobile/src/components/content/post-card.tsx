@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, View } from "react-native";
 import type { PostResponse } from "shared-types";
 import { AppText } from "@/components/ui/app-text";
+import { StarRating } from "@/components/ui/star-rating";
 import { CardLink } from "./card-link";
 import { formatDate } from "@/utils/local-date";
 import { UserRow } from "./user-row";
@@ -75,6 +76,7 @@ export function PostCard({
           <AppText variant="label">{likedBy(post.likeCount)}</AppText>
         </Pressable>
       )}
+      {post.rating != null && <StarRating value={post.rating} />}
       {post.caption && (
         <AppText numberOfLines={onPress ? 3 : undefined}>
           {post.caption}

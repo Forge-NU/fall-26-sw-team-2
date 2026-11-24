@@ -8,6 +8,7 @@ import { AvatarTokens } from './avatar-tokens';
 import { ToastTokens } from './toast-tokens';
 import { EmptyStateTokens } from './empty-state-tokens';
 import { SkeletonTokens } from './skeleton-tokens';
+import { RatingTokens } from './rating-tokens';
 
 const light = {
   text: Palette.black,
@@ -45,7 +46,7 @@ export const Theme = {
   fonts: Fonts,
   spacing: Spacing,
   radii: Radii,
-  components: { button: ButtonTokens, input: InputTokens, avatar: AvatarTokens, toast: ToastTokens, emptyState: EmptyStateTokens, skeleton: SkeletonTokens },
+  components: { button: ButtonTokens, input: InputTokens, avatar: AvatarTokens, toast: ToastTokens, emptyState: EmptyStateTokens, skeleton: SkeletonTokens, rating: RatingTokens },
 } as const;
 export { Palette, Typography };
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
