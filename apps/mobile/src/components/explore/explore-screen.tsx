@@ -1,7 +1,7 @@
 import * as Location from 'expo-location';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Keyboard, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import MapView, { type Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -27,7 +27,7 @@ import { useSearch } from '@/hooks/use-search';
 import { Sheet } from '@/components/explore/sheet';
 import { mapStyle } from '@/components/explore/map-style';
 import { LISBON_REGION, PLACES } from '@/components/explore/mock-data';
-import { colors, formatCount, radius, shadow } from '@/components/explore/explore-theme';
+import { formatCount } from '@/components/explore/explore-theme';
 import type { LatLng, PinItem, Place } from '@/components/explore/types';
 import { useToast } from '@/components/ui/toast-provider';
 import { useExplore } from '@/hooks/use-explore';
@@ -176,7 +176,12 @@ export default function ExploreScreen() {
     if (!mapReady || !userStart || centeredOnUserRef.current) return;
     centeredOnUserRef.current = true;
     flyTo(userStart, 0.02);
-  }, [mapReady, userStart, flyTo]);
+    // The map doesn't always report this first move, so update what depends on the region now
+    // (the Around card, and search's map-center distance) instead of waiting for it.
+    const region = targetRegionRef.current;
+    setMapCenter({ latitude: region.latitude, longitude: region.longitude });
+    onRegionChange(region);
+  }, [mapReady, userStart, flyTo, onRegionChange]);
 
   const selectPlace = useCallback(
     (place: Place) => {
@@ -400,9 +405,6 @@ export default function ExploreScreen() {
         />
         <Animated.View style={[styles.under, { opacity: fadeWithSheet }]} pointerEvents="box-none">
           <AudienceToggle value={ex.audience} onChange={ex.setAudience} />
-          <View style={styles.chip}>
-            <Text style={styles.chipText}>{ex.locationLabel}</Text>
-          </View>
         </Animated.View>
         {filtersOpen && (
           <View style={[styles.menu, { top: headerTop + SEARCH_BAR_HEIGHT + 10 }]}>
@@ -438,14 +440,6 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#C4DDD9' },
   header: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 16 },
   under: { marginTop: 12, gap: 12, alignItems: 'flex-start' },
-  chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: radius.pill,
-    backgroundColor: colors.cream,
-    ...shadow,
-  },
-  chipText: { fontSize: 15, color: colors.forest },
   menu: { position: 'absolute', left: 16, right: 16 },
   idleStack: { position: 'absolute', left: 16, right: 16, bottom: 16, gap: 12 },
 });

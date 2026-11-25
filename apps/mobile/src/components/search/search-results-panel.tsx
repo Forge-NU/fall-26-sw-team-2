@@ -57,8 +57,13 @@ export function SearchResultsPanel({ search, onFilters, onPlace, onProfile, onTr
     {[0, 1, 2].map(key => <View key={key} style={styles.skeleton}><Skeleton width="60%" /><Skeleton height={Spacing.six} /><Skeleton width="80%" /></View>)}
   </View>;
   const showWorld = world && (search.tab === 'all' || search.tab === 'places') && search.status !== 'idle' && !search.validationError;
-  const hasWorld = !!showWorld && world.places.length > 0;
-  const worldSection = showWorld ? <WorldPlaces {...world} /> : undefined;
+  // A Mapbox place someone has already tagged is listed above as an app place, so leave its
+  // Mapbox copy out. This only sees the places on screen; LOC-3 (#155) moves the check to the server.
+  const appPlaces = search.tab === 'all' ? search.preview?.places ?? [] : search.tab === 'places' ? search.page?.items as SearchPlace[] | undefined ?? [] : [];
+  const tagged = new Set(appPlaces.filter(place => place.provider === 'mapbox').map(place => place.providerPlaceId));
+  const worldPlaces = showWorld ? world.places.filter(place => !tagged.has(place.mapboxId)) : [];
+  const hasWorld = worldPlaces.length > 0;
+  const worldSection = showWorld ? <WorldPlaces {...world} places={worldPlaces} /> : undefined;
   if (search.tab === 'all') return <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.list}>
     {header}
     {search.status === 'loading' ? loading : error || !search.preview || types.every(type => !search.preview![type].length) ? (hasWorld ? undefined : empty) :
