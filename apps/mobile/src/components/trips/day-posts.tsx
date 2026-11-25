@@ -5,9 +5,11 @@ import type { PostResponse } from 'shared-types';
 
 import { AppText } from '@/components/ui/app-text';
 import { Media } from '@/components/ui/media';
+import { StarRating } from '@/components/ui/star-rating';
 import { Palette } from '@/constants/palette';
 import { Radii, Spacing, Typography } from '@/constants/theme';
 import { groupByPlace, postPlaceName } from '@/lib/post-location';
+import { ratingLabel } from '@/lib/rating';
 
 // One day's posts on the trip page (wireframe 02). Back-to-back posts at the
 // same place share one header, like the wireframe. Posts with no location
@@ -38,7 +40,10 @@ export function DayPosts({ posts }: { posts: PostResponse[] }) {
 function PostRow({ post }: { post: PostResponse }) {
   const cover = post.media[0];
   const count = post.media.length;
-  const label = [postPlaceName(post), post.caption].filter(Boolean).join('. ') || 'Post';
+  const label =
+    [postPlaceName(post), post.rating != null ? ratingLabel(post.rating) : null, post.caption]
+      .filter(Boolean)
+      .join('. ') || 'Post';
 
   return (
     <Pressable
@@ -53,12 +58,15 @@ function PostRow({ post }: { post: PostResponse }) {
       ) : (
         <View style={[styles.thumb, styles.thumbEmpty]} />
       )}
-      <AppText
-        variant="label"
-        numberOfLines={2}
-        style={[styles.caption, !post.caption && styles.muted]}>
-        {post.caption ?? 'No caption'}
-      </AppText>
+      <View style={styles.text}>
+        <AppText
+          variant="label"
+          numberOfLines={2}
+          style={[styles.caption, !post.caption && styles.muted]}>
+          {post.caption ?? 'No caption'}
+        </AppText>
+        {post.rating != null ? <StarRating value={post.rating} /> : null}
+      </View>
       <AppText variant="caption" style={styles.muted}>
         {count === 1 ? '1 photo' : `${count} photos`}
       </AppText>
@@ -75,7 +83,8 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, minHeight: THUMB },
   thumb: { width: THUMB, height: THUMB, borderRadius: Radii.small },
   thumbEmpty: { backgroundColor: Palette.lightPink },
-  caption: { flex: 1, fontFamily: Typography.body.fontFamily },
+  text: { flex: 1, gap: Spacing.half },
+  caption: { fontFamily: Typography.body.fontFamily },
   muted: { color: Palette.placeholderGray },
   pressed: { opacity: 0.6 },
 });

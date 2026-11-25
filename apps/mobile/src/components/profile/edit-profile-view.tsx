@@ -23,6 +23,7 @@ import { choosePhoto, takePhoto, type PickedPhoto, type PickPhotoResult } from '
 import { preparePhoto } from '@/lib/media/prepare-photo';
 import { showToast } from '@/lib/toast';
 import { BackBar } from './profile-view';
+import { displayName } from '@/lib/display-name';
 
 class AvatarUploadError extends Error {}
 
@@ -179,7 +180,7 @@ function EditProfileForm({ profile }: { profile: UserResponse }) {
   }
 
   const avatarUri = draft.avatar === undefined ? profile.avatarUrl : (draft.avatar?.uri ?? null);
-  const name = `${draft.firstName} ${draft.lastName}`.trim() || (profile.username ?? '');
+  const name = displayName({ ...draft, username: profile.username });
 
   return (
     <SafeAreaView edges={['top']} style={styles.screen}>

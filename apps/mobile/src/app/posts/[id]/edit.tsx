@@ -5,7 +5,7 @@ import type { PostResponse } from 'shared-types';
 
 import { getErrorMessage } from '@/api/client';
 import { LocationPicker } from '@/components/location/location-picker';
-import { StarRating } from '@/components/rating/star-rating';
+import { StarRating } from '@/components/ui/star-rating';
 import { AppText } from '@/components/ui/app-text';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,7 @@ import { POST_LIMITS } from '@/lib/post-form';
 import {
   postEditValues,
   toUpdatePostRequest,
+  withLocation,
   validatePostEdit,
   type PostEditErrors,
   type PostEditValues,
@@ -58,7 +59,7 @@ function EditPostForm({ post, onDone }: { post: PostResponse; onDone: () => void
   const set = (next: Partial<PostEditValues>) => setValues((current) => ({ ...current, ...next }));
 
   const ratable = canRateLocation(values.location);
-  // Picking a custom name drops the rating, so say so rather than losing it quietly
+  // A custom name or no location drops the rating, so say so rather than losing it quietly
   const ratingCleared = post.rating != null && !ratable;
   const captionLength = charCount(values.caption.trim());
 
@@ -84,7 +85,7 @@ function EditPostForm({ post, onDone }: { post: PostResponse; onDone: () => void
             label=""
             value={values.location}
             onChange={(location) => {
-              set({ location });
+              setValues((current) => withLocation(current, location));
               setErrors(({ location: _location, ...rest }) => rest);
             }}
           />
@@ -92,7 +93,12 @@ function EditPostForm({ post, onDone }: { post: PostResponse; onDone: () => void
 
         <Section label="Your rating" aside={ratable && values.rating != null ? 'Tap again to clear' : undefined}>
           {ratable ? (
-            <StarRating value={values.rating} onChange={(rating) => set({ rating })} size={28} />
+            <StarRating
+              value={values.rating}
+              onChange={(rating) => set({ rating })}
+              size="large"
+              accessibilityLabel="Your rating"
+            />
           ) : (
             <AppText variant="label" style={styles.muted}>
               {unratableReason(values.location === null, ratingCleared)}

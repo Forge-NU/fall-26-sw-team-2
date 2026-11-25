@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Pill } from '@/components/ui/pill';
 import { Screen } from '@/components/ui/screen';
 import { ScreenHeader } from '@/components/ui/screen-header';
+import { StarRating } from '@/components/ui/star-rating';
 import { useToast } from '@/components/ui/toast-provider';
 import { Palette } from '@/constants/palette';
 import { Radii, Spacing } from '@/constants/theme';
@@ -25,6 +26,8 @@ import { preparePhoto } from '@/lib/media/prepare-photo';
 import { deleteDraft, getDraft, listDrafts, newDraftId, type DraftPhoto, type PostDraft } from '@/lib/post-drafts';
 import { defaultVisitedOn, POST_LIMITS, suggestTrip, validatePostForm, type PostFormErrors } from '@/lib/post-form';
 import { isDraftInFlight, submitPostDraft, type UploadProgress } from '@/lib/post-upload';
+import { canRateLocation } from '@/lib/picked-location';
+import { isSameRatablePlace } from '@/lib/rating';
 import { charCount } from '@/lib/trip-form';
 import { formatWeekdayDate, todayLocalIso, tripDayNumber, tripDays } from '@/utils/local-date';
 
@@ -43,6 +46,7 @@ export default function NewPostScreen() {
   const [visitedOn, setVisitedOn] = useState<string | null>(params.visitedOn ?? null);
   const [photos, setPhotos] = useState<DraftPhoto[]>([]);
   const [location, setLocation] = useState<PickedLocation | null>(null);
+  const [rating, setRating] = useState<number | null>(null);
   const [caption, setCaption] = useState('');
   const [addingPhotos, setAddingPhotos] = useState(false);
   const [progress, setProgress] = useState<UploadProgress | null>(null);
@@ -74,6 +78,7 @@ export default function NewPostScreen() {
       setVisitedOn(draft.visitedOn);
       setPhotos(draft.photos);
       setLocation(draft.location);
+      setRating(canRateLocation(draft.location) ? (draft.rating ?? null) : null);
       setCaption(draft.caption);
       setFailedDraft(draft);
     })();
@@ -130,6 +135,7 @@ export default function NewPostScreen() {
         visitedOn: day,
         caption,
         location,
+        rating: canRateLocation(location) ? rating : null,
         photos,
         status: 'uploading',
         error: null,
@@ -248,8 +254,33 @@ export default function NewPostScreen() {
 
           {/* Optional (#143 POST-4): a post can have no location */}
           <Section label="Location (optional)">
-            <LocationPicker label="" trip={trip} value={location} onChange={setLocation} />
+            <LocationPicker
+              label=""
+              trip={trip}
+              value={location}
+              onChange={(next) => {
+                // A rating belongs to one place, so a different place (or a custom name) starts unrated
+                if (!isSameRatablePlace(location, next)) setRating(null);
+                setLocation(next);
+              }}
+            />
+            {location?.kind === 'custom' ? (
+              <AppText variant="caption" color="placeholderGray">
+                Pick a place from search or drop a pin to rate it
+              </AppText>
+            ) : null}
           </Section>
+
+          {canRateLocation(location) ? (
+            <Section label="Rate this place">
+              <StarRating
+                value={rating}
+                onChange={setRating}
+                disabled={uploading}
+                accessibilityLabel="Rate this place"
+              />
+            </Section>
+          ) : null}
 
           <Section
             label="Caption"

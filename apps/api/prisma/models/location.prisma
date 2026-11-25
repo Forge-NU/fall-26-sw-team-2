@@ -34,9 +34,11 @@ model Location {
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
-  creator User?   @relation(fields: [createdBy], references: [id], onDelete: SetNull)
-  posts   Post[]
-  stories Story[]
+  creator     User?            @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  posts       Post[]
+  stories     Story[]
+  saves       PlaceSave[]
+  bucketItems TripBucketItem[]
 
   @@unique([provider, providerPlaceId])
   @@index([latitude, longitude])

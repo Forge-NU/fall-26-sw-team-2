@@ -10,8 +10,8 @@ import { likedBy } from '@/components/content/post-card';
 import { StatRow } from '@/components/content/stat-row';
 import { UserRow } from '@/components/content/user-row';
 import { Icon } from '@/components/icon';
-import { formatStars, StarRating } from '@/components/rating/star-rating';
 import { AppText } from '@/components/ui/app-text';
+import { StarRating } from '@/components/ui/star-rating';
 import { ContentTokens } from '@/constants/content-tokens';
 import { Palette } from '@/constants/palette';
 import { Spacing, Typography } from '@/constants/theme';
@@ -62,15 +62,12 @@ export function PostDetail({ post, onCommentPress, fromTrip = false }: PostDetai
             {placeName}
           </AppText>
           {placeRating ? (
-            <View
-              accessible
-              accessibilityLabel={`Rated ${formatStars(placeRating.average)} out of 5 from ${placeRating.count} ${placeRating.count === 1 ? 'post' : 'posts'}`}
-              style={styles.average}>
-              <StarRating value={placeRating.average} size={12} />
-              <AppText variant="caption" color="placeholderGray">
-                {formatStars(placeRating.average)} ({placeRating.count.toLocaleString()})
-              </AppText>
-            </View>
+            <StarRating
+              value={placeRating.average}
+              count={placeRating.count}
+              showLabel
+              style={styles.average}
+            />
           ) : null}
         </View>
       ) : null}
@@ -80,7 +77,7 @@ export function PostDetail({ post, onCommentPress, fromTrip = false }: PostDetai
           <AppText variant="caption" color="placeholderGray">
             {post.author.firstName ? `${post.author.firstName}'s rating` : 'Their rating'}
           </AppText>
-          <StarRating value={post.rating} />
+          <StarRating value={post.rating} size="medium" />
         </View>
       ) : null}
 
@@ -102,7 +99,7 @@ const styles = StyleSheet.create({
   likedBy: { alignSelf: 'flex-start', justifyContent: 'center', minHeight: ContentTokens.actionSize },
   place: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Spacing.one },
   placeName: { flexShrink: 1 },
-  average: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one, marginLeft: Spacing.one },
+  average: { marginLeft: Spacing.one },
   rating: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   caption: { fontFamily: Typography.body.fontFamily, color: Palette.black },
   commentsTitle: { marginTop: Spacing.two },

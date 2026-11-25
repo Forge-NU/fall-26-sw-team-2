@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { aggregate } from '@/components/explore/explore-stats';
 import { formatCount } from '@/components/explore/explore-theme';
-import { AREA_BY_ID, AREAS, COUNTRIES, COUNTRY_BY_ID, PLACES } from '@/components/explore/mock-data';
+import { AREA_BY_ID, AREAS, COUNTRIES, PLACES } from '@/components/explore/mock-data';
 import type {
   Audience,
   CategoryFilter,
@@ -92,7 +92,6 @@ export function useExplore(initialRegion: Region) {
   const weightOf = useMemo(() => logWeight(pins.map((pn) => pn.stats.reviews)), [pins]);
 
   const nearestArea = useMemo(() => nearest(AREAS, view.center) ?? AREAS[0], [view.center]);
-  const nearestCountry = COUNTRY_BY_ID[nearestArea.countryId];
 
   const around = useMemo(() => {
     if (view.level === 'world') {
@@ -115,13 +114,6 @@ export function useExplore(initialRegion: Region) {
       .map((pn) => ({ key: pn.key, name: pn.name, rating: pn.stats.rating, pin: pn }));
   }, [pins, view.level, nearestArea]);
 
-  const locationLabel =
-    view.level === 'world'
-      ? 'World'
-      : view.level === 'region'
-        ? nearestCountry.name
-        : `${nearestArea.name} · ${nearestCountry.name}`;
-
   const selected = PLACES.find((pl) => pl.id === selectedId) ?? null;
   const selectedArea = selected ? AREA_BY_ID[selected.areaId] : null;
 
@@ -132,6 +124,6 @@ export function useExplore(initialRegion: Region) {
     category, setCategory,
     selected, selectedArea, setSelectedId,
     pins, weightOf,
-    around, topItems, locationLabel,
+    around, topItems,
   };
 }

@@ -1,7 +1,10 @@
 // Notifications inbox (#137 NOTIF-2): the bell's badge, what each row shows,
-// the optimistic Accept / Decline, and the stand-in mocks.
+// the optimistic Accept / Decline, and the mocks.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+
+// The endpoints are live now, so force the mocks (getMockMode reads this on each call)
+process.env.EXPO_PUBLIC_API_MOCKS = 'all';
 
 import { ApiError } from '../src/api/client.ts';
 import {
@@ -64,13 +67,17 @@ test('rows read "{name} invited you to {trip}" and "{name} joined {trip}"', () =
   assert.equal(notificationParts({ ...joined, actor: { ...maya, firstName: '', lastName: '' } }).name, 'maya.chen');
 });
 
-test('only a trip you are on opens: someone joining yours, or an invite you accepted', () => {
-  assert.equal(notificationTripId(joined), 't1');
-  assert.equal(notificationTripId(invite('i1', 'accepted')), 't1');
+test('only a trip you can see opens: someone joining yours, or an invite you accepted', () => {
+  assert.equal(notificationTripId(joined, true), 't1');
+  assert.equal(notificationTripId(invite('i1', 'accepted'), true), 't1');
   for (const status of ['pending', 'declined', 'cancelled']) {
-    assert.equal(notificationTripId(invite('i1', status)), null, status);
+    assert.equal(notificationTripId(invite('i1', status), true), null, status);
   }
-  assert.equal(notificationTripId({ ...joined, trip: null }), null);
+  assert.equal(notificationTripId({ ...joined, trip: null }, true), null);
+  // Until COLLAB-2, members can't see drafts, so an accepted invite doesn't
+  // open its trip. The owner can always open theirs.
+  assert.equal(notificationTripId(invite('i1', 'accepted')), null);
+  assert.equal(notificationTripId(joined), 't1');
 });
 
 test('types this version of the app does not know stay hidden', () => {
@@ -134,7 +141,12 @@ test('read-all clears the unread count', async () => {
 
 test('accepting a pending invite works once, then 409s', async () => {
   const tokyo = (await listNotifications(null)).items.find((n) => n.trip.title === 'Tokyo food crawl');
-  assert.deepEqual(await acceptInvite(tokyo.invite.id), { id: tokyo.invite.id, status: 'accepted' });
+  const accepted = await acceptInvite(tokyo.invite.id);
+  assert.equal(accepted.id, tokyo.invite.id);
+  assert.equal(accepted.status, 'accepted');
+  assert.equal(accepted.tripId, tokyo.trip.id);
+  assert.equal(accepted.inviter.id, tokyo.actor.id);
+  assert.ok(accepted.respondedAt);
   await assert.rejects(declineInvite(tokyo.invite.id), (error) => error instanceof ApiError && error.status === 409);
 });
 

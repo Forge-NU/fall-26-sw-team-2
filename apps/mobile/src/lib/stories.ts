@@ -1,6 +1,7 @@
 // Stories bar and viewer rules (#25 STORY-3). No React Native imports, so
 // scripts/stories.test.mjs can test them.
 import type { StoryGroup, StoryResponse, UserSummary } from 'shared-types';
+import { displayName } from '@/lib/display-name';
 
 /** Drops stories that expired while the screen was open, and users left with none */
 export function activeGroups(groups: StoryGroup[], now = Date.now()): StoryGroup[] {
@@ -63,7 +64,7 @@ export function storyPlaceName(story: Pick<StoryResponse, 'location' | 'customLo
 }
 
 export function storyOwnerName(owner: UserSummary): string {
-  return `${owner.firstName} ${owner.lastName}`.trim() || owner.username || 'Traveler';
+  return displayName(owner) || 'Traveler';
 }
 
 /** Short time since posting: "now", "12m", "5h", "2d" */

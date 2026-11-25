@@ -1,10 +1,11 @@
 import * as Location from 'expo-location';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Keyboard, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import MapView, { type Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { newSearchSessionToken, retrievePlace } from '@/api/locations';
 import { savedPlaces, useSavedPlaces } from '@/components/saved/saved-places';
 import { AudienceToggle } from '@/components/explore/audience-toggle';
 import { FiltersMenu } from '@/components/explore/filters-menu';
@@ -19,21 +20,41 @@ import { BottomSheet } from '@/components/bottom-sheet';
 import { TripCard } from '@/components/content/trip-card';
 import { PostCard } from '@/components/content/post-card';
 import { Button } from '@/components/ui/button';
-import type { PostResponse, SearchPlace, TripResponse } from 'shared-types';
+import type { PlaceSuggestion, PostResponse, SearchPlace, TripResponse } from 'shared-types';
 import type { Coordinate, LocationPermission } from '@/lib/search/filters';
 import { isSearchOpen } from '@/lib/search/search-view';
 import { useSearch } from '@/hooks/use-search';
 import { Sheet } from '@/components/explore/sheet';
 import { mapStyle } from '@/components/explore/map-style';
 import { LISBON_REGION, PLACES } from '@/components/explore/mock-data';
-import { colors, formatCount, radius, shadow } from '@/components/explore/explore-theme';
+import { formatCount } from '@/components/explore/explore-theme';
 import type { LatLng, PinItem, Place } from '@/components/explore/types';
 import { useToast } from '@/components/ui/toast-provider';
 import { useExplore } from '@/hooks/use-explore';
+import { usePlaceSearch } from '@/hooks/use-place-search';
 import { useCurrentUser } from '@/lib/current-user';
 import { regionFor, zoomRegion } from '@/lib/map-zoom';
 
 const SEARCH_BAR_HEIGHT = 56;
+
+// How far to zoom for a real-world place, by its Mapbox feature type.
+function deltaForFeature(type: string | undefined): number {
+  switch (type) {
+    case 'country':
+      return 14;
+    case 'region':
+      return 4;
+    case 'district':
+      return 1;
+    case 'place':
+    case 'locality':
+      return 0.15;
+    case 'neighborhood':
+      return 0.04;
+    default:
+      return 0.02; // a point of interest, address or street
+  }
+}
 
 export default function ExploreScreen() {
   const insets = useSafeAreaInsets();
@@ -61,6 +82,12 @@ export default function ExploreScreen() {
   const currentUser = useCurrentUser();
   const saved = useSavedPlaces();
   const { setSelectedId, setQuery, onRegionChange } = ex;
+
+  // Real-world places from Mapbox, shown under the app's own results. A Mapbox
+  // session is the /suggest calls plus one /retrieve, so start a new one after each pick.
+  const [searchSession, setSearchSession] = useState(newSearchSessionToken);
+  const world = usePlaceSearch(ex.query, searchSession);
+  const [openingWorldId, setOpeningWorldId] = useState<string | null>(null);
 
   const headerTop = insets.top + 8;
   const half = Math.round(screenH * 0.52);
@@ -114,6 +141,48 @@ export default function ExploreScreen() {
     [animateTo, aspect],
   );
 
+  // Open on the user's location. Lisbon stays as the fallback if they decline or it fails.
+  const [mapReady, setMapReady] = useState(false);
+  const [userStart, setUserStart] = useState<LatLng | null>(null);
+  const centeredOnUserRef = useRef(false);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (cancelled) return;
+        setPermission(status === 'granted' ? 'granted' : 'denied');
+        if (status !== 'granted') return;
+        setLocationOn(true);
+        // The last known fix is instant; a fresh one can take a few seconds.
+        const pos =
+          (await Location.getLastKnownPositionAsync()) ??
+          (await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }));
+        if (cancelled) return;
+        const here = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+        setNearMe(here);
+        setUserStart(here);
+      } catch {
+        // Location Services off or the request failed: stay on the default region.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // The map ignores camera moves made before it has loaded, so wait for both.
+  useEffect(() => {
+    if (!mapReady || !userStart || centeredOnUserRef.current) return;
+    centeredOnUserRef.current = true;
+    flyTo(userStart, 0.02);
+    // The map doesn't always report this first move, so update what depends on the region now
+    // (the Around card, and search's map-center distance) instead of waiting for it.
+    const region = targetRegionRef.current;
+    setMapCenter({ latitude: region.latitude, longitude: region.longitude });
+    onRegionChange(region);
+  }, [mapReady, userStart, flyTo, onRegionChange]);
+
   const selectPlace = useCallback(
     (place: Place) => {
       Keyboard.dismiss();
@@ -146,6 +215,23 @@ export default function ExploreScreen() {
     Keyboard.dismiss();
     if (userId === currentUser.id) router.navigate('/profile');
     else router.push({ pathname: '/users/[id]', params: { id: userId } });
+  };
+
+  const openWorldPlace = async (pl: PlaceSuggestion) => {
+    if (openingWorldId) return;
+    setOpeningWorldId(pl.mapboxId);
+    try {
+      const found = await retrievePlace(pl.mapboxId, searchSession);
+      if (found.kind !== 'mapbox') return;
+      Keyboard.dismiss();
+      setQuery(''); setSearchOpen(false);
+      flyTo({ latitude: found.latitude, longitude: found.longitude }, deltaForFeature(pl.featureType));
+    } catch {
+      showToast({ message: 'Couldn’t open that place. Try again.', variant: 'error' });
+    } finally {
+      setOpeningWorldId(null);
+      setSearchSession(newSearchSessionToken());
+    }
   };
 
   const zoomBy = (factor: number) => animateTo(zoomRegion(targetRegionRef.current, factor), 250);
@@ -199,6 +285,7 @@ export default function ExploreScreen() {
         showsPointsOfInterests={false}
         showsCompass={false}
         toolbarEnabled={false}
+        onMapReady={() => setMapReady(true)}
         onRegionChangeComplete={(r) => {
           targetRegionRef.current = r;
           setMapCenter({ latitude: r.latitude, longitude: r.longitude });
@@ -283,7 +370,8 @@ export default function ExploreScreen() {
               onPlace={openSearchPlace}
               onProfile={openProfile}
               onTrip={trip => { if (trip.id.startsWith('search-trip-')) setPreviewContent({ trip }); else router.push({ pathname: '/trips/[id]', params: { id: trip.id } }); }}
-              onPost={post => setPreviewContent({ post })} />
+              onPost={post => setPreviewContent({ post })}
+              world={{ places: world.suggestions, searching: world.searching, openingId: openingWorldId, onPress: (pl) => void openWorldPlace(pl) }} />
           )}
         </Sheet>
       )}
@@ -317,9 +405,6 @@ export default function ExploreScreen() {
         />
         <Animated.View style={[styles.under, { opacity: fadeWithSheet }]} pointerEvents="box-none">
           <AudienceToggle value={ex.audience} onChange={ex.setAudience} />
-          <View style={styles.chip}>
-            <Text style={styles.chipText}>{ex.locationLabel}</Text>
-          </View>
         </Animated.View>
         {filtersOpen && (
           <View style={[styles.menu, { top: headerTop + SEARCH_BAR_HEIGHT + 10 }]}>
@@ -355,14 +440,6 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#C4DDD9' },
   header: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 16 },
   under: { marginTop: 12, gap: 12, alignItems: 'flex-start' },
-  chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: radius.pill,
-    backgroundColor: colors.cream,
-    ...shadow,
-  },
-  chipText: { fontSize: 15, color: colors.forest },
   menu: { position: 'absolute', left: 16, right: 16 },
   idleStack: { position: 'absolute', left: 16, right: 16, bottom: 16, gap: 12 },
 });

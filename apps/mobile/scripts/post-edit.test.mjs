@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { postEditValues, postLocation, toUpdatePostRequest, validatePostEdit } from '../src/lib/post-edit.ts';
+import { postEditValues, postLocation, toUpdatePostRequest, validatePostEdit, withLocation } from '../src/lib/post-edit.ts';
 import { canRateLocation } from '../src/lib/picked-location.ts';
 
 const pena = { id: 'loc-pena', provider: 'mapbox', name: 'Pena Palace', rating: { average: 4.5, count: 2 } };
@@ -40,7 +40,7 @@ test('an emptied caption is cleared with null', () => {
   assert.deepEqual(toUpdatePostRequest(post(), { ...postEditValues(post()), caption: '   ' }), { caption: null });
 });
 
-test('a new place sends its locationId and keeps the rating', () => {
+test('a new place sends its locationId', () => {
   const values = { ...postEditValues(post()), location: { kind: 'mapbox', location: belem } };
   assert.deepEqual(toUpdatePostRequest(post(), values), { locationId: 'loc-belem' });
 });
@@ -104,4 +104,20 @@ test('the caption and a custom name have limits', () => {
   assert.equal(errors.location, undefined);
   const long = validatePostEdit({ caption: '', location: { kind: 'custom', name: 'x'.repeat(101) }, rating: null });
   assert.ok(long.location);
+});
+
+test('picking a different place starts unrated, like the composer', () => {
+  const values = postEditValues(post());
+  // The same place keeps the rating
+  assert.equal(withLocation(values, { kind: 'mapbox', location: pena }).rating, 4);
+  // A different place, a pin, a custom name or no location clears it
+  assert.equal(withLocation(values, { kind: 'mapbox', location: belem }).rating, null);
+  assert.equal(withLocation(values, { kind: 'pin', location: pin }).rating, null);
+  assert.equal(withLocation(values, { kind: 'custom', name: 'Back garden' }).rating, null);
+  assert.equal(withLocation(values, null).rating, null);
+  // And saving the new place clears the stored rating too
+  assert.deepEqual(toUpdatePostRequest(post(), withLocation(values, { kind: 'mapbox', location: belem })), {
+    locationId: 'loc-belem',
+    rating: null,
+  });
 });

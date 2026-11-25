@@ -4,6 +4,7 @@ import type { PostResponse, UpdatePostRequest } from 'shared-types';
 
 import { POST_LIMITS } from '@/lib/post-form';
 import { canRateLocation, isCustomNameTooLong, type PickedLocation } from '@/lib/picked-location';
+import { isSameRatablePlace } from '@/lib/rating';
 import { charCount } from '@/lib/trip-form';
 
 export type PostEditValues = {
@@ -29,6 +30,15 @@ export function postLocation(post: Pick<PostResponse, 'location' | 'customLocati
 
 export function postEditValues(post: PostResponse): PostEditValues {
   return { caption: post.caption ?? '', location: postLocation(post), rating: post.rating };
+}
+
+/**
+ * A new pick in the location field. Like the composer (RATE-2), a rating
+ * belongs to one place, so a different place, a custom name or no location
+ * starts unrated.
+ */
+export function withLocation(values: PostEditValues, location: PickedLocation | null): PostEditValues {
+  return { ...values, location, rating: isSameRatablePlace(values.location, location) ? values.rating : null };
 }
 
 /** The rating that gets saved: a custom name or no location can't have one. */

@@ -218,6 +218,10 @@ Cut from the MVP: interest tags, tagging other users in posts, several locations
   - **Places** are locations with posts in published trips, with their post count and rating. Dropped pins are left out.
   - **Trips** are published trips, matched on title, destination and description.
   - **Posts** are posts in published trips, matched on caption and location name.
+- On the Map tab, place search also lists real-world places from Mapbox under **More places**, below the app's own places (decided 2026-11-24, #153). Without them, a place could only be found once someone had tagged it.
+  - A Mapbox place that's already a Yuji place is left out, so it isn't listed twice.
+  - Tapping one moves the map there. Viewing it stores nothing. It becomes a Yuji place when someone posts there or saves it.
+  - The app calls Mapbox directly for now. Moving this to the server is post-MVP (#155 LOC-3).
 - Search results can be filtered:
 
   | Filter | Applies to | Matches when |

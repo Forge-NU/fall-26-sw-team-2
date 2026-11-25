@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import { AppState } from 'react-native';
 import type { NotificationResponse, UnreadCountResponse } from 'shared-types';
 
 import { ApiError, getErrorMessage } from '@/api/client';
@@ -23,23 +22,18 @@ import {
 } from '@/lib/notifications';
 import { showToast } from '@/lib/toast';
 
-/** The bell's count. Refetches when the app comes back to the foreground. */
+/**
+ * The bell's count. Refetches whenever the app comes back to the foreground
+ * (focusManager is wired to AppState in the root layout), even if it's fresh.
+ */
 export function useUnreadCount() {
-  const query = useQuery({
+  return useQuery({
     queryKey: queryKeys.unreadNotifications,
     queryFn: ({ signal }) => getUnreadCount(signal),
+    refetchOnWindowFocus: 'always',
     // A badge that didn't refresh isn't worth a toast
     meta: { toast: false },
   });
-  const { refetch } = query;
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (state) => {
-      // Every tab's header has a bell, so join a fetch that's already running
-      if (state === 'active') void refetch({ cancelRefetch: false });
-    });
-    return () => subscription.remove();
-  }, [refetch]);
-  return query;
 }
 
 export function useNotifications() {

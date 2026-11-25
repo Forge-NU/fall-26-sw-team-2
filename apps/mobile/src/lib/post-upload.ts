@@ -6,7 +6,13 @@ import type { PostResponse } from 'shared-types';
 import { ApiError } from '@/api/client';
 import { resolveLocation } from '@/api/locations';
 import { createPost, getTripPosts } from '@/api/posts';
-import { findPostWithLocation, isExpiredPinError, toLocationFields, type PickedLocation } from '@/lib/picked-location';
+import {
+  canRateLocation,
+  findPostWithLocation,
+  isExpiredPinError,
+  toLocationFields,
+  type PickedLocation,
+} from '@/lib/picked-location';
 import { uploadPhoto } from '@/lib/media/upload-photo';
 import { deleteDraft, saveDraft, type PostDraft } from '@/lib/post-drafts';
 import { RETRY_DELAYS_MS } from '@/lib/retry';
@@ -84,6 +90,8 @@ export async function submitPostDraft(
         visitedOn: draft.visitedOn,
         caption: draft.caption.trim() || null,
         ...(location && toLocationFields(location)),
+        // A rating needs a locationId (RATE-1), so never send one with a custom name or no location
+        ...(draft.rating != null && canRateLocation(location) ? { rating: draft.rating } : {}),
         media: draft.photos.map((p) => ({
           s3Key: p.s3Key!,
           mediaType: 'image' as const,
