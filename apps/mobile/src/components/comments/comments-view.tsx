@@ -1,8 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { router } from 'expo-router';
-import { useRef, useState } from 'react';
-import { Alert, FlatList, KeyboardAvoidingView, Platform, StyleSheet, View, type TextInputInstance } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRef, useState, type ReactElement, type RefObject } from 'react';
+import { Alert, FlatList, Platform, StyleSheet, View, type TextInputInstance } from 'react-native';
 import type { CommentResponse } from 'shared-types';
 
 import { ApiError } from '@/api/client';
@@ -10,10 +8,8 @@ import { listComments } from '@/api/comments';
 import { getMyProfile } from '@/api/profiles';
 import { queryKeys } from '@/api/query-keys';
 import { ListEmpty, ListFooter } from '@/components/content/list-states';
-import { AppText } from '@/components/ui/app-text';
 import { EmptyState } from '@/components/ui/empty-state';
-import { IconButton } from '@/components/ui/icon-button';
-import { BottomTabInset, Palette, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import { useCreateComment, useDeleteComment } from '@/hooks/use-comments';
 import { useInfiniteList } from '@/hooks/use-infinite-list';
 import { commentKeys, replyPrefill } from '@/lib/comment-cache';
@@ -24,9 +20,23 @@ import { CommentThread } from './comment-row';
 /**
  * A post's comments, oldest first, Instagram-style: replies sit one level
  * under each comment behind "View replies", and the composer stays at the bottom.
- * POST-3 (#43) can put this under post detail.
+ * Post detail (#43) puts the post above them as `header`, and wraps this in a
+ * KeyboardAvoidingView so the composer clears the keyboard.
  */
-export function CommentsView({ postId }: { postId: string }) {
+export function CommentsView({
+  postId,
+  header,
+  inputRef,
+  onRefresh,
+}: {
+  postId: string;
+  /** Scrolls with the comments, above them */
+  header?: ReactElement;
+  /** The composer's input, so the screen can focus it */
+  inputRef?: RefObject<TextInputInstance | null>;
+  /** Runs with pull to refresh, e.g. to reload the header's post */
+  onRefresh?: () => void;
+}) {
   const me = useQuery({ queryKey: queryKeys.myProfile, queryFn: ({ signal }) => getMyProfile(signal) });
   const myId = me.data?.id;
   const comments = useInfiniteList<CommentResponse>({
@@ -36,7 +46,8 @@ export function CommentsView({ postId }: { postId: string }) {
   const create = useCreateComment(postId);
   const remove = useDeleteComment(postId);
 
-  const input = useRef<TextInputInstance>(null);
+  const ownInput = useRef<TextInputInstance>(null);
+  const input = inputRef ?? ownInput;
   const [text, setText] = useState('');
   const [replyingTo, setReplyingTo] = useState<CommentResponse | null>(null);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
@@ -87,85 +98,68 @@ export function CommentsView({ postId }: { postId: string }) {
     ]);
   };
 
+  if (deleted) {
+    return (
+      <EmptyState
+        icon="alert-circle-outline"
+        title="Post no longer available"
+        description="It may have been deleted."
+        style={styles.centered}
+      />
+    );
+  }
+
   return (
-    <SafeAreaView edges={['top']} style={styles.screen}>
-      <View style={styles.bar}>
-        <IconButton
-          icon="chevron-left"
-          accessibilityLabel="Back"
-          onPress={() => (router.canGoBack() ? router.back() : router.navigate('/saved'))}
-        />
-        <AppText variant="heading" accessibilityRole="header">
-          Comments
-        </AppText>
-      </View>
-      {deleted ? (
-        <EmptyState
-          icon="alert-circle-outline"
-          title="Post no longer available"
-          description="It may have been deleted."
-          style={styles.centered}
-        />
-      ) : (
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={BottomTabInset}
-          style={styles.body}>
-          <FlatList
-            data={uniqueById(comments.items)}
-            keyExtractor={(comment) => comment.id}
-            renderItem={({ item }) => (
-              <CommentThread
-                comment={item}
-                expanded={expanded.has(item.id)}
-                onToggleReplies={() => toggleReplies(item.id)}
-                myId={myId}
-                onReply={reply}
-                onDelete={confirmDelete}
-              />
-            )}
-            ListEmptyComponent={
-              <ListEmpty
-                list={comments}
-                icon="chatbubble-outline"
-                title="No comments yet"
-                description="Ask about a place or say what you liked."
-              />
-            }
-            ListFooterComponent={<ListFooter list={comments} />}
-            onEndReached={comments.loadMore}
-            onEndReachedThreshold={0.5}
-            refreshing={comments.isRefetching && !comments.isFetchingNextPage}
-            onRefresh={() => void comments.refetch()}
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={styles.content}
-          />
-          <CommentComposer
-            ref={input}
-            text={text}
-            onChangeText={setText}
-            replyingTo={replyingTo}
-            onCancelReply={cancelReply}
+    <View style={styles.body}>
+      <FlatList
+        data={uniqueById(comments.items)}
+        keyExtractor={(comment) => comment.id}
+        renderItem={({ item }) => (
+          <CommentThread
+            comment={item}
+            expanded={expanded.has(item.id)}
+            onToggleReplies={() => toggleReplies(item.id)}
             myId={myId}
-            sending={create.isPending}
-            onSend={send}
+            onReply={reply}
+            onDelete={confirmDelete}
           />
-        </KeyboardAvoidingView>
-      )}
-    </SafeAreaView>
+        )}
+        ListHeaderComponent={header}
+        ListEmptyComponent={
+          <ListEmpty
+            list={comments}
+            icon="chatbubble-outline"
+            title="No comments yet"
+            description="Ask about a place or say what you liked."
+          />
+        }
+        ListFooterComponent={<ListFooter list={comments} />}
+        onEndReached={comments.loadMore}
+        onEndReachedThreshold={0.5}
+        refreshing={comments.isRefetching && !comments.isFetchingNextPage}
+        onRefresh={() => {
+          void comments.refetch();
+          onRefresh?.();
+        }}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.content}
+      />
+      <CommentComposer
+        ref={input}
+        text={text}
+        onChangeText={setText}
+        replyingTo={replyingTo}
+        onCancelReply={cancelReply}
+        myId={myId}
+        sending={create.isPending}
+        onSend={send}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Palette.warmWhite },
-  body: { flex: 1, paddingBottom: BottomTabInset },
-  bar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.one,
-    paddingHorizontal: Spacing.two,
-    paddingVertical: Spacing.one,
-  },
-  content: { flexGrow: 1, gap: Spacing.three, padding: Spacing.three },
+  body: { flex: 1 },
+  content: { flexGrow: 1, gap: Spacing.three, paddingBottom: Spacing.three },
   centered: { alignSelf: 'center', marginTop: Spacing.five },
 });

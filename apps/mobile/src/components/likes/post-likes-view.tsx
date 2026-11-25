@@ -13,7 +13,7 @@ import { UserRow } from '@/components/content/user-row';
 import { AppText } from '@/components/ui/app-text';
 import { EmptyState } from '@/components/ui/empty-state';
 import { IconButton } from '@/components/ui/icon-button';
-import { BottomTabInset, Palette, Spacing } from '@/constants/theme';
+import { Palette, Spacing } from '@/constants/theme';
 import { useInfiniteList } from '@/hooks/use-infinite-list';
 import { toggleFollow } from '@/lib/engagement';
 import { engagementKeys, uniqueById } from '@/lib/engagement-cache';
@@ -28,12 +28,12 @@ export function PostLikesView({ postId }: { postId: string }) {
   const deleted = likers.error instanceof ApiError && likers.error.status === 404;
 
   return (
-    <SafeAreaView edges={['top']} style={styles.screen}>
+    <SafeAreaView edges={['top', 'bottom']} style={styles.screen}>
       <View style={styles.bar}>
         <IconButton
           icon="chevron-left"
           accessibilityLabel="Back"
-          onPress={() => (router.canGoBack() ? router.back() : router.navigate('/saved'))}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace({ pathname: '/posts/[id]', params: { id: postId } }))}
         />
         <AppText variant="heading" accessibilityRole="header">
           Likes
@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     paddingHorizontal: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.four,
+    paddingBottom: Spacing.four,
   },
   centered: { alignSelf: 'center', marginTop: Spacing.five },
   separator: { height: StyleSheet.hairlineWidth, backgroundColor: Palette.peach, marginVertical: Spacing.two },

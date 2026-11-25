@@ -122,13 +122,9 @@ function SavedPosts() {
       renderItem={({ item }) => (
         <PostCard
           post={item}
-          stats={postStats(item, {
-            onCommentsPress: () =>
-              router.push({ pathname: '/saved/posts/[id]/comments', params: { id: item.id } }),
-          })}
-          onLikesPress={() =>
-            router.push({ pathname: '/saved/posts/[id]/likes', params: { id: item.id } })
-          }
+          stats={postStats(item, { onCommentsPress: () => openPost(item.id) })}
+          onPress={() => openPost(item.id)}
+          onLikesPress={() => router.push({ pathname: '/posts/[id]/likes', params: { id: item.id } })}
         />
       )}
       ListHeaderComponent={<Intro />}
@@ -150,6 +146,9 @@ function SavedPosts() {
     />
   );
 }
+
+// Comments live under the post on post detail
+const openPost = (id: string) => router.push({ pathname: '/posts/[id]', params: { id } });
 
 function Intro() {
   return (

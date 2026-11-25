@@ -132,13 +132,7 @@ export const listUserPosts = withMock<Parameters<ListFetcher<PostResponse>>, Pag
   real: (id, cursor, signal) => apiGet(`${userPath(id)}/posts`, { cursor, limit: 30 }, { signal }),
   mock: async (id, cursor) => {
     await mockDelay();
-    const author = mockUser(id);
-    const trips = mockTrips(author).filter((trip) => id === MOCK_ME_ID || trip.status === 'published');
-    // Already newest first: trips are newest first, and each trip's posts are built from its last day back
-    const posts = trips.flatMap((trip, t) =>
-      Array.from({ length: MOCK_POSTS_PER_TRIP }, (_, i) => mockPost(author, trip, i, t * MOCK_POSTS_PER_TRIP + i)),
-    );
-    return mockPage(posts, cursor, 30);
+    return mockPage(mockUserPosts(mockUser(id)), cursor, 30);
   },
 });
 
@@ -251,6 +245,21 @@ function mockPost(author: UserSummary, trip: TripResponse, i: number, n: number)
     createdAt: MOCK_TIMESTAMP,
     updatedAt: MOCK_TIMESTAMP,
   };
+}
+
+// A profile's Posts tab: posts on your trips, or on someone's published ones.
+// Already newest first: trips are newest first, and each trip's posts are built from its last day back.
+function mockUserPosts(author: UserSummary): PostResponse[] {
+  const trips = mockTrips(author).filter((trip) => author.id === MOCK_ME_ID || trip.status === 'published');
+  return trips.flatMap((trip, t) =>
+    Array.from({ length: MOCK_POSTS_PER_TRIP }, (_, i) => mockPost(author, trip, i, t * MOCK_POSTS_PER_TRIP + i)),
+  );
+}
+
+/** A post from a profile's Posts tab, so post detail opens from there in mock mode */
+export function mockFindProfilePost(id: string): PostResponse | undefined {
+  const author = mockUsers.find((user) => id.startsWith(`${user.id}-trip-`));
+  return author ? mockUserPosts(author).find((post) => post.id === id) : undefined;
 }
 
 function mockTrips(owner: UserSummary): TripResponse[] {

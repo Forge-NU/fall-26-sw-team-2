@@ -47,6 +47,7 @@ const Icons = {
   star: { glyph: 'star' },
   'star-half': { glyph: 'star-half' },
   'star-outline': { glyph: 'star-outline' },
+  trash: { glyph: 'trash-outline' },
   trophy: { glyph: 'trophy-outline' },
   type: { glyph: 'text-outline' },
   'user-round': { glyph: 'person-outline' },

@@ -132,10 +132,7 @@ export function ProfileView({ userId: routeUserId }: { userId?: string }) {
             <PostTile
               post={item}
               size={tileSize}
-              // TODO: open the post itself at /posts/[id] once POST-3 (#43) adds it
-              onPress={() =>
-                router.push({ pathname: '/trips/[id]', params: { id: item.tripId, day: item.visitedOn } })
-              }
+              onPress={() => router.push({ pathname: '/posts/[id]', params: { id: item.id } })}
               style={styles.gridCell}
             />
           )}

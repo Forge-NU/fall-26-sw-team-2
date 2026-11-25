@@ -364,7 +364,9 @@ export async function mockPublishTrip(id: string): Promise<TripResponse> {
 export async function mockGetTripPosts(tripId: string): Promise<PaginatedResponse<PostResponse>> {
   await mockDelay();
   findOwnTrip(tripId);
-  return { items: postsForTrip(tripId), nextCursor: null };
+  // Copies, like the API's fresh JSON: the edit mocks change the stored posts in place,
+  // and a cached copy that changes under React's memoization shows stale counts
+  return { items: postsForTrip(tripId).map((post) => ({ ...post })), nextCursor: null };
 }
 
 const MOCK_UPLOAD_PHOTO_IDS = [1015, 1036, 1043, 1050, 1067];
@@ -427,6 +429,25 @@ export async function mockCreatePost(body: CreatePostRequest): Promise<PostRespo
   posts.push(post);
   refreshDerived(trip);
   return post;
+}
+
+// Only your own posts exist in the mocks, so a missing post is the API's 404
+function findOwnPost(id: string): PostResponse {
+  seed();
+  const post = posts.find((p) => p.id === id);
+  if (!post) mockError(404, 'Post not found');
+  return post;
+}
+
+/** The stored post itself, so the like and save mocks can count on trip posts too */
+export function mockFindTripPost(id: string): PostResponse | undefined {
+  seed();
+  return posts.find((p) => p.id === id);
+}
+
+export async function mockGetPost(id: string): Promise<PostResponse> {
+  await mockDelay();
+  return { ...findOwnPost(id) };
 }
 
 // The API's location and rating rules for posts (#143 POST-4)
@@ -515,6 +536,16 @@ export async function mockUpdatePost(id: string, body: UpdatePostRequest): Promi
   }
   refreshDerived(trip);
   return { ...post };
+}
+
+export async function mockDeletePost(id: string): Promise<void> {
+  await mockDelay();
+  const post = findOwnPost(id);
+  posts.splice(posts.indexOf(post), 1);
+  // A dropped pin is only ever on one post, so it goes with it, like the API
+  if (post.location?.provider === 'custom') resolvedLocations.delete(post.location.id);
+  const trip = trips.find((t) => t.id === post.tripId);
+  if (trip) refreshDerived(trip);
 }
 
 // Places the mock search knows about, with what /retrieve would return

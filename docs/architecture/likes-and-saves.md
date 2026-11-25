@@ -180,7 +180,7 @@ Built in #51. The pieces, so other screens can add like and save buttons:
 - `lib/engagement.ts`: `toggleLike`, `toggleSave` and `toggleFollow`. Each tap updates every cached query that holds the post or trip straight away, and goes back with an error toast if the request fails. A 404 shows "Post no longer available" (or "Trip ...") and refetches the lists it was in.
 - `lib/toggle-sync.ts`: one request at a time per like or save. Taps made while one is out only change what's on screen, and when it comes back another request is sent only if the result doesn't match. A double tap ends on the right value and never sends two likes at once.
 - The Saved tab (`app/saved/`) has Trips and Posts sub-tabs on `GET /api/me/saved/*`. Unsaving there leaves the item on screen so you can save it again, and it drops off the next time you open the tab or pull to refresh.
-- The likes list is `app/saved/posts/[id]/likes.tsx`. Its follow buttons use FOL-1's routes, which work once #103 fixes the `/api/api` prefix.
+- The likes list is `app/posts/[id]/likes.tsx`, on the root stack next to post detail so any tab can push it. Its follow buttons use FOL-1's routes, which work once #103 fixes the `/api/api` prefix.
 
 ## Seed data
 
