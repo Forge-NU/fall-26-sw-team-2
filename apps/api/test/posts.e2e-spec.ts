@@ -98,6 +98,25 @@ describe('Posts (e2e)', () => {
       expect(post.media[0].url).toMatch(/^https:\/\/s3\.test\/users\//);
     });
 
+    // #143 POST-4: the location is optional
+    it('creates a post with no location', async () => {
+      const post = await createPost({ locationId: undefined });
+      expect(post).toMatchObject({
+        location: null,
+        customLocationName: null,
+        rating: null,
+      });
+
+      const res = await request(app.getHttpServer())
+        .get(`/api/posts/${post.id}`)
+        .set(as(owner))
+        .expect(200);
+      expect(res.body).toMatchObject({
+        location: null,
+        customLocationName: null,
+      });
+    });
+
     it('creates a post with a custom location', async () => {
       const post = await createPost({
         locationId: undefined,
@@ -152,8 +171,9 @@ describe('Posts (e2e)', () => {
     it('rejects a date outside the trip, bad locations and bad media lists', async () => {
       const bad = [
         { visitedOn: '2026-09-17' },
-        { locationId: undefined },
         { customLocationName: 'Both set' },
+        { locationId: undefined, customLocationName: '   ' },
+        { locationId: undefined, rating: 4 },
         { locationId: '00000000-0000-4000-8000-000000000000' },
         { media: [] },
         { media: Array.from({ length: 31 }, () => mediaItem()) },
@@ -250,6 +270,46 @@ describe('Posts (e2e)', () => {
         .send({ locationId: location.id })
         .expect(200);
       expect(place.body).toMatchObject({
+        location: { id: location.id },
+        customLocationName: null,
+      });
+    });
+
+    it('removes the location with both fields null, and adds one back', async () => {
+      const patch = (id: string, body: Record<string, unknown>) =>
+        request(app.getHttpServer())
+          .patch(`/api/posts/${id}`)
+          .set(as(owner))
+          .send(body);
+      const placed = await createPost();
+      const custom = await createPost({
+        locationId: undefined,
+        customLocationName: 'Back alley bakery',
+      });
+
+      for (const post of [placed, custom]) {
+        // A lone null is ambiguous, so it's a 400 and nothing changes
+        await patch(post.id, { locationId: null }).expect(400);
+        await patch(post.id, { customLocationName: null }).expect(400);
+
+        const res = await patch(post.id, {
+          locationId: null,
+          customLocationName: null,
+        }).expect(200);
+        expect(res.body).toMatchObject({
+          location: null,
+          customLocationName: null,
+        });
+      }
+      // Never deleted with its post's location
+      expect(await prisma.location.count({ where: { id: location.id } })).toBe(
+        1,
+      );
+
+      const back = await patch(placed.id, { locationId: location.id }).expect(
+        200,
+      );
+      expect(back.body).toMatchObject({
         location: { id: location.id },
         customLocationName: null,
       });
@@ -377,10 +437,197 @@ describe('Posts (e2e)', () => {
         .set(as(other))
         .expect(404);
 
-      // A post from another trip isn't a valid cursor here
-      const elsewhere = await createPost();
+      // A cursor from another trip's posts isn't valid here
+      await createPost();
+      await createPost();
+      const elsewhere = await request(app.getHttpServer())
+        .get(`/api/trips/${trip.id}/posts?limit=1`)
+        .set(as(owner))
+        .expect(200);
+      const { nextCursor } = elsewhere.body as { nextCursor: string };
+      expect(nextCursor).toEqual(expect.any(String));
       await request(app.getHttpServer())
-        .get(`/api/trips/${listTrip.id}/posts?cursor=${elsewhere.id}`)
+        .get(`/api/trips/${listTrip.id}/posts`)
+        .query({ cursor: nextCursor })
+        .set(as(owner))
+        .expect(400);
+    });
+  });
+
+  describe('GET /api/users/:userId/posts', () => {
+    let profile: User;
+    let published: Trip;
+    let draft: Trip;
+
+    type ListBody = {
+      items: {
+        id: string;
+        caption: string;
+        tripId: string;
+        author: { id: string };
+        media: { url: string }[];
+      }[];
+      nextCursor: string | null;
+    };
+
+    beforeAll(async () => {
+      profile = await createTestUser(prisma, 'profileposts');
+      const makeTrip = (status: 'draft' | 'published', start: string) =>
+        prisma.trip.create({
+          data: {
+            ownerId: profile.id,
+            title: status,
+            destination: 'Somewhere',
+            startDate: new Date(start),
+            endDate: new Date(new Date(start).getTime() + 4 * 86_400_000),
+            status,
+            publishedAt: status === 'published' ? new Date() : null,
+          },
+        });
+      published = await makeTrip('published', '2026-09-01');
+      draft = await makeTrip('draft', '2026-10-01');
+
+      const makePost = (
+        t: Trip,
+        caption: string,
+        visitedOn: string,
+        createdAt: string,
+      ) =>
+        prisma.post.create({
+          data: {
+            tripId: t.id,
+            caption,
+            customLocationName: 'Somewhere',
+            visitedOn: new Date(visitedOn),
+            createdAt: new Date(createdAt),
+            media: {
+              create: [
+                {
+                  s3Key: `users/${profile.id}/posts/${caption}.jpg`,
+                  mediaType: 'image',
+                  position: 0,
+                },
+              ],
+            },
+          },
+        });
+      await makePost(published, 'oldest', '2026-09-01', '2026-09-01T10:00Z');
+      // Same day: the one added later comes first
+      await makePost(
+        published,
+        'day3-first',
+        '2026-09-03',
+        '2026-09-03T10:00Z',
+      );
+      await makePost(
+        published,
+        'day3-second',
+        '2026-09-03',
+        '2026-09-03T11:00Z',
+      );
+      await makePost(draft, 'draft', '2026-10-02', '2026-10-02T10:00Z');
+    });
+
+    afterAll(async () => {
+      await prisma.user.delete({ where: { id: profile.id } });
+    });
+
+    async function list(viewer: User, query = '') {
+      const res = await request(app.getHttpServer())
+        .get(`/api/users/${profile.id}/posts${query}`)
+        .set(as(viewer))
+        .expect(200);
+      return res.body as ListBody;
+    }
+
+    const captions = (body: ListBody) => body.items.map((p) => p.caption);
+
+    it("hides posts in someone else's drafts, newest first", async () => {
+      const body = await list(other);
+      expect(captions(body)).toEqual(['day3-second', 'day3-first', 'oldest']);
+      expect(body.nextCursor).toBeNull();
+    });
+
+    it('includes posts in your own drafts', async () => {
+      const body = await list(profile);
+      expect(captions(body)).toEqual([
+        'draft',
+        'day3-second',
+        'day3-first',
+        'oldest',
+      ]);
+      const [first] = body.items;
+      expect(first.tripId).toBe(draft.id);
+      expect(first.author.id).toBe(profile.id);
+      expect(first.media[0].url).toMatch(/^https:\/\/s3\.test\//);
+    });
+
+    it('pages through every post once, in order', async () => {
+      const all = await list(profile);
+      const seen: string[] = [];
+      let cursor: string | null = null;
+      do {
+        const page = await list(
+          profile,
+          `?limit=1${cursor ? `&cursor=${cursor}` : ''}`,
+        );
+        expect(page.items).toHaveLength(1);
+        seen.push(...page.items.map((p) => p.id));
+        cursor = page.nextCursor;
+      } while (cursor);
+      expect(seen).toEqual(all.items.map((p) => p.id));
+      expect(new Set(seen).size).toBe(seen.length);
+    });
+
+    it("never shows someone else's drafts, even from the owner's cursor", async () => {
+      // The owner's first page is the draft's post, so its cursor points there
+      const ownFirst = await list(profile, '?limit=1');
+      expect(captions(ownFirst)).toEqual(['draft']);
+
+      const body = await list(other, `?cursor=${ownFirst.nextCursor}`);
+      expect(captions(body)).toEqual(['day3-second', 'day3-first', 'oldest']);
+    });
+
+    it('rejects a cursor from another list or one that is malformed', async () => {
+      // A cursor from the trip page's post list
+      const tripPage = await request(app.getHttpServer())
+        .get(`/api/trips/${published.id}/posts?limit=1`)
+        .set(as(profile))
+        .expect(200);
+      const tripCursor = (tripPage.body as ListBody).nextCursor;
+      expect(tripCursor).not.toBeNull();
+      await request(app.getHttpServer())
+        .get(`/api/users/${profile.id}/posts?cursor=${tripCursor}`)
+        .set(as(profile))
+        .expect(400);
+
+      // A bare post ID isn't a cursor
+      const own = await list(profile);
+      await request(app.getHttpServer())
+        .get(`/api/users/${profile.id}/posts?cursor=${own.items[0].id}`)
+        .set(as(profile))
+        .expect(400);
+    });
+
+    it('leaves out deleted posts', async () => {
+      const before = await list(other);
+      const oldest = before.items.find((p) => p.caption === 'oldest')!;
+      await request(app.getHttpServer())
+        .delete(`/api/posts/${oldest.id}`)
+        .set(as(profile))
+        .expect(204);
+
+      const after = await list(other);
+      expect(captions(after)).toEqual(['day3-second', 'day3-first']);
+    });
+
+    it('returns 404 for a user that does not exist and 400 for a limit over 50', async () => {
+      await request(app.getHttpServer())
+        .get('/api/users/user_does_not_exist/posts')
+        .set(as(owner))
+        .expect(404);
+      await request(app.getHttpServer())
+        .get(`/api/users/${profile.id}/posts?limit=51`)
         .set(as(owner))
         .expect(400);
     });

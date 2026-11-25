@@ -4,7 +4,6 @@ import { useState } from "react";
 import type { PostResponse, TripResponse } from "shared-types";
 import { Icon } from "@/components/icon";
 import { AppText } from "@/components/ui/app-text";
-import { Button } from "@/components/ui/button";
 import { Media } from "@/components/ui/media";
 import { Palette, Radii, Spacing } from "@/constants/theme";
 import { ContentTokens } from "@/constants/content-tokens";
@@ -12,7 +11,8 @@ import { UserRow } from "./user-row";
 import { StatRow, type Stat } from "./stat-row";
 import { CardLink } from "./card-link";
 import { ShareAction } from "./share-action";
-import { formatDateRange } from "./format-date";
+import { formatDateRange } from "@/utils/local-date";
+import { postPlaceName } from "@/lib/post-location";
 
 type TripSummary = Pick<
   TripResponse,
@@ -55,9 +55,7 @@ export type TripCardProps = {
   onPress?: () => void;
   onUserPress?: () => void;
   onDayPress?: (visitedOn: string) => void;
-  onDaySelect?: (day: number) => void;
   onShare?: () => void;
-  onAddPlaces?: () => void;
 };
 export function TripCard({
   trip,
@@ -72,9 +70,7 @@ export function TripCard({
   onPress,
   onUserPress,
   onDayPress,
-  onDaySelect,
   onShare,
-  onAddPlaces,
 }: TripCardProps) {
   const [width, setWidth] = useState(0);
   const previews =
@@ -85,10 +81,12 @@ export function TripCard({
             (Date.parse(date) - Date.parse(trip.startDate)) / 86400000,
           ) + 1
         : 1,
+      // The day's first post that has a location (#143 POST-4: not every post does)
       title:
-        posts?.find((post) => post.visitedOn === date)?.location?.name ??
-        posts?.find((post) => post.visitedOn === date)?.customLocationName ??
-        trip.destination,
+        posts
+          ?.filter((post) => post.visitedOn === date)
+          .map(postPlaceName)
+          .find((name) => name !== null) ?? trip.destination,
       visitedOn: date,
       coverUrl: posts
         ?.filter((post) => post.visitedOn === date)
@@ -102,9 +100,8 @@ export function TripCard({
           (Date.parse(trip.endDate) - Date.parse(trip.startDate)) / 86400000,
         ) + 1
       : previews.length;
-  const canOpenDay = Boolean(onDaySelect || onDayPress);
+  const canOpenDay = Boolean(onDayPress);
   const openDay = (day: TripDayPreview) => {
-    onDaySelect?.(day.day);
     if (day.visitedOn) onDayPress?.(day.visitedOn);
   };
   return (
@@ -251,14 +248,6 @@ export function TripCard({
           {onShare && <ShareAction label="Share itinerary" onPress={onShare} />}
         </View>
       )}
-      {onAddPlaces && (
-        <Button
-          title="Add places to itinerary"
-          variant="teal"
-          style={styles.fullWidth}
-          onPress={onAddPlaces}
-        />
-      )}
     </View>
   );
 }
@@ -341,8 +330,5 @@ const styles = StyleSheet.create({
   },
   caption: {
     gap: Spacing.one,
-  },
-  fullWidth: {
-    alignSelf: "stretch",
   },
 });

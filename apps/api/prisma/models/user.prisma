@@ -1,15 +1,34 @@
 model User {
   id        String   @id
-  email     String
+  email     String?
   firstName String   @map("first_name")
   lastName  String   @map("last_name")
-  username  String   @unique
+  // Null until onboarding is complete. The database migration also enforces
+  // case-insensitive uniqueness with a lower(username) unique index.
+  username  String?  @unique
   avatarUrl String?  @map("avatar_url")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  trips     Trip[]
-  stories   Story[]
-  following Follow[] @relation("FollowSource")
-  followers Follow[] @relation("FollowTarget")
+  trips       Trip[]
+  stories     Story[]
+  following   Follow[]   @relation("FollowSource")
+  followers   Follow[]   @relation("FollowTarget")
+  postLikes   PostLike[]
+  postSaves   PostSave[]
+  tripSaves   TripSave[]
+  comments    Comment[]  @relation("CommentAuthor")
+  mentionedIn Comment[]  @relation("CommentReplyTo")
+
+  // Shared trips (#131 COLLAB-1)
+  tripMemberships      TripMember[]
+  sentTripInvites      TripInvite[]     @relation("TripInviteInviter")
+  receivedTripInvites  TripInvite[]     @relation("TripInviteInvitee")
+  notifications        Notification[]   @relation("NotificationRecipient")
+  notificationsActedOn Notification[]   @relation("NotificationActor")
+  placeSaves           PlaceSave[]
+  bucketItemsAdded     TripBucketItem[]
+
+  // Custom pins they dropped (#94 LOC-2)
+  pins        Location[]
 }

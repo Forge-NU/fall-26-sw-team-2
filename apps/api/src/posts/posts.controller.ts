@@ -28,6 +28,12 @@ export class PostsController {
     return this.postsService.create(userId, dto);
   }
 
+  // The current user's saved posts. There's no route for anyone else's.
+  @Get('me/saved/posts')
+  listSaved(@CurrentUser() userId: string, @Query() query: PaginationQueryDto) {
+    return this.postsService.listSaved(userId, query);
+  }
+
   @Get('trips/:id/posts')
   listForTrip(
     @CurrentUser() userId: string,
@@ -35,6 +41,16 @@ export class PostsController {
     @Query() query: PaginationQueryDto,
   ) {
     return this.postsService.listForTrip(userId, tripId, query);
+  }
+
+  // The Posts tab on a profile. Posts in drafts are only included on your own.
+  @Get('users/:userId/posts')
+  listForUser(
+    @CurrentUser() viewerId: string,
+    @Param('userId') userId: string,
+    @Query() query: PaginationQueryDto,
+  ) {
+    return this.postsService.listForUser(viewerId, userId, query);
   }
 
   @Get('posts/:id')

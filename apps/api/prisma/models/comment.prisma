@@ -1,0 +1,33 @@
+// Comments on posts (#50 INT-2), with one level of replies like Instagram.
+// A top-level comment has no parent. A reply's parent is always a top-level
+// comment: replying to a reply stores the new comment under that reply's
+// parent, with reply_to_user_id set to the person being replied to (the
+// @mention). The API enforces that; the database can't check it.
+// reply_to_user_id is SET NULL, not CASCADE: the mentioned user doesn't own
+// the reply, so deleting their account only drops the @mention.
+// Check constraints (added in the migration):
+// - body isn't empty (VARCHAR(500) caps it at 500 characters)
+// - a comment isn't its own parent
+model Comment {
+  id              String   @id @default(uuid()) @db.Uuid
+  postId          String   @map("post_id") @db.Uuid
+  authorId        String   @map("author_id")
+  parentCommentId String?  @map("parent_comment_id") @db.Uuid
+  replyToUserId   String?  @map("reply_to_user_id")
+  body            String   @db.VarChar(500)
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  post    Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author  User      @relation("CommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  parent  Comment?  @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: Cascade)
+  replies Comment[] @relation("CommentReplies")
+  replyTo User?     @relation("CommentReplyTo", fields: [replyToUserId], references: [id], onDelete: SetNull)
+
+  // Top-level comments on a post (parent_comment_id IS NULL), in order
+  @@index([postId, parentCommentId, createdAt, id])
+  // A comment's replies, in order
+  @@index([parentCommentId, createdAt, id])
+  @@index([authorId])
+  @@index([replyToUserId])
+  @@map("comments")
+}

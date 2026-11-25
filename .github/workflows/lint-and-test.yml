@@ -59,6 +59,8 @@ jobs:
       DATABASE_URL: postgresql://yuji:yuji@localhost:5432/yuji?schema=public
       # follows.e2e-spec.ts only runs when this is set; the CI database is throwaway
       FOLLOW_TEST_DATABASE_URL: postgresql://yuji:yuji@localhost:5432/yuji?schema=public
+      # search.e2e-spec.ts only runs when this is set; it migrates into its own throwaway schema
+      SEARCH_TEST_DATABASE_URL: postgresql://yuji:yuji@localhost:5432/yuji?schema=public
     steps:
       - uses: actions/checkout@v4
 

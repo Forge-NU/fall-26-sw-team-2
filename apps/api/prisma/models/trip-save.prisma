@@ -1,0 +1,17 @@
+// A whole trip in a user's Saved tab (#49 INT-1). Only the user can see their
+// saves.
+model TripSave {
+  userId    String   @map("user_id")
+  tripId    String   @map("trip_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@id([userId, tripId])
+  // The Saved tab, newest first
+  @@index([userId, createdAt, tripId])
+  // The trip's save count
+  @@index([tripId])
+  @@map("trip_saves")
+}

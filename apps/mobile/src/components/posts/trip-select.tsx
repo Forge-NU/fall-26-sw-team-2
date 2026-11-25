@@ -2,15 +2,15 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useState } from 'react';
 import { ActivityIndicator, FlatList, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import type { TripResponse } from 'shared-types';
 
-import type { TripResponse } from '@/api/types';
 import { AppText } from '@/components/ui/app-text';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Pill } from '@/components/ui/pill';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Palette } from '@/constants/palette';
 import { MaxContentWidth, Radii, Spacing, Theme } from '@/constants/theme';
-import { formatDateRange } from '@/utils/trip-dates';
+import { formatDateRange } from '@/utils/local-date';
 
 export type TripSelectProps = {
   trip: TripResponse | null;
@@ -60,7 +60,7 @@ export function TripSelect({ trip, subtitle, trips, loading, disabled, onChange,
             <View style={styles.sheetContent}>
               <ScreenHeader
                 title="Choose trip"
-                left={{ icon: 'close', label: 'Close', onPress: () => setOpen(false) }}
+                left={{ icon: 'x', label: 'Close', onPress: () => setOpen(false) }}
               />
               <FlatList
                 data={trips}
@@ -126,13 +126,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.two,
     paddingHorizontal: Spacing.three - Spacing.one,
-    paddingVertical: 10,
+    paddingVertical: Spacing.two,
     borderRadius: Radii.medium,
     borderWidth: 1,
     borderColor: Palette.peach,
     backgroundColor: Palette.peach,
   },
-  cardText: { flex: 1, minWidth: 0, gap: 2 },
+  cardText: { flex: 1, minWidth: 0, gap: Spacing.half },
   title: { fontFamily: Theme.typography.supporting.fontFamily },
   secondary: { color: Palette.placeholderGray },
   sheet: { flex: 1, backgroundColor: Theme.colors.background },

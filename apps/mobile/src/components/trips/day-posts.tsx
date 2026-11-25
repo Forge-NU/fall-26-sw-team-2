@@ -1,40 +1,31 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Image } from 'expo-image';
 import { StyleSheet, View } from 'react-native';
+import type { PostResponse } from 'shared-types';
 
-import type { PostResponse } from '@/api/types';
 import { AppText } from '@/components/ui/app-text';
+import { Media } from '@/components/ui/media';
+import { StarRating } from '@/components/ui/star-rating';
 import { Palette } from '@/constants/palette';
 import { Radii, Spacing, Typography } from '@/constants/theme';
+import { groupByPlace, postPlaceName } from '@/lib/post-location';
+import { ratingLabel } from '@/lib/rating';
 
-export function postPlaceName(post: PostResponse): string {
-  return post.location?.name ?? post.customLocationName ?? 'Unknown place';
-}
-
-// Back-to-back posts at the same place share one header, like the wireframe
-function groupByPlace(posts: PostResponse[]) {
-  const groups: { key: string; name: string; posts: PostResponse[] }[] = [];
-  for (const post of posts) {
-    const key = post.location?.id ?? `custom:${post.customLocationName}`;
-    const last = groups[groups.length - 1];
-    if (last?.key === key) last.posts.push(post);
-    else groups.push({ key, name: postPlaceName(post), posts: [post] });
-  }
-  return groups;
-}
-
-// One day's posts on the trip page (wireframe 02)
+// One day's posts on the trip page (wireframe 02). Back-to-back posts at the
+// same place share one header, like the wireframe. Posts with no location
+// (#143 POST-4) get no header.
 export function DayPosts({ posts }: { posts: PostResponse[] }) {
   return (
     <View style={styles.list}>
       {groupByPlace(posts).map((group, i) => (
-        <View key={`${group.key}-${i}`} style={styles.group}>
-          <View style={styles.place}>
-            <Ionicons name="location-outline" size={14} color={Palette.placeholderGray} />
-            <AppText variant="caption" style={styles.muted}>
-              {group.name}
-            </AppText>
-          </View>
+        <View key={`${group.key ?? 'none'}-${i}`} style={styles.group}>
+          {group.name ? (
+            <View style={styles.place}>
+              <Ionicons name="location-outline" size={14} color={Palette.placeholderGray} />
+              <AppText variant="caption" style={styles.muted}>
+                {group.name}
+              </AppText>
+            </View>
+          ) : null}
           {group.posts.map((post) => (
             <PostRow key={post.id} post={post} />
           ))}
@@ -44,23 +35,32 @@ export function DayPosts({ posts }: { posts: PostResponse[] }) {
   );
 }
 
+// TODO(#43 POST-3): open post detail on press once that screen exists
 function PostRow({ post }: { post: PostResponse }) {
   const cover = post.media[0];
   const count = post.media.length;
+  const label =
+    [postPlaceName(post), post.rating != null ? ratingLabel(post.rating) : null, post.caption]
+      .filter(Boolean)
+      .join('. ') || 'Post';
 
   return (
-    <View style={styles.row} accessible accessibilityLabel={`${postPlaceName(post)}. ${post.caption ?? ''}`}>
+    <View style={styles.row} accessible accessibilityLabel={label}>
+      {/* A plain tile when there are no photos, so it doesn't read as a failed image */}
       {cover ? (
-        <Image source={{ uri: cover.url }} style={styles.thumb} contentFit="cover" transition={150} />
+        <Media seed={post.id} url={cover.url} iconSize={Spacing.three} style={styles.thumb} />
       ) : (
         <View style={[styles.thumb, styles.thumbEmpty]} />
       )}
-      <AppText
-        variant="label"
-        numberOfLines={2}
-        style={[styles.caption, !post.caption && styles.muted]}>
-        {post.caption ?? 'No caption'}
-      </AppText>
+      <View style={styles.text}>
+        <AppText
+          variant="label"
+          numberOfLines={2}
+          style={[styles.caption, !post.caption && styles.muted]}>
+          {post.caption ?? 'No caption'}
+        </AppText>
+        {post.rating != null ? <StarRating value={post.rating} /> : null}
+      </View>
       <AppText variant="caption" style={styles.muted}>
         {count === 1 ? '1 photo' : `${count} photos`}
       </AppText>
@@ -68,7 +68,7 @@ function PostRow({ post }: { post: PostResponse }) {
   );
 }
 
-const THUMB = 44;
+export const THUMB = 44;
 
 const styles = StyleSheet.create({
   list: { gap: Spacing.three },
@@ -77,6 +77,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, minHeight: THUMB },
   thumb: { width: THUMB, height: THUMB, borderRadius: Radii.small },
   thumbEmpty: { backgroundColor: Palette.lightPink },
-  caption: { flex: 1, fontFamily: Typography.body.fontFamily },
+  text: { flex: 1, gap: Spacing.half },
+  caption: { fontFamily: Typography.body.fontFamily },
   muted: { color: Palette.placeholderGray },
 });

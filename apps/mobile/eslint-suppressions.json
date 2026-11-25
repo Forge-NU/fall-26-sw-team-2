@@ -1,0 +1,27 @@
+{
+  "src/components/auth-screen.tsx": {
+    "no-restricted-syntax": {
+      "count": 5
+    }
+  },
+  "src/components/explore/explore-screen.tsx": {
+    "no-restricted-syntax": {
+      "count": 8
+    }
+  },
+  "src/components/explore/search-bar.tsx": {
+    "no-restricted-syntax": {
+      "count": 7
+    }
+  },
+  "src/components/explore/search-results.tsx": {
+    "no-restricted-syntax": {
+      "count": 19
+    }
+  },
+  "src/components/onboarding-screen.tsx": {
+    "no-restricted-syntax": {
+      "count": 2
+    }
+  }
+}

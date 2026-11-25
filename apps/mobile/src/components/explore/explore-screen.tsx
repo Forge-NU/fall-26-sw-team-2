@@ -1,12 +1,11 @@
 import * as Location from 'expo-location';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import MapView, { type Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { newSearchSessionToken, retrievePlace } from '@/api/locations';
-import type { PlaceSuggestion } from '@/api/types';
 import { savedPlaces, useSavedPlaces } from '@/components/saved/saved-places';
 import { AudienceToggle } from '@/components/explore/audience-toggle';
 import { FiltersMenu } from '@/components/explore/filters-menu';
@@ -15,15 +14,25 @@ import { MapControls } from '@/components/explore/map-controls';
 import { PlaceActions, PlaceDetailBody } from '@/components/explore/place-detail';
 import { RatingPin } from '@/components/explore/rating-pin';
 import { SearchBar } from '@/components/explore/search-bar';
-import { SearchResults } from '@/components/explore/search-results';
+import { SearchResultsPanel } from '@/components/search/search-results-panel';
+import { SearchFiltersSheet } from '@/components/search/search-filters-sheet';
+import { BottomSheet } from '@/components/bottom-sheet';
+import { TripCard } from '@/components/content/trip-card';
+import { PostCard } from '@/components/content/post-card';
+import { Button } from '@/components/ui/button';
+import type { PlaceSuggestion, PostResponse, SearchPlace, TripResponse } from 'shared-types';
+import type { Coordinate, LocationPermission } from '@/lib/search/filters';
+import { isSearchOpen } from '@/lib/search/search-view';
+import { useSearch } from '@/hooks/use-search';
 import { Sheet } from '@/components/explore/sheet';
 import { mapStyle } from '@/components/explore/map-style';
-import { LISBON_REGION } from '@/components/explore/mock-data';
+import { LISBON_REGION, PLACES } from '@/components/explore/mock-data';
 import { colors, formatCount, radius, shadow } from '@/components/explore/explore-theme';
-import type { LatLng, PinItem, Place, SearchResult } from '@/components/explore/types';
+import type { LatLng, PinItem, Place } from '@/components/explore/types';
 import { useToast } from '@/components/ui/toast-provider';
 import { useExplore } from '@/hooks/use-explore';
 import { usePlaceSearch } from '@/hooks/use-place-search';
+import { useCurrentUser } from '@/lib/current-user';
 import { regionFor, zoomRegion } from '@/lib/map-zoom';
 
 const SEARCH_BAR_HEIGHT = 56;
@@ -61,8 +70,16 @@ export default function ExploreScreen() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [locationOn, setLocationOn] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchFiltersOpen, setSearchFiltersOpen] = useState(false);
+  const [permission, setPermission] = useState<LocationPermission>('undetermined');
+  const [nearMe, setNearMe] = useState<Coordinate | null>(null);
+  const [mapCenter, setMapCenter] = useState<Coordinate>(LISBON_REGION);
+  const [locating, setLocating] = useState(false);
+  const [previewContent, setPreviewContent] = useState<{ trip: TripResponse } | { post: PostResponse } | null>(null);
 
   const ex = useExplore(LISBON_REGION);
+  const currentUser = useCurrentUser();
   const saved = useSavedPlaces();
   const { setSelectedId, setQuery, onRegionChange } = ex;
 
@@ -77,7 +94,13 @@ export default function ExploreScreen() {
   const full = Math.max(half + 1, Math.round(screenH - headerTop - SEARCH_BAR_HEIGHT - 10));
   const snapPoints = useMemo(() => [half, full], [half, full]);
 
-  const mode = ex.selected ? 'detail' : ex.query.trim() ? 'results' : 'idle';
+  const mode = ex.selected ? 'detail' : searchOpen || ex.query.trim() ? 'results' : 'idle';
+  // Search stays open (text, tab, filters) while a result is opened on top and
+  // when a map pin is tapped mid-search; it resets once it's closed.
+  const searchActive = isSearchOpen(searchOpen, ex.query);
+  const search = useSearch({ query: ex.query, active: searchActive, centers: { permission, nearMe, mapCenter } });
+  // Leaving the screen only closes the filters sheet; the search itself stays
+  useFocusEffect(useCallback(() => () => setSearchFiltersOpen(false), []));
 
   useEffect(() => {
     if (mode === 'idle') sheetHeight.setValue(0);
@@ -127,13 +150,18 @@ export default function ExploreScreen() {
     (async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
-        if (cancelled || status !== 'granted') return;
+        if (cancelled) return;
+        setPermission(status === 'granted' ? 'granted' : 'denied');
+        if (status !== 'granted') return;
         setLocationOn(true);
         // The last known fix is instant; a fresh one can take a few seconds.
         const pos =
           (await Location.getLastKnownPositionAsync()) ??
           (await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }));
-        if (!cancelled) setUserStart({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+        if (cancelled) return;
+        const here = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+        setNearMe(here);
+        setUserStart(here);
       } catch {
         // Location Services off or the request failed: stay on the default region.
       }
@@ -169,14 +197,19 @@ export default function ExploreScreen() {
     [flyTo, selectPlace],
   );
 
-  const openResult = (r: SearchResult) => {
-    if (r.target.type === 'place') {
-      selectPlace(r.target.place);
-      return;
-    }
+  const openSearchPlace = (place: SearchPlace) => {
     Keyboard.dismiss();
-    setQuery('');
-    flyTo(r.target.area.coordinate, 0.06);
+    setQuery(''); setSearchOpen(false);
+    const known = PLACES.find(item => item.id === place.id);
+    if (known) selectPlace(known);
+    else flyTo(place, 0.014, true);
+  };
+
+  // Profiles open above the tabs, so Back returns to this search
+  const openProfile = (userId: string) => {
+    Keyboard.dismiss();
+    if (userId === currentUser.id) router.navigate('/profile');
+    else router.push({ pathname: '/users/[id]', params: { id: userId } });
   };
 
   const openWorldPlace = async (pl: PlaceSuggestion) => {
@@ -186,7 +219,7 @@ export default function ExploreScreen() {
       const found = await retrievePlace(pl.mapboxId, searchSession);
       if (found.kind !== 'mapbox') return;
       Keyboard.dismiss();
-      setQuery('');
+      setQuery(''); setSearchOpen(false);
       flyTo({ latitude: found.latitude, longitude: found.longitude }, deltaForFeature(pl.featureType));
     } catch {
       showToast({ message: 'Couldn’t open that place. Try again.', variant: 'error' });
@@ -198,21 +231,26 @@ export default function ExploreScreen() {
 
   const zoomBy = (factor: number) => animateTo(zoomRegion(targetRegionRef.current, factor), 250);
 
-  const locate = async () => {
+  const locate = async (forSearch = false) => {
+    if (locating) return;
+    setLocating(true);
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
+      setPermission(status === 'granted' ? 'granted' : 'denied');
       if (status !== 'granted') {
-        animateTo(LISBON_REGION, 450);
+        if (forSearch) search.setFilters((filters) => ({ ...filters, distanceSource: 'mapCenter' }));
         showToast({ message: 'Allow location access in Settings to see where you are.', variant: 'error' });
         return;
       }
       const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       setLocationOn(true);
-      flyTo(pos.coords, 0.02);
+      setNearMe({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+      if (!forSearch) flyTo(pos.coords, 0.02);
     } catch {
+      if (forSearch) search.setFilters((filters) => ({ ...filters, distanceSource: 'mapCenter' }));
       // Location Services off, or the position request failed or timed out
       showToast({ message: 'Couldn’t find your location. Check that Location Services is on.', variant: 'error' });
-    }
+    } finally { setLocating(false); }
   };
 
   const calloutLine = (pin: PinItem) => {
@@ -245,6 +283,7 @@ export default function ExploreScreen() {
         onMapReady={() => setMapReady(true)}
         onRegionChangeComplete={(r) => {
           targetRegionRef.current = r;
+          setMapCenter({ latitude: r.latitude, longitude: r.longitude });
           onRegionChange(r);
         }}
         onPress={(e) => {
@@ -285,7 +324,7 @@ export default function ExploreScreen() {
         opacity={fadeWithSheet}
         onZoomIn={() => zoomBy(0.5)}
         onZoomOut={() => zoomBy(2)}
-        onLocate={locate}
+        onLocate={() => { void locate(); }}
       />
 
       {mode !== 'idle' && (
@@ -299,6 +338,8 @@ export default function ExploreScreen() {
             else {
               Keyboard.dismiss();
               setQuery('');
+              setSearchOpen(false);
+              setSearchFiltersOpen(false);
             }
           }}
           footer={
@@ -320,17 +361,12 @@ export default function ExploreScreen() {
               onClose={() => setSelectedId(null)}
             />
           ) : (
-            <SearchResults
-              query={ex.query}
-              results={ex.results}
-              filter={ex.kindFilter}
-              onFilterChange={ex.setKindFilter}
-              onSelect={openResult}
-              worldPlaces={world.suggestions}
-              worldSearching={world.searching}
-              worldOpeningId={openingWorldId}
-              onSelectWorld={(pl) => void openWorldPlace(pl)}
-            />
+            <SearchResultsPanel search={search} onFilters={() => { Keyboard.dismiss(); setSearchFiltersOpen(true); }}
+              onPlace={openSearchPlace}
+              onProfile={openProfile}
+              onTrip={trip => { if (trip.id.startsWith('search-trip-')) setPreviewContent({ trip }); else router.push({ pathname: '/trips/[id]', params: { id: trip.id } }); }}
+              onPost={post => setPreviewContent({ post })}
+              world={{ places: world.suggestions, searching: world.searching, openingId: openingWorldId, onPress: (pl) => void openWorldPlace(pl) }} />
           )}
         </Sheet>
       )}
@@ -348,13 +384,18 @@ export default function ExploreScreen() {
           value={ex.query}
           onChangeText={(t) => {
             setQuery(t);
+            setSearchOpen(true);
             setSelectedId(null);
             setFiltersOpen(false);
           }}
-          filtersHighlighted={filtersOpen || ex.category !== 'all'}
+          filtersHighlighted={mode === 'results' ? searchFiltersOpen || search.activeFilterCount > 0 : filtersOpen || ex.category !== 'all'}
+          filtersExpanded={mode === 'results' ? searchFiltersOpen : filtersOpen}
+          filterCount={mode === 'results' ? search.activeFilterCount : 0}
+          onFocus={() => setSearchOpen(true)}
           onPressFilters={() => {
             Keyboard.dismiss();
-            setFiltersOpen((o) => !o);
+            if (mode === 'results') setSearchFiltersOpen(true);
+            else setFiltersOpen((o) => !o);
           }}
         />
         <Animated.View style={[styles.under, { opacity: fadeWithSheet }]} pointerEvents="box-none">
@@ -375,6 +416,20 @@ export default function ExploreScreen() {
           </View>
         )}
       </View>
+      <SearchFiltersSheet visible={searchFiltersOpen && searchActive} onClose={() => setSearchFiltersOpen(false)}
+        tab={search.tab} value={search.filters} onChange={search.setFilters}
+        centers={{ permission, nearMe, mapCenter }} locating={locating} onRequestLocation={() => { void locate(true); }} />
+      <BottomSheet visible={previewContent !== null} onClose={() => setPreviewContent(null)} title="Search result">
+        <ScrollView>
+          {previewContent && ('trip' in previewContent ? <TripCard trip={previewContent.trip} /> : <PostCard post={previewContent.post} />)}
+          {previewContent && 'post' in previewContent && !previewContent.post.tripId.startsWith('search-trip-') &&
+            <Button title="View trip" onPress={() => {
+              const { tripId: id, visitedOn: day } = previewContent.post;
+              setPreviewContent(null);
+              router.push({ pathname: '/trips/[id]', params: { id, day } });
+            }} />}
+        </ScrollView>
+      </BottomSheet>
     </View>
   );
 }

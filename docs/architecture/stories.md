@@ -34,8 +34,8 @@ Model: `apps/api/prisma/models/story.prisma`. Migration: `20261017050559_add_sto
 | `id` | UUID | No | `uuid()` | Primary key |
 | `owner_id` | String | No | | FK → `User.id`, cascade |
 | `trip_id` | UUID | Yes | | FK → `trips.id`, cascade. Only an active trip, checked by the API |
-| `location_id` | UUID | Yes | | FK → `locations.id`, restrict |
-| `custom_location_name` | VARCHAR(100) | Yes | | A name with no Mapbox place, as on posts |
+| `location_id` | UUID | Yes | | FK → `locations.id`, restrict. A Mapbox place or a dropped pin |
+| `custom_location_name` | VARCHAR(100) | Yes | | A name with no pin, as on posts |
 | `s3_key` | String | No | | Unique. Under `users/{ownerId}/stories/` |
 | `text` | VARCHAR(200) | Yes | | |
 | `keep_on_trip` | Boolean | No | `false` | "Add to trip" |
@@ -46,6 +46,8 @@ Model: `apps/api/prisma/models/story.prisma`. Migration: `20261017050559_add_sto
 Check constraints (raw SQL at the end of the migration):
 - `stories_keep_on_trip_check`: `NOT keep_on_trip OR trip_id IS NOT NULL`. Only a story with a trip can be kept.
 - `stories_location_check`: `location_id IS NULL OR custom_location_name IS NULL`. At most one kind of location.
+
+Trigger `stories_delete_unused_custom_location`: after a story is deleted (by the owner, the cleanup job, or a cascade from its trip or owner), deletes its location if it's a dropped pin no post or story uses any more (#94 LOC-2, [Dropped pins](locations.md#dropped-pins)).
 
 Indexes:
 - `(owner_id, expires_at)`: active stories from the viewer and the users they follow, for the stories bar.
@@ -65,18 +67,19 @@ Columns are `timestamp without time zone` in UTC, the same as the rest of the sc
 |---|---|
 | `stories.owner_id` → `User` | Cascade |
 | `stories.trip_id` → `trips` | Cascade (stories on a deleted trip are deleted, not unlinked) |
-| `stories.location_id` → `locations` | Restrict (locations are shared and never deleted) |
+| `stories.location_id` → `locations` | Restrict. Mapbox places are shared and never deleted. A dropped pin goes with its story (the trigger above). |
 
 Cascades remove rows, not S3 objects. Every delete that removes stories has to delete their objects too:
 - `DELETE /api/stories/:id` and the cleanup job do this.
 - **Trip delete** (`TripsService.remove()`, #56) reads the trip's `stories.s3_key` values alongside its `post_media` keys before deleting, then deletes both sets of objects. This PR added that.
-- **Account delete (#15):** doesn't delete any S3 objects yet. The prefix delete of `users/{userId}/` suggested in [data-model.md](data-model.md#account-deletion) would cover stories.
+- **Account delete (#15):** deletes every S3 object under `users/{userId}/`, which includes story photos, before the rows cascade.
 
 ## Visibility
 
 - **Active story** (`expires_at > now()`): public, including when its trip is still a draft. It shows in the stories bar of its owner and everyone who follows them.
 - **Expired and kept:** visible only on its trip's page, to whoever can see the trip (`canViewTrip`: anyone once the trip is published, otherwise only the owner).
 - **Expired and not kept:** never returned. The cleanup job deletes it.
+- **The linked trip** (`trip` on a `StoryResponse`, #25 STORY-3): `{ id, title }` only when the viewer can see the trip (`canViewTrip`). An active story's trip is always a draft, so followers get `null` until the trip is published, and a draft's title never leaves the owner. `tripId` is always returned. The stories viewer shows a link to the trip page only when `trip` is set.
 
 Reads filter on `expires_at` themselves, so a story disappears on time even if the cleanup job hasn't run yet.
 
@@ -86,15 +89,16 @@ Every endpoint needs a signed-in user (`ClerkAuthGuard`). Errors use NestJS's de
 
 ### Response shapes
 
-TypeScript types in `apps/api/src/stories/story.types.ts`. They move into `shared-types` once API-1 (#28) adds it.
+TypeScript types in `apps/shared-types/src/stories.ts`.
 
 ```ts
 type StoryResponse = {
   id: string;
   owner: UserSummary;            // { id, username, firstName, lastName, avatarUrl }
   tripId: string | null;
+  trip: StoryTrip | null;        // { id, title }, only when the viewer can see the trip (see below)
   text: string | null;
-  location: LocationResponse | null; // same type as posts (posts/post.types.ts)
+  location: LocationResponse | null; // same type as posts (shared-types `locations.ts`)
   customLocationName: string | null;
   imageUrl: string;              // presigned S3 GET URL, valid for 1 hour
   keepOnTrip: boolean;
@@ -102,6 +106,8 @@ type StoryResponse = {
   expiresAt: string;             // ISO 8601
   createdAt: string;
 };
+
+type StoryTrip = { id: string; title: string };
 
 type StoryGroup = { owner: UserSummary; stories: StoryResponse[] };
 
@@ -162,23 +168,23 @@ Stories kept on a trip, including ones that have expired, ordered by `storyDate`
 
 `SKIP LOCKED` means two runs at once never pick the same rows, so an overlapping schedule is safe.
 
+The same run then calls `StoriesCleanupService.deleteUnusedPins()`, which deletes dropped pins (#94 LOC-2) over 24 hours old that no post or story uses, in batches of 1,000: each batch locks its pins with `FOR UPDATE SKIP LOCKED`, then deletes them in a second statement that checks again that nothing uses them, so a pin attached just before the lock is kept. These are pins from a composer that was abandoned. A pin on an expired story is already gone by then, deleted with the story by the trigger. Pins have no S3 objects.
+
 ### Running it
 
 - **Locally:** `npm run stories:cleanup:dev` (reads `apps/api/.env`). Without `S3_BUCKET_NAME`, it deletes rows and logs that it skipped S3.
-- **Built:** `npm run build`, then `npm run stories:cleanup` (`node dist/stories/cleanup.main`). This expects the environment variables to be set already, as they are in ECS.
+- **Built:** `npm run build`, then `npm run stories:cleanup` (`node dist/src/stories/cleanup.main.js`). This expects the environment variables to be set already, as they are in ECS.
 
 The script starts only `PrismaModule`, `StorageModule`, and the cleanup service. It doesn't start the HTTP server or need Clerk.
 
-### AWS setup (for #34 INF-1)
+### In AWS
 
-Nothing in AWS is needed to build or test this. To run the cleanup in production:
-
-1. **Task:** reuse the API's ECS task definition, overriding the container command with `["node", "dist/stories/cleanup.main"]`. It needs the same `DATABASE_URL`, `AWS_REGION`, and `S3_BUCKET_NAME` as the API.
-2. **Schedule:** an EventBridge Scheduler schedule, `rate(1 hour)`, targeting ECS `RunTask` on the API's cluster with the Fargate launch type, in the same subnets and security groups as the API (it has to reach RDS).
-3. **IAM:**
-   - The task role needs `s3:DeleteObject` on `arn:aws:s3:::<media bucket>/users/*`.
-   - The scheduler's execution role needs `ecs:RunTask` on the task definition, and `iam:PassRole` for the task role and the task execution role.
-4. **Logs:** the task writes `Deleted N expired stories`, and any S3 keys it failed to delete, to the task's CloudWatch log group.
+`YujiStagingApi` (`infra/lib/api-stack.ts`) runs it hourly: an EventBridge Scheduler
+schedule starts a Fargate task from the API image with the command
+`node dist/src/stories/cleanup.main.js`, in the API's subnets and security group so it can
+reach RDS. Its task role can only `s3:DeleteObject` under `users/*`. It writes
+`Deleted N expired stories`, `Deleted N unused pins`, and any S3 keys it failed to delete, to the
+`YujiStagingApi-StoriesCleanupLogs` log group. See [deployment.md](../process/deployment.md).
 
 Running hourly means a non-kept story's object can outlive the story by up to an hour. The story itself still disappears on time, because reads filter on `expires_at`.
 

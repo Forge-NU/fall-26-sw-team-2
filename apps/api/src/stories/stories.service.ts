@@ -4,33 +4,35 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Location, Prisma } from '../generated/prisma/client';
+import { Prisma, Story } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import {
-  DEFAULT_PAGE_SIZE,
   PaginationQueryDto,
-  assertCursorInList,
-  pageArgs,
-  toPage,
+  buildPage,
+  decodeCursor,
+  encodeCursor,
+  keyset,
+  pageLimit,
 } from '../common/pagination';
 import { toUserSummary, userSummarySelect } from '../common/user-summary';
 import { formatDateOnly, parseDateOnly } from '../common/dates';
-import { LocationResponse } from '../posts/post.types';
+import { toLocation } from '../locations/locations.service';
+import { assertCanAttachLocation } from '../locations/custom-locations';
 import { canViewTrip, isActiveTrip, resolveToday } from '../trips/trip-rules';
 import { lockTripForShare } from '../trips/trip-locks';
 import { CreateStoryDto } from './dto/create-story.dto';
-import { StoriesFeedQueryDto } from './dto/stories-feed-query.dto';
-import {
+import type {
   StoriesFeedResponse,
   StoryGroup,
   StoryResponse,
   TripStoriesResponse,
-} from './story.types';
+} from 'shared-types';
 
 const storyInclude = {
   owner: { select: userSummarySelect },
   location: true,
+  trip: { select: { id: true, title: true, ownerId: true, status: true } },
 } satisfies Prisma.StoryInclude;
 
 type StoryWithDetails = Prisma.StoryGetPayload<{
@@ -44,13 +46,20 @@ const STORY_ORDER = [
 ] satisfies Prisma.StoryOrderByWithRelationInput[];
 
 // Trip page order: by story date, then the order they were posted
-const TRIP_STORY_ORDER = [
-  { storyDate: 'asc' },
-  { createdAt: 'asc' },
-  { id: 'asc' },
-] satisfies Prisma.StoryOrderByWithRelationInput[];
+const TRIP_STORIES = keyset<
+  Story,
+  Prisma.StoryWhereInput,
+  Prisma.StoryOrderByWithRelationInput
+>([
+  { field: 'storyDate', direction: 'asc', type: 'date' },
+  { field: 'createdAt', direction: 'asc', type: 'date' },
+  { field: 'id', direction: 'asc', type: 'uuid' },
+]);
 
-type FeedCursor = { latest: Date; ownerId: string };
+// The feed pages through users, ordered by (latest story, owner id), both
+// descending. It's a GROUP BY in SQL, so it uses the cursor directly rather
+// than keyset().
+const FEED_CURSOR_TYPES = ['date', 'string'] as const;
 
 // Matches the expires_at default in the migration
 export const STORY_LIFETIME_MS = 24 * 60 * 60 * 1000;
@@ -72,9 +81,6 @@ export class StoriesService {
       throw new BadRequestException('keepOnTrip needs a tripId');
     }
     assertStoryKey(userId, dto.s3Key);
-    if (dto.locationId) {
-      await this.assertLocationExists(dto.locationId);
-    }
     const today = resolveToday(dto.date);
     const tripId = dto.tripId;
     // The day the story is from, defaulting to today. With a trip it can be
@@ -113,6 +119,11 @@ export class StoriesService {
           }
         }
 
+        // In the transaction, so a pin can't go on two stories at once
+        if (dto.locationId) {
+          await assertCanAttachLocation(tx, userId, dto.locationId);
+        }
+
         // Both times come from the database's clock, the one reads compare
         // expires_at against, so a story lives exactly 24 hours. (Prisma
         // would fill createdAt from this server's clock.)
@@ -135,10 +146,12 @@ export class StoriesService {
       }),
     );
 
-    return this.toResponse(story);
+    return this.toResponse(userId, story);
   }
 
   // Owner only. Anyone else gets 404, the same as a story that doesn't exist.
+  // A pin on the story is deleted with it (the delete_unused_custom_location
+  // trigger).
   async remove(userId: string, id: string): Promise<void> {
     const story = await this.prisma.story.findUnique({
       where: { id },
@@ -161,10 +174,12 @@ export class StoriesService {
   // first. Pages through users.
   async listFeed(
     viewerId: string,
-    query: StoriesFeedQueryDto,
+    query: PaginationQueryDto,
   ): Promise<StoriesFeedResponse> {
-    const limit = query.limit ?? DEFAULT_PAGE_SIZE;
-    const cursor = query.cursor ? decodeFeedCursor(query.cursor) : null;
+    const limit = pageLimit(query);
+    const list = `stories-feed:${viewerId}`;
+    const after = decodeCursor(query.cursor, list, FEED_CURSOR_TYPES) as
+      [Date, string] | undefined;
 
     // Compared with the database's clock, the same one that set expires_at
     const owners = await this.prisma.$queryRaw<
@@ -181,16 +196,17 @@ export class StoriesService {
         )
       GROUP BY owner_id
       ${
-        cursor
-          ? Prisma.sql`HAVING (max(created_at), owner_id) < (${cursor.latest}::timestamp(3), ${cursor.ownerId})`
+        after
+          ? Prisma.sql`HAVING (max(created_at), owner_id) < (${after[0]}::timestamp(3), ${after[1]})`
           : Prisma.empty
       }
       ORDER BY latest DESC, owner_id DESC
       LIMIT ${limit + 1}
     `;
 
-    const hasMore = owners.length > limit;
-    const pageOwners = hasMore ? owners.slice(0, limit) : owners;
+    const { items: pageOwners, nextCursor } = buildPage(owners, limit, (o) =>
+      encodeCursor(list, [o.latest, o.owner_id]),
+    );
     if (pageOwners.length === 0) {
       return { items: [], nextCursor: null };
     }
@@ -217,18 +233,14 @@ export class StoriesService {
       const ownerStories = byOwner.get(owner_id);
       if (!ownerStories) continue;
       items.push({
-        owner: toUserSummary(ownerStories[0].owner),
-        stories: await Promise.all(ownerStories.map((s) => this.toResponse(s))),
+        owner: await toUserSummary(ownerStories[0].owner, this.storage),
+        stories: await Promise.all(
+          ownerStories.map((s) => this.toResponse(viewerId, s)),
+        ),
       });
     }
 
-    const last = pageOwners[pageOwners.length - 1];
-    return {
-      items,
-      nextCursor: hasMore
-        ? encodeFeedCursor({ latest: last.latest, ownerId: last.owner_id })
-        : null,
-    };
+    return { items, nextCursor };
   }
 
   // Stories kept on a trip ("Add to trip"), including after they expire, in
@@ -246,41 +258,44 @@ export class StoriesService {
       throw new NotFoundException('Trip not found');
     }
 
-    const where = { tripId, keepOnTrip: true } satisfies Prisma.StoryWhereInput;
-    await assertCursorInList(query, (cursor) =>
-      this.prisma.story.findFirst({
-        where: { ...where, id: cursor },
-        select: { id: true },
-      }),
-    );
-
+    const list = `trip-stories:${tripId}`;
+    const limit = pageLimit(query);
     const stories = await this.prisma.story.findMany({
-      where,
+      where: {
+        tripId,
+        keepOnTrip: true,
+        ...TRIP_STORIES.after(TRIP_STORIES.decode(query.cursor, list)),
+      },
       include: storyInclude,
-      orderBy: TRIP_STORY_ORDER,
-      ...pageArgs(query),
+      orderBy: TRIP_STORIES.orderBy,
+      take: limit + 1,
     });
 
-    return toPage(stories, query, (s) => this.toResponse(s));
+    const page = buildPage(stories, limit, (s) => TRIP_STORIES.cursor(list, s));
+    return {
+      items: await Promise.all(
+        page.items.map((s) => this.toResponse(viewerId, s)),
+      ),
+      nextCursor: page.nextCursor,
+    };
   }
 
-  private async assertLocationExists(locationId: string) {
-    const location = await this.prisma.location.findUnique({
-      where: { id: locationId },
-      select: { id: true },
-    });
-    if (!location) {
-      throw new BadRequestException('Location not found');
-    }
-  }
-
-  private async toResponse(story: StoryWithDetails): Promise<StoryResponse> {
+  private async toResponse(
+    viewerId: string,
+    story: StoryWithDetails,
+  ): Promise<StoryResponse> {
+    const { trip } = story;
     return {
       id: story.id,
-      owner: toUserSummary(story.owner),
+      owner: await toUserSummary(story.owner, this.storage),
       tripId: story.tripId,
+      // Only a trip the viewer can open, so a draft's title stays private
+      trip:
+        trip && canViewTrip(viewerId, trip)
+          ? { id: trip.id, title: trip.title }
+          : null,
       text: story.text,
-      location: story.location ? toLocationResponse(story.location) : null,
+      location: story.location ? toLocation(story.location) : null,
       customLocationName: story.customLocationName,
       imageUrl: await this.storage.getReadUrl(story.s3Key),
       keepOnTrip: story.keepOnTrip,
@@ -318,48 +333,4 @@ async function withStoryKeyCheck<T>(write: () => Promise<T>): Promise<T> {
     }
     throw e;
   }
-}
-
-function encodeFeedCursor(cursor: FeedCursor): string {
-  return Buffer.from(
-    JSON.stringify([cursor.latest.toISOString(), cursor.ownerId]),
-  ).toString('base64url');
-}
-
-export function decodeFeedCursor(value: string): FeedCursor {
-  try {
-    const parsed: unknown = JSON.parse(
-      Buffer.from(value, 'base64url').toString('utf8'),
-    );
-    if (
-      Array.isArray(parsed) &&
-      parsed.length === 2 &&
-      typeof parsed[0] === 'string' &&
-      typeof parsed[1] === 'string'
-    ) {
-      const latest = new Date(parsed[0]);
-      if (!Number.isNaN(latest.getTime())) {
-        return { latest, ownerId: parsed[1] };
-      }
-    }
-  } catch {
-    // Falls through to the error below
-  }
-  throw new BadRequestException('Invalid cursor');
-}
-
-// Same mapping as posts.service.ts, which doesn't export its copy
-function toLocationResponse(location: Location): LocationResponse {
-  return {
-    id: location.id,
-    provider: location.provider,
-    providerPlaceId: location.providerPlaceId,
-    name: location.name,
-    address: location.address,
-    latitude: location.latitude.toNumber(),
-    longitude: location.longitude.toNumber(),
-    city: location.city,
-    region: location.region,
-    countryCode: location.countryCode,
-  };
 }

@@ -95,3 +95,18 @@ test("network failures aren't ApiErrors, so callers can tell them apart", async 
 test('a 401 asks the user to sign in again', () => {
   assert.match(getErrorMessage(new ApiError(401, 'Unauthorized')), /signed out/);
 });
+
+test("fallbacks only apply when the server doesn't send a message", () => {
+  const fallbacks = { 404: "This trip doesn't exist anymore.", other: "Couldn't save your changes." };
+  const body = { statusCode: 404, message: 'Trip not found', error: 'Not Found', path: '', timestamp: '' };
+  assert.equal(getErrorMessage(new ApiError(404, 'Trip not found', body), fallbacks), 'Trip not found');
+  assert.equal(getErrorMessage(new ApiError(404, 'GET /x failed with 404'), fallbacks), "This trip doesn't exist anymore.");
+  assert.equal(getErrorMessage(new ApiError(409, 'GET /x failed with 409'), fallbacks), "Couldn't save your changes.");
+  assert.equal(getErrorMessage(new Error('boom'), fallbacks), "Couldn't save your changes.");
+  assert.equal(getErrorMessage(new ApiError(404, '', { ...body, message: '' }), fallbacks), "This trip doesn't exist anymore.");
+});
+
+test("a 5xx uses the screen's own message when it has one", () => {
+  assert.equal(getErrorMessage(new ApiError(500, 'x'), { other: "Couldn't publish the trip." }), "Couldn't publish the trip.");
+  assert.equal(getErrorMessage(new ApiError(500, 'x')), 'Something went wrong on our end. Try again.');
+});

@@ -14,7 +14,8 @@ The doc has three kinds of content:
   - `follower-system.md` for follows (#16)
   - `itinerary-schema.md` for trips, posts, and locations (#17)
   - `stories.md` for stories (#23)
-  - the docs that INT-1 and INT-2 will add for likes, saves, and comments
+  - `likes-and-saves.md` for likes and saves (#49)
+  - `comments.md` for comments (#50)
 - **Suggestion (Christian):** a suggestion for that owner to accept or push back on in their PR.
 
 When an owner confirms or changes their tables, update this doc to match. [Changes to open PRs](#changes-to-open-prs) lists what has to change in each one.
@@ -53,10 +54,10 @@ erDiagram
 
     users {
         string id PK "Clerk user ID"
-        string email
+        string email "nullable"
         string first_name
         string last_name
-        string username UK "lowercase"
+        string username UK "nullable; lowercase unique index"
         string avatar_key "nullable"
     }
     follows {
@@ -143,8 +144,8 @@ The diagram includes Christian's suggested columns (`avatar_key`, `published_at`
 | `follows` | #10 FOL-1 | Ruoxi | Ruoxi's doc in #16, with changes to match #15 | No, the changes need Ruoxi's review |
 | `trips`, `posts`, `post_media`, `locations` | #3 DB-1 | Duke (Grace reviews `locations` in #37 LOC-1) | Duke's draft in #17, with changes for the #33 decisions | No, #17 is still a draft |
 | `stories` | #23 STORY-1 | Richie | `stories.md` (#23), which takes both suggestions below | Built in #23, not merged yet |
-| `post_likes`, `post_saves`, `trip_saves` | #49 INT-1 | Unassigned | The INT-1 ticket scope | No, not designed yet |
-| `comments` | #50 INT-2 | Unassigned | The INT-2 ticket scope | No, not designed yet |
+| `post_likes`, `post_saves`, `trip_saves` | #49 INT-1 | Aditya | `likes-and-saves.md` (#49), which takes both suggestions below | Built in #49, not merged yet |
+| `comments` | #50 INT-2 | Aditya | `comments.md` (#50), which takes the suggestion below | Built in #50, not merged yet |
 
 ## Tables
 
@@ -152,8 +153,8 @@ Only the rules that cross features are listed here. Column types and lengths fol
 
 ### users
 
-- Usernames are unique regardless of capitalization (decided in #33) and must match `^[a-z0-9_.]{3,30}$`.
-- **Suggestion (Christian):** store `username` lowercase. The API lowercases it on every write, and the `@unique` constraint does the rest. That makes uniqueness case-insensitive without needing `citext`.
+- Usernames are unique regardless of capitalization (decided in #33) and must match `^[a-z0-9_]{4,30}$`. #33 allowed periods and 3 characters; ACCT-1 narrowed it to what Clerk accepts, because usernames are copied to Clerk so people can sign in with them.
+- Usernames are nullable until onboarding. The API stores claimed names lowercase and PostgreSQL enforces case-insensitive uniqueness with a unique index on `lower(username)`.
 - **Suggestion (Christian):** replace `avatar_url` with `avatar_key`, the S3 key of an uploaded avatar, or null. If the user has no avatar, the app can fall back to Clerk's image. That lets account deletion find and delete the avatar along with everything else.
 
 ### follows
@@ -173,10 +174,10 @@ Only the rules that cross features are listed here. Column types and lengths fol
 ### posts
 
 - `trip_id` is required (decided in #33).
-- Each post has one location (decided in #33).
+- Each post has at most one location, and it's optional (#33 said required; #143 POST-4 made it optional).
 - **Suggestion (Christian):** drop `author_id`. A post's author is always its trip's owner, so it can be read through `trips.owner_id`, and the two can never disagree.
 - **Suggestion (Christian):** store a custom location as a name on the post, not as a `locations` row:
-  - Exactly one of `location_id` and `custom_location_name` is set, enforced by the check constraint `(location_id IS NULL) <> (custom_location_name IS NULL)`.
+  - At most one of `location_id` and `custom_location_name` is set, enforced by the check constraint `NOT (location_id IS NOT NULL AND custom_location_name IS NOT NULL)`. It was exactly one until #143 POST-4.
   - That way a location row never belongs to one user, which keeps account deletion simple.
 - `visited_on` is required, and the API rejects one outside the trip's dates (decided in #33). The database doesn't check this, because the trip's dates can change.
   - Posts within a trip are ordered by `visited_on`, then `created_at`.
@@ -198,6 +199,7 @@ Only the rules that cross features are listed here. Column types and lengths fol
   - `address`, `city`, `region`, and `country_code` are optional.
   - Index `(latitude, longitude)` for map bounding-box queries. We can move to PostGIS later if we need radius search.
 - **Suggestion (Christian):** keep rows to Mapbox places only, with custom names stored on the post or story (see [posts](#posts)). Then a location never belongs to one user and is never deleted.
+- **Changed in #94 (LOC-2):** a dropped pin is also a `locations` row (`provider = 'custom'`), owned by one user and deleted with its post or story. A custom name without a pin still goes on the post or story. See [`locations.md`](locations.md#dropped-pins).
 - Storage terms are pending #37 (LOC-1). If Mapbox doesn't allow storing coordinates permanently, this table changes.
 
 ### stories
@@ -218,6 +220,7 @@ Only the rules that cross features are listed here. Column types and lengths fol
 - **Suggestion (Christian):** add these indexes:
   - `post_likes (post_id, created_at)` for the likes list
   - `post_saves (user_id, created_at)` and `trip_saves (user_id, created_at)` for the Saved tab
+- Built in #49 ([`likes-and-saves.md`](likes-and-saves.md)) with both suggestions. Each index also ends with the other key column, so the lists page in a stable order, and `post_saves (post_id)` and `trip_saves (trip_id)` back the save counts. Likes and saves are inserted with `ON CONFLICT DO NOTHING` rather than an upsert.
 
 ### comments
 
@@ -226,6 +229,11 @@ Only the rules that cross features are listed here. Column types and lengths fol
   - `parent_comment_id` is null for a top-level comment. A reply points to a top-level comment.
   - If someone replies to a reply, the server stores the new comment under that reply's top-level comment.
 - **Suggestion (Christian):** have the API check that a reply's parent is on the same post, and index `(post_id, parent_comment_id, created_at)` for top-level lists and reply lists.
+- Built in #50 ([`comments.md`](comments.md)) with the suggestion, plus `(parent_comment_id, created_at, id)` for reply lists. It adds `reply_to_user_id` for the @mention on a reply to a reply. That key is `ON DELETE SET NULL`, since the mentioned user doesn't own the reply.
+
+### trip_members, trip_invites, notifications, place_saves, trip_bucket_items
+
+Shared trips, buckets, saved places and notifications (#131 COLLAB-1). Their columns, indexes, deletion rules and endpoints are in [shared-trips.md](shared-trips.md).
 
 ## Visibility
 
@@ -252,7 +260,8 @@ There are no soft deletes. Deleting a row deletes everything under it through `O
 | `post_media.post_id`, `post_likes.post_id`, `post_saves.post_id`, `comments.post_id` → `posts` | Cascade |
 | `trip_saves.trip_id` → `trips` | Cascade |
 | `comments.parent_comment_id` → `comments` | Cascade (deleting a comment deletes its replies) |
-| `posts.location_id`, `stories.location_id` → `locations` | Restrict (locations are shared and never deleted) |
+| `comments.reply_to_user_id` → `users` | Set null (the exception to the cascade rule: the @mention isn't owned by the mentioned user, so the reply stays) |
+| `posts.location_id`, `stories.location_id` → `locations` | Restrict. Mapbox places are shared and never deleted; a dropped pin (#94) is deleted by a trigger once its post or story is gone. |
 
 ### S3 objects
 

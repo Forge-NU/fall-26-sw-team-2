@@ -1,0 +1,16 @@
+// A post in a user's Saved tab (#49 INT-1). Only the user can see their saves.
+model PostSave {
+  userId    String   @map("user_id")
+  postId    String   @map("post_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@id([userId, postId])
+  // The Saved tab, newest first
+  @@index([userId, createdAt, postId])
+  // The post's save count
+  @@index([postId])
+  @@map("post_saves")
+}

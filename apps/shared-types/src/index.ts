@@ -1,13 +1,34 @@
 /**
- * User profile response shape
- * Used by GET /api/me and GET /api/users/:id
+ * The user fields shown next to content (trip owner, post author) and in user lists
+ * Used by GET /api/users
  */
-export interface UserResponse {
+export interface UserSummary {
   id: string;
   firstName: string;
   lastName: string;
-  username: string;
+  username: string | null;
   avatarUrl: string | null;
+}
+
+/** Body of PATCH /api/me. avatarKey is an s3Key from an "avatar" upload, or null to remove it. */
+export interface UpdateMeRequest {
+  firstName?: string;
+  lastName?: string;
+  username?: string;
+  avatarKey?: string | null;
+}
+
+export interface UsernameAvailabilityResponse {
+  available: boolean;
+}
+
+/**
+ * User profile response shape
+ * Used by GET /api/me, GET /api/users/:id, POST /api/me/profile and PATCH /api/me
+ */
+export interface UserResponse extends UserSummary {
+  followerCount: number;
+  followingCount: number;
 }
 
 /**
@@ -31,7 +52,11 @@ export interface ApiErrorResponse {
   timestamp: string;
 }
 
-export type { TripStatus, TripResponse, ActiveTripsResponse, MediaType, MediaResponse, LocationResponse, PostResponse } from './content';
+export type { TripStatus, TripResponse, ActiveTripsResponse, CreateTripRequest, UpdateTripRequest, MediaType, MediaResponse, PostResponse, CreatePostRequest, UpdatePostRequest, CreatePostMedia, LikeStatusResponse, PostLikerResponse, SaveStatusResponse, CommentResponse, CreateCommentRequest } from './content.js';
+export type { LocationProvider, LocationRating, LocationResponse, PlaceSuggestion, ResolveLocationRequest, ResolveLocationResponse } from './locations.js';
+export type { StoryResponse, StoryTrip, StoryGroup, StoriesFeedResponse, TripStoriesResponse, CreateStoryRequest } from './stories.js';
+export type { FollowListUser, FollowListPage, FollowStatus, FollowCounts } from './follows.js';
+export type { TripRole, TripMemberResponse, TripMembersResponse, PlanningTripResponse, TripInviteStatus, TripInviteResponse, TripInvitesResponse, CreateTripInviteRequest, NotificationType, NotificationTrip, NotificationInvite, NotificationResponse, UnreadCountResponse, SavedPlaceResponse, PlaceSaveStatusResponse, BucketItemResponse, CreateBucketItemRequest, UpdateBucketItemRequest, PlaceSavedInTrip, PlaceSavedInResponse } from './collaboration.js';
 
 /**
  * Photo uploads (MEDIA-1)
@@ -56,3 +81,5 @@ export interface CreateUploadResponse {
   /** ISO timestamp, 15 minutes after the request */
   expiresAt: string;
 }
+
+export type { SearchType, SearchSort, SearchRequest, SearchPerson, SearchPlace, SearchItems, SearchPreview, SearchPage, SearchResponse } from './search.js';

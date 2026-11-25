@@ -3,7 +3,8 @@ import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/ui/app-text';
 import { Button } from '@/components/ui/button';
 import { Palette } from '@/constants/palette';
-import { Radii, Spacing, Typography } from '@/constants/theme';
+import { SheetTokens } from '@/constants/sheet-tokens';
+import { Spacing, Theme, Typography } from '@/constants/theme';
 
 export type ConfirmDialogProps = {
   visible: boolean;
@@ -12,6 +13,8 @@ export type ConfirmDialogProps = {
   confirmLabel: string;
   cancelLabel?: string;
   loading?: boolean;
+  /** Fills the confirm button, for actions that delete something for good */
+  destructive?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 };
@@ -24,6 +27,7 @@ export function ConfirmDialog({
   confirmLabel,
   cancelLabel = 'Cancel',
   loading = false,
+  destructive = false,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -41,7 +45,13 @@ export function ConfirmDialog({
             {message}
           </AppText>
           <View style={styles.actions}>
-            <Button title={confirmLabel} loading={loading} onPress={onConfirm} style={styles.button} />
+            <Button
+              title={confirmLabel}
+              loading={loading}
+              filled={destructive}
+              onPress={onConfirm}
+              style={styles.button}
+            />
             <Button
               title={cancelLabel}
               variant="teal"
@@ -62,14 +72,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing.four,
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    backgroundColor: Theme.colors.scrim,
   },
   card: {
     width: '100%',
     maxWidth: 340,
     gap: Spacing.two,
     padding: Spacing.four,
-    borderRadius: Radii.medium * 2,
+    // Same corners as BottomSheet
+    borderRadius: SheetTokens.radius,
     backgroundColor: Palette.warmWhite,
   },
   center: { textAlign: 'center' },

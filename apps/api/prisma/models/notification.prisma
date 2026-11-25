@@ -1,0 +1,38 @@
+enum NotificationType {
+  trip_invite
+  trip_invite_accepted
+
+  @@map("notification_type")
+}
+
+// The in-app inbox (#131 COLLAB-1, #132 NOTIF-1). General on purpose: later
+// types (likes, comments, follows) add an enum value and reuse the table.
+//
+// Added in the migration, since Prisma can't express them:
+// - a partial index on recipient_id WHERE read_at IS NULL, for the unread count
+// - checks: recipient_id <> actor_id; a trip_invite has trip_id and invite_id;
+//   a trip_invite_accepted has trip_id
+model Notification {
+  id          String           @id @default(uuid()) @db.Uuid
+  recipientId String           @map("recipient_id")
+  // Who did it: the inviter, or the person who accepted
+  actorId     String           @map("actor_id")
+  type        NotificationType
+  tripId      String?          @map("trip_id") @db.Uuid
+  inviteId    String?          @map("invite_id") @db.Uuid
+  readAt      DateTime?        @map("read_at")
+  createdAt   DateTime         @default(now()) @map("created_at")
+
+  recipient User        @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  actor     User        @relation("NotificationActor", fields: [actorId], references: [id], onDelete: Cascade)
+  trip      Trip?       @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  invite    TripInvite? @relation(fields: [inviteId], references: [id], onDelete: Cascade)
+
+  // The inbox, newest first
+  @@index([recipientId, createdAt, id])
+  // Deleting an account, trip or invite cascades through these
+  @@index([actorId])
+  @@index([tripId])
+  @@index([inviteId])
+  @@map("notifications")
+}

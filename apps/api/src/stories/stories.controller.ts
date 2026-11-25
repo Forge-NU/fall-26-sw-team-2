@@ -15,7 +15,6 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { PaginationQueryDto } from '../common/pagination';
 import { StoriesService } from './stories.service';
 import { CreateStoryDto } from './dto/create-story.dto';
-import { StoriesFeedQueryDto } from './dto/stories-feed-query.dto';
 
 @Controller()
 @UseGuards(ClerkAuthGuard)
@@ -28,7 +27,7 @@ export class StoriesController {
   }
 
   @Get('stories/feed')
-  listFeed(@CurrentUser() userId: string, @Query() query: StoriesFeedQueryDto) {
+  listFeed(@CurrentUser() userId: string, @Query() query: PaginationQueryDto) {
     return this.storiesService.listFeed(userId, query);
   }
 

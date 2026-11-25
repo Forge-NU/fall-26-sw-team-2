@@ -3,6 +3,7 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
+    "@clerk/expo": "^4.13.0",
     "@expo-google-fonts/barlow-condensed": "^0.4.1",
     "@expo-google-fonts/plus-jakarta-sans": "^0.4.2",
     "@expo/ui": "~58.0.22",
@@ -22,6 +23,7 @@
     "expo-linking": "~58.0.14",
     "expo-location": "~58.0.20",
     "expo-router": "~58.0.25",
+    "expo-secure-store": "~58.0.2",
     "expo-splash-screen": "~58.0.11",
     "expo-status-bar": "~58.0.4",
     "expo-symbols": "~58.0.4",
@@ -47,13 +49,13 @@
     "typescript": "~6.0.3"
   },
   "scripts": {
-    "test:ui": "node --experimental-strip-types --import ./scripts/alias-loader.mjs --test scripts/toast.test.mjs scripts/api-client.test.mjs scripts/api-mock.test.mjs scripts/trip-form.test.mjs scripts/post-form.test.mjs scripts/upload-core.test.mjs scripts/map-zoom.test.mjs",
+    "test:ui": "node --experimental-strip-types --import ./scripts/alias-loader.mjs --test 'scripts/*.test.mjs'",
     "start": "expo start",
-    "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint",
+    "lint": "expo lint -- --pass-on-unpruned-suppressions",
+    "lint:prune": "eslint src --prune-suppressions",
     "typecheck": "tsc --noEmit"
   },
   "private": true

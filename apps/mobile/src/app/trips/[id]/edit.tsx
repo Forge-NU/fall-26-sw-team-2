@@ -2,8 +2,9 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 
+import { getErrorMessage } from '@/api/client';
 import { TripForm } from '@/components/trips/trip-form';
-import { TripError, TripLoading } from '@/components/trips/trip-states';
+import { tripErrorState } from '@/components/trips/trip-error-state';
 import { AppText } from '@/components/ui/app-text';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Screen } from '@/components/ui/screen';
@@ -12,8 +13,8 @@ import { useToast } from '@/components/ui/toast-provider';
 import { Palette } from '@/constants/palette';
 import { Spacing } from '@/constants/theme';
 import { useDeleteTrip, useTrip, useTripPosts, useUpdateTrip } from '@/hooks/use-trips';
-import { describeError } from '@/lib/api-errors';
 import { toUpdateTripRequest, type TripFormValues } from '@/lib/trip-form';
+import { TRIP_ERROR_FALLBACKS } from '@/lib/trips';
 
 export default function EditTripScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -26,20 +27,11 @@ export default function EditTripScreen() {
 
   const close = () => router.back();
 
-  let body;
-  if (trip.isPending || posts.isPending) {
-    body = <TripLoading />;
-  } else if (trip.isError || posts.isError) {
-    body = (
-      <TripError
-        error={trip.error ?? posts.error}
-        onRetry={() => {
-          void trip.refetch();
-          void posts.refetch();
-        }}
-      />
-    );
-  } else {
+  const error = trip.error ?? posts.error;
+
+  // Screen shows the loading and error states, so this only builds the form
+  let body = null;
+  if (trip.data && posts.data) {
     const initialValues: TripFormValues = {
       title: trip.data.title,
       destination: trip.data.destination,
@@ -56,7 +48,7 @@ export default function EditTripScreen() {
           postDates={posts.data.map((post) => post.visitedOn)}
           submitLabel="Save changes"
           submitting={updateTrip.isPending}
-          formError={updateTrip.error ? describeError(updateTrip.error, "Couldn't save your changes. Try again.") : null}
+          formError={updateTrip.error ? getErrorMessage(updateTrip.error, { ...TRIP_ERROR_FALLBACKS, other: "Couldn't save your changes. Try again." }) : null}
           onSubmit={(values) => {
             const changes = toUpdateTripRequest(initialValues, values);
             if (Object.keys(changes).length === 0) return close();
@@ -87,6 +79,7 @@ export default function EditTripScreen() {
               : `"${trip.data.title}" will be deleted for good. You can't undo this.`
           }
           confirmLabel="Delete trip"
+          destructive
           loading={deleteTrip.isPending}
           onCancel={() => setConfirmingDelete(false)}
           onConfirm={() =>
@@ -99,7 +92,7 @@ export default function EditTripScreen() {
               },
               onError: (error) => {
                 setConfirmingDelete(false);
-                showToast({ message: describeError(error, "Couldn't delete the trip. Try again."), variant: 'error' });
+                showToast({ message: getErrorMessage(error, { ...TRIP_ERROR_FALLBACKS, other: "Couldn't delete the trip. Try again." }), variant: 'error' });
               },
             })
           }
@@ -109,8 +102,17 @@ export default function EditTripScreen() {
   }
 
   return (
-    <Screen>
-      <ScreenHeader title="Edit trip" left={{ icon: 'close', label: 'Close', onPress: close }} />
+    <Screen
+      loading={trip.isPending || posts.isPending}
+      error={error}
+      onRetry={() => {
+        void trip.refetch();
+        void posts.refetch();
+      }}
+      errorState={tripErrorState(error)}
+      header={
+        <ScreenHeader title="Edit trip" left={{ icon: 'x', label: 'Close', onPress: close }} />
+      }>
       {body}
     </Screen>
   );

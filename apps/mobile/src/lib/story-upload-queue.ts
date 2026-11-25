@@ -1,11 +1,14 @@
 // Posts stories in the background: upload the photo (MEDIA-1, #38), then
-// create the story. Retries skip steps that already succeeded. Kept in memory
-// only, so pending stories are lost if the app is killed.
-import { Alert } from 'react-native';
-
+// create the story. Retries skip steps that already succeeded.
+//
+// The queue lives in memory only. If the app is killed while a story is
+// uploading or waiting for Retry, that story is lost and the user has to post
+// it again. Persisting the queue is out of scope for now (#101).
 import { ApiError } from '@/api/client';
+import { queryKeys } from '@/api/query-keys';
 import { createStory } from '@/api/stories';
 import { uploadPhoto } from '@/lib/media/upload-photo';
+import { queryClient } from '@/lib/query-client';
 import { isRetryableError, RETRY_DELAYS_MS, sleep } from '@/lib/retry';
 import { toCreateStoryRequest, type StoryDraft } from '@/lib/story-draft';
 import { showToast } from '@/lib/toast';
@@ -90,6 +93,7 @@ async function run(id: string) {
       try {
         await attemptOnce(job.draft, state);
         remove(id);
+        refreshStories(job.draft);
         showToast({ message: 'Story posted', variant: 'success' });
         return;
       } catch (error) {
@@ -97,7 +101,7 @@ async function run(id: string) {
         const retriesLeft = attempt <= RETRY_DELAYS_MS.length;
         if (!retriesLeft || !isRetryableError(error)) {
           update(id, { status: 'failed' });
-          notifyFailed(id, error);
+          notifyFailed(error);
           return;
         }
         update(id, { status: 'waiting-to-retry' });
@@ -134,18 +138,24 @@ async function attemptOnce(draft: StoryDraft, state: Progress) {
   }
 }
 
-// An alert rather than a toast, since the toast can't hold Retry / Discard buttons
-function notifyFailed(id: string, error: unknown) {
-  Alert.alert("Your story didn't post", failureMessage(error), [
-    { text: 'Discard', style: 'destructive', onPress: () => discardStoryUpload(id) },
-    { text: 'Retry', onPress: () => retryStoryUpload(id) },
-  ]);
+// The new story shows in the bar, and on the trip page if it's kept there
+function refreshStories(draft: StoryDraft) {
+  void queryClient.invalidateQueries({ queryKey: queryKeys.storiesFeed });
+  if (draft.tripId && draft.keepOnTrip) {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.tripStories(draft.tripId) });
+  }
+}
+
+// The toast can't hold buttons, so Retry / Discard live on the upload pill
+// in the stories row (StoryUploadPill)
+function notifyFailed(error: unknown) {
+  showToast({ message: `Your story didn't post. ${failureMessage(error)}`, variant: 'error' });
 }
 
 function failureMessage(error: unknown): string {
   if (error instanceof ApiError && error.status === 401) {
-    return 'You were signed out. Sign in again, then retry.';
+    return 'You were signed out. Sign in again, then retry it from your feed.';
   }
-  if (isRetryableError(error)) return 'Check your connection and try again.';
+  if (isRetryableError(error)) return 'Check your connection, then retry it from your feed.';
   return "Something in this story can't be posted, for example its trip is no longer active.";
 }

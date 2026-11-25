@@ -1,14 +1,15 @@
 import { Pressable, StyleSheet, View } from "react-native";
-import type { UserResponse } from "shared-types";
+import type { UserSummary } from "shared-types";
 import { AppText } from "@/components/ui/app-text";
 import { Avatar } from "@/components/ui/avatar";
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { Spacing } from "@/constants/theme";
 import { Icon, type IconName } from "@/components/icon";
 import { ButtonTokens } from "@/constants/button-tokens";
+import { displayName } from "@/lib/display-name";
 
 export type UserRowProps = {
-  user: UserResponse;
+  user: UserSummary;
   subtitle?: string;
   subtitleIcon?: IconName;
   verified?: boolean;
@@ -27,7 +28,7 @@ export function UserRow({
   onPress,
   action,
 }: UserRowProps) {
-  const name = `${user.firstName} ${user.lastName}`.trim() || user.username;
+  const name = displayName(user);
   const identity = (
     <>
       <Avatar name={name} uri={user.avatarUrl} size="small" />

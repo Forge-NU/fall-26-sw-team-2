@@ -1,16 +1,17 @@
-import { ApiError, apiRequest, USE_MOCK_API } from '@/api/client';
-import { mockResolveLocation, mockRetrievePlace, mockSearchPlaces } from '@/api/mocks';
-import type {
-  PlaceSuggestion,
-  ResolveLocationRequest,
-  ResolveLocationResponse,
-} from '@/api/types';
+import type { PlaceSuggestion, ResolveLocationRequest, ResolveLocationResponse } from 'shared-types';
 
-// Public token, bundled into the app. Search falls back to mock places without it.
+import { ApiError, apiRequest } from '@/api/client';
+import { getMockMode, withMock } from '@/api/mock';
+import { mockGeocodePlace, mockResolveLocation, mockRetrievePlace, mockSearchPlaces } from '@/api/mock-backend';
+import type { LatLng } from '@/lib/pin-start';
+
+// Public token, bundled into the app. Search falls back to mock places without
+// it, or when EXPO_PUBLIC_API_MOCKS=all.
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN;
 const SEARCH_BOX_URL = 'https://api.mapbox.com/search/searchbox/v1';
+const GEOCODE_URL = 'https://api.mapbox.com/search/geocode/v6';
 
-export const canSearchMapbox = Boolean(MAPBOX_TOKEN) && !USE_MOCK_API;
+export const canSearchMapbox = Boolean(MAPBOX_TOKEN) && getMockMode() !== 'all';
 
 // Mapbox bills a search session as one /suggest run plus the /retrieve that ends it.
 // Not security sensitive, so Math.random is fine.
@@ -21,9 +22,9 @@ export function newSearchSessionToken(): string {
   });
 }
 
-async function mapboxGet<T>(path: string, params: Record<string, string>): Promise<T> {
+async function mapboxGet<T>(path: string, params: Record<string, string>, base = SEARCH_BOX_URL): Promise<T> {
   const query = new URLSearchParams({ ...params, access_token: MAPBOX_TOKEN ?? '' });
-  const response = await fetch(`${SEARCH_BOX_URL}${path}?${query}`);
+  const response = await fetch(`${base}${path}?${query}`);
   if (!response.ok) {
     throw new ApiError(response.status, `Mapbox ${path} failed with ${response.status}`);
   }
@@ -95,8 +96,31 @@ export async function retrievePlace(mapboxId: string, sessionToken: string): Pro
   };
 }
 
-// LOC-1 (#62). A custom name comes back unchanged and isn't stored.
-export function resolveLocation(body: ResolveLocationRequest): Promise<ResolveLocationResponse> {
-  if (USE_MOCK_API) return mockResolveLocation(body);
-  return apiRequest('POST', '/api/locations/resolve', body);
+type GeocodeResponse = {
+  features: { geometry: { coordinates: [number, number] } }[];
+};
+
+// Where a trip's destination text is, to start the drop-a-pin map there when
+// location permission is off (#94 LOC-2). Temporary geocoding: the result is
+// only used to move the map, never stored. null if nothing matches.
+export async function geocodePlace(text: string): Promise<LatLng | null> {
+  if (!canSearchMapbox) return mockGeocodePlace(text);
+  const data = await mapboxGet<GeocodeResponse>(
+    '/forward',
+    { q: text, limit: '1', types: 'place,locality,region,country', language: 'en' },
+    GEOCODE_URL,
+  );
+  const feature = data.features[0];
+  if (!feature) return null;
+  const [longitude, latitude] = feature.geometry.coordinates;
+  return { latitude, longitude };
 }
+
+// LOC-1 (#62). A custom name comes back unchanged and isn't stored. A pin
+// (LOC-2, #94) always comes back as a new locations row.
+export const resolveLocation = withMock({
+  live: true,
+  real: (body: ResolveLocationRequest) =>
+    apiRequest<ResolveLocationResponse>('POST', '/api/locations/resolve', body),
+  mock: mockResolveLocation,
+});

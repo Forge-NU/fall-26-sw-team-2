@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { TripsService } from '../trips/trips.service';
 import { parseDateOnly } from '../common/dates';
+import { decodeCursor, encodeCursor } from '../common/pagination';
 import { PostsService } from './posts.service';
 import { CreatePostDto } from './dto/create-post.dto';
 
@@ -47,6 +48,9 @@ function makePost(overrides: Record<string, unknown> = {}) {
     updatedAt: new Date('2026-10-13T12:00:00Z'),
     trip: { ...makeTrip(), owner },
     location: null,
+    _count: { likes: 0, saves: 0, comments: 0 },
+    likes: [],
+    saves: [],
     media: [
       {
         id: 'm1',
@@ -82,19 +86,23 @@ describe('PostsService', () => {
   let service: PostsService;
 
   const prisma = {
+    user: { findUnique: jest.fn() },
     trip: { findUnique: jest.fn() },
     post: {
       create: jest.fn(),
       findUnique: jest.fn(),
+      findUniqueOrThrow: jest.fn(),
       findFirst: jest.fn(),
       findMany: jest.fn(),
       update: jest.fn(),
       deleteMany: jest.fn(),
     },
     postMedia: { findMany: jest.fn(), deleteMany: jest.fn() },
+    postSave: { findFirst: jest.fn(), findMany: jest.fn() },
     location: { findUnique: jest.fn() },
     $transaction: jest.fn(),
     $queryRaw: jest.fn(),
+    $executeRaw: jest.fn(),
   };
   const storage = {
     getReadUrl: jest.fn((key: string) => Promise.resolve(`https://s3/${key}`)),
@@ -110,6 +118,9 @@ describe('PostsService', () => {
     prisma.postMedia.findMany.mockResolvedValue([]);
     prisma.post.create.mockResolvedValue(makePost());
     prisma.post.update.mockResolvedValue(makePost());
+    prisma.post.findUniqueOrThrow.mockResolvedValue(makePost());
+    // Row locks; the post lock also reads the post's location and rating
+    prisma.$queryRaw.mockResolvedValue([{ location_id: null, rating: null }]);
 
     const module = await Test.createTestingModule({
       providers: [
@@ -197,13 +208,89 @@ describe('PostsService', () => {
       expect(prisma.post.create).not.toHaveBeenCalled();
     });
 
-    it('requires exactly one of locationId and customLocationName', async () => {
-      await expect(
-        service.create(ownerId, createDto({ customLocationName: undefined })),
-      ).rejects.toThrow(BadRequestException);
+    it('creates a post with no location', async () => {
+      await service.create(
+        ownerId,
+        createDto({ customLocationName: undefined }),
+      );
+      expect(prisma.post.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            locationId: null,
+            customLocationName: null,
+            rating: null,
+          }) as unknown,
+        }),
+      );
+      // No location to check
+      expect(prisma.location.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('rejects both locationId and customLocationName', async () => {
       await expect(
         service.create(ownerId, createDto({ locationId })),
-      ).rejects.toThrow(BadRequestException);
+      ).rejects.toThrow(
+        'Send at most one of locationId and customLocationName',
+      );
+      expect(prisma.post.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a rating on a post with no location', async () => {
+      await expect(
+        service.create(
+          ownerId,
+          createDto({ customLocationName: undefined, rating: 4 }),
+        ),
+      ).rejects.toThrow("A post with no location can't be rated");
+      expect(prisma.post.create).not.toHaveBeenCalled();
+    });
+
+    it('saves a rating on a Mapbox place and refreshes its rating', async () => {
+      prisma.location.findUnique.mockResolvedValue({ id: locationId });
+      prisma.trip.findUnique.mockResolvedValue(
+        makeTrip({ status: 'published' }),
+      );
+      await service.create(
+        ownerId,
+        createDto({ customLocationName: undefined, locationId, rating: 4 }),
+      );
+      expect(prisma.post.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ locationId, rating: 4 }) as unknown,
+        }),
+      );
+      expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
+      // Read back after the refresh, so the place's rating is current
+      expect(prisma.post.findUniqueOrThrow).toHaveBeenCalled();
+    });
+
+    it("doesn't refresh the place for a post that can't count toward it", async () => {
+      prisma.location.findUnique.mockResolvedValue({ id: locationId });
+      // Unrated, in a published trip
+      prisma.trip.findUnique.mockResolvedValue(
+        makeTrip({ status: 'published' }),
+      );
+      await service.create(
+        ownerId,
+        createDto({ customLocationName: undefined, locationId }),
+      );
+      // Rated, in a draft
+      prisma.trip.findUnique.mockResolvedValue(makeTrip());
+      await service.create(
+        ownerId,
+        createDto({ customLocationName: undefined, locationId, rating: 4 }),
+      );
+
+      expect(prisma.$executeRaw).not.toHaveBeenCalled();
+      // The created post is returned as is, with no second read
+      expect(prisma.post.findUniqueOrThrow).not.toHaveBeenCalled();
+    });
+
+    it('rejects a rating on a custom name', async () => {
+      await expect(
+        service.create(ownerId, createDto({ rating: 4 })),
+      ).rejects.toThrow("can't be rated");
+      expect(prisma.post.create).not.toHaveBeenCalled();
     });
 
     it("rejects a location that doesn't exist", async () => {
@@ -282,6 +369,30 @@ describe('PostsService', () => {
         await rejects(['users/user_other/posts/a.jpg']);
         expect(prisma.post.create).not.toHaveBeenCalled();
       });
+    });
+  });
+
+  describe('findManyForViewer', () => {
+    it('loads every id in one query and leaves out posts you cannot see', async () => {
+      const visible = makePost({
+        trip: { ...makeTrip(), status: 'published', owner },
+      });
+      const inOthersDraft = makePost({
+        id: '99999999-9999-4999-8999-999999999999',
+        trip: { ...makeTrip(), status: 'draft', owner },
+      });
+      prisma.post.findMany.mockResolvedValue([visible, inOthersDraft]);
+
+      const posts = await service.findManyForViewer('user_other', [
+        visible.id,
+        inOthersDraft.id,
+      ]);
+
+      expect(prisma.post.findMany).toHaveBeenCalledTimes(1);
+      expect([...posts.keys()]).toEqual([visible.id]);
+      expect(posts.get(visible.id)?.media[0].url).toBe(
+        `https://s3/users/${ownerId}/posts/a.jpg`,
+      );
     });
   });
 
@@ -378,11 +489,219 @@ describe('PostsService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
+    it('takes a place or a custom name with the other field null', async () => {
+      prisma.location.findUnique.mockResolvedValue({ id: locationId });
+      await service.update(ownerId, postId, {
+        locationId,
+        customLocationName: null,
+      });
+      await service.update(ownerId, postId, {
+        locationId: null,
+        customLocationName: 'Home',
+      });
+
+      const data = prisma.post.update.mock.calls.map(
+        ([args]: [{ data: Record<string, unknown> }]) => [
+          args.data.locationId,
+          args.data.customLocationName,
+        ],
+      );
+      expect(data).toEqual([
+        [locationId, null],
+        [null, 'Home'],
+      ]);
+    });
+
+    it('removes the location when both fields are null', async () => {
+      await service.update(ownerId, postId, {
+        locationId: null,
+        customLocationName: null,
+      });
+      expect(prisma.post.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            locationId: null,
+            customLocationName: null,
+            rating: null,
+          }) as unknown,
+        }),
+      );
+      expect(prisma.location.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('rejects a lone null, which would be ambiguous', async () => {
+      for (const body of [{ locationId: null }, { customLocationName: null }]) {
+        await expect(service.update(ownerId, postId, body)).rejects.toThrow(
+          'To remove the location, send both',
+        );
+      }
+      expect(prisma.post.update).not.toHaveBeenCalled();
+    });
+
     it("rejects a new date outside the trip's dates", async () => {
       await expect(
         service.update(ownerId, postId, { visitedOn: '2026-10-20' }),
       ).rejects.toThrow(BadRequestException);
       expect(prisma.post.update).not.toHaveBeenCalled();
+    });
+
+    describe('rating', () => {
+      // The locked post is at a place, rated 4 unless given
+      const ratedPlace = (rating: number | null = 4) =>
+        prisma.$queryRaw.mockResolvedValue([
+          { location_id: locationId, rating },
+        ]);
+
+      beforeEach(() => {
+        prisma.trip.findUnique.mockResolvedValue(
+          makeTrip({ status: 'published' }),
+        );
+      });
+
+      it('sets and clears the rating, refreshing the place', async () => {
+        ratedPlace();
+        await service.update(ownerId, postId, { rating: 5 });
+        await service.update(ownerId, postId, { rating: null });
+
+        const data = prisma.post.update.mock.calls.map(
+          ([args]: [{ data: { rating?: number | null } }]) => args.data.rating,
+        );
+        expect(data).toEqual([5, null]);
+        expect(prisma.$executeRaw).toHaveBeenCalledTimes(2);
+      });
+
+      it('refreshes both the old and the new place when the post moves', async () => {
+        const newLocationId = '44444444-4444-4444-8444-444444444444';
+        ratedPlace();
+        prisma.location.findUnique.mockResolvedValue({ id: newLocationId });
+
+        await service.update(ownerId, postId, { locationId: newLocationId });
+
+        expect(prisma.$executeRaw.mock.calls[0]).toContainEqual(
+          [locationId, newLocationId].sort(),
+        );
+      });
+
+      it('clears the rating when switching to a custom location', async () => {
+        ratedPlace();
+        await service.update(ownerId, postId, { customLocationName: 'Home' });
+        expect(prisma.post.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              locationId: null,
+              customLocationName: 'Home',
+              rating: null,
+            }) as unknown,
+          }),
+        );
+        expect(prisma.$executeRaw.mock.calls[0]).toContainEqual([locationId]);
+      });
+
+      it('clears the rating when the location is removed, refreshing the old place', async () => {
+        ratedPlace();
+        await service.update(ownerId, postId, {
+          locationId: null,
+          customLocationName: null,
+        });
+        expect(prisma.post.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              locationId: null,
+              customLocationName: null,
+              rating: null,
+            }) as unknown,
+          }),
+        );
+        expect(prisma.$executeRaw.mock.calls[0]).toContainEqual([locationId]);
+        // Read after the refresh
+        expect(prisma.post.findUniqueOrThrow).toHaveBeenCalled();
+      });
+
+      it('rejects a rating sent while removing the location', async () => {
+        ratedPlace();
+        await expect(
+          service.update(ownerId, postId, {
+            locationId: null,
+            customLocationName: null,
+            rating: 3,
+          }),
+        ).rejects.toThrow("A post with no location can't be rated");
+        expect(prisma.post.update).not.toHaveBeenCalled();
+      });
+
+      it('rejects a rating on a post with no location', async () => {
+        prisma.$queryRaw.mockResolvedValue([
+          { location_id: null, custom_location_name: null, rating: null },
+        ]);
+        await expect(
+          service.update(ownerId, postId, { rating: 3 }),
+        ).rejects.toThrow("A post with no location can't be rated");
+      });
+
+      it('rejects a rating sent with a custom name', async () => {
+        await expect(
+          service.update(ownerId, postId, {
+            customLocationName: 'Home',
+            rating: 3,
+          }),
+        ).rejects.toThrow("can't be rated");
+      });
+
+      it('rejects a rating on a post that has a custom name', async () => {
+        prisma.$queryRaw.mockResolvedValue([
+          {
+            location_id: null,
+            custom_location_name: 'Somewhere',
+            rating: null,
+          },
+        ]);
+        await expect(
+          service.update(ownerId, postId, { rating: 3 }),
+        ).rejects.toThrow("only a custom location name can't be rated");
+        expect(prisma.post.update).not.toHaveBeenCalled();
+      });
+
+      it("doesn't refresh the place for an edit that can't change it", async () => {
+        ratedPlace();
+        await service.update(ownerId, postId, { caption: 'New caption' });
+        expect(prisma.$executeRaw).not.toHaveBeenCalled();
+      });
+
+      it('refreshes the place for a first rating', async () => {
+        ratedPlace(null);
+        await service.update(ownerId, postId, { rating: 3 });
+        expect(prisma.$executeRaw.mock.calls[0]).toContainEqual([locationId]);
+      });
+
+      it("doesn't refresh when an unrated post moves", async () => {
+        const newLocationId = '44444444-4444-4444-8444-444444444444';
+        ratedPlace(null);
+        prisma.location.findUnique.mockResolvedValue({ id: newLocationId });
+
+        await service.update(ownerId, postId, { locationId: newLocationId });
+        await service.update(ownerId, postId, { customLocationName: 'Home' });
+
+        expect(prisma.$executeRaw).not.toHaveBeenCalled();
+        expect(prisma.post.findUniqueOrThrow).not.toHaveBeenCalled();
+      });
+
+      it("doesn't refresh for a rating in a draft trip", async () => {
+        prisma.trip.findUnique.mockResolvedValue(makeTrip());
+        ratedPlace();
+        await service.update(ownerId, postId, { rating: 5 });
+        await service.update(ownerId, postId, { rating: null });
+        expect(prisma.$executeRaw).not.toHaveBeenCalled();
+      });
+
+      it("404s if the post was deleted before it's locked", async () => {
+        prisma.$queryRaw
+          .mockResolvedValueOnce([{ id: 'trip' }]) // trip lock
+          .mockResolvedValueOnce([]); // post lock
+        await expect(
+          service.update(ownerId, postId, { rating: 5 }),
+        ).rejects.toThrow(NotFoundException);
+        expect(prisma.post.update).not.toHaveBeenCalled();
+      });
     });
   });
 
@@ -402,6 +721,62 @@ describe('PostsService', () => {
         `users/${ownerId}/posts/a.jpg`,
       ]);
     });
+
+    it("refreshes the place's rating after the post is gone", async () => {
+      prisma.post.findUnique.mockResolvedValue(makePost());
+      prisma.trip.findUnique.mockResolvedValue(
+        makeTrip({ status: 'published' }),
+      );
+      prisma.$queryRaw.mockResolvedValue([
+        { location_id: locationId, rating: 4 },
+      ]);
+      const order: string[] = [];
+      prisma.post.deleteMany.mockImplementation(() => {
+        order.push('delete');
+        return Promise.resolve({ count: 1 });
+      });
+      prisma.$executeRaw.mockImplementation(() => {
+        order.push('refresh');
+        return Promise.resolve(1);
+      });
+
+      await service.remove(ownerId, postId);
+
+      expect(order).toEqual(['delete', 'refresh']);
+      expect(prisma.$executeRaw.mock.calls[0]).toContainEqual([locationId]);
+    });
+
+    it("doesn't refresh the place for a post that didn't count toward it", async () => {
+      prisma.post.findUnique.mockResolvedValue(makePost());
+      // Unrated, in a published trip
+      prisma.trip.findUnique.mockResolvedValue(
+        makeTrip({ status: 'published' }),
+      );
+      prisma.$queryRaw.mockResolvedValue([
+        { location_id: locationId, rating: null },
+      ]);
+      await service.remove(ownerId, postId);
+      // Rated, in a draft
+      prisma.trip.findUnique.mockResolvedValue(makeTrip());
+      prisma.$queryRaw.mockResolvedValue([
+        { location_id: locationId, rating: 4 },
+      ]);
+      await service.remove(ownerId, postId);
+
+      expect(prisma.post.deleteMany).toHaveBeenCalledTimes(2);
+      expect(prisma.$executeRaw).not.toHaveBeenCalled();
+    });
+
+    it("404s if the post was deleted before it's locked", async () => {
+      prisma.post.findUnique.mockResolvedValue(makePost());
+      prisma.$queryRaw
+        .mockResolvedValueOnce([{ id: 'trip' }]) // trip lock
+        .mockResolvedValueOnce([]); // post lock
+      await expect(service.remove(ownerId, postId)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(prisma.post.deleteMany).not.toHaveBeenCalled();
+    });
   });
 
   describe('listForTrip', () => {
@@ -412,14 +787,55 @@ describe('PostsService', () => {
     });
 
     it('rejects a cursor from another trip', async () => {
-      prisma.post.findFirst.mockResolvedValue(null);
+      const visitedOn = parseDateOnly('2026-10-12');
+      const cursor = encodeCursor('posts:another-trip', [
+        visitedOn,
+        visitedOn,
+        postId,
+      ]);
       await expect(
-        service.listForTrip(ownerId, tripId, { cursor: postId }),
+        service.listForTrip(ownerId, tripId, { cursor }),
       ).rejects.toThrow('Invalid cursor');
-      expect(prisma.post.findFirst).toHaveBeenCalledWith({
-        where: { id: postId, tripId },
-        select: { id: true },
-      });
+      expect(prisma.post.findMany).not.toHaveBeenCalled();
+    });
+
+    it('rejects a cursor whose post ID is not a UUID', async () => {
+      const visitedOn = parseDateOnly('2026-10-12');
+      const cursor = encodeCursor(`posts:${tripId}`, [
+        visitedOn,
+        visitedOn,
+        'not-a-uuid',
+      ]);
+      await expect(
+        service.listForTrip(ownerId, tripId, { cursor }),
+      ).rejects.toThrow('Invalid cursor');
+      expect(prisma.post.findMany).not.toHaveBeenCalled();
+    });
+
+    it('starts the next page after the cursor, in trip order', async () => {
+      prisma.post.findMany.mockResolvedValue([]);
+      const visitedOn = parseDateOnly('2026-10-12');
+      const createdAt = new Date('2026-10-12T09:30:00.000Z');
+      const cursor = encodeCursor(`posts:${tripId}`, [
+        visitedOn,
+        createdAt,
+        postId,
+      ]);
+
+      await service.listForTrip(ownerId, tripId, { cursor });
+
+      expect(prisma.post.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            tripId,
+            OR: [
+              { visitedOn: { gt: visitedOn } },
+              { visitedOn, createdAt: { gt: createdAt } },
+              { visitedOn, createdAt, id: { gt: postId } },
+            ],
+          },
+        }),
+      );
     });
 
     it('lists posts in trip order', async () => {
@@ -432,6 +848,214 @@ describe('PostsService', () => {
         }),
       );
       expect(page.nextCursor).toBeNull();
+    });
+  });
+
+  describe('listForUser', () => {
+    const visibleTo = (viewerId: string) => ({
+      trip: {
+        ownerId,
+        OR: [{ status: 'published' }, { ownerId: viewerId }],
+      },
+    });
+
+    beforeEach(() => {
+      prisma.user.findUnique.mockResolvedValue({ id: ownerId });
+    });
+
+    it('returns 404 for a user that does not exist', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      await expect(
+        service.listForUser(ownerId, 'user_missing', {}),
+      ).rejects.toThrow(NotFoundException);
+      expect(prisma.post.findMany).not.toHaveBeenCalled();
+    });
+
+    it('lists posts in visible trips, newest first', async () => {
+      prisma.post.findMany.mockResolvedValue([makePost()]);
+      const page = await service.listForUser('user_other', ownerId, {});
+      expect(prisma.post.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: visibleTo('user_other'),
+          orderBy: [
+            { visitedOn: 'desc' },
+            { createdAt: 'desc' },
+            { id: 'desc' },
+          ],
+        }),
+      );
+      expect(page.items[0]).toMatchObject({ id: postId });
+      expect(page.nextCursor).toBeNull();
+    });
+
+    it('starts after the cursor and returns the next one, newest first', async () => {
+      const visitedOn = parseDateOnly('2026-10-13');
+      const createdAt = new Date('2026-10-13T12:00:00Z');
+      const cursor = encodeCursor(`user-posts:${ownerId}`, [
+        visitedOn,
+        createdAt,
+        postId,
+      ]);
+      prisma.post.findMany.mockResolvedValue([
+        makePost({ id: 'a' }),
+        makePost({ id: 'b' }),
+      ]);
+
+      const page = await service.listForUser(ownerId, ownerId, {
+        cursor,
+        limit: 1,
+      });
+
+      const [args] = prisma.post.findMany.mock.calls[0] as [
+        { where: { OR: unknown }; take: number },
+      ];
+      expect(args.where.OR).toEqual([
+        { visitedOn: { lt: visitedOn } },
+        { visitedOn, createdAt: { lt: createdAt } },
+        { visitedOn, createdAt, id: { lt: postId } },
+      ]);
+      expect(args.take).toBe(2);
+      expect(page.items.map((p) => p.id)).toEqual(['a']);
+      expect(
+        decodeCursor(page.nextCursor!, `user-posts:${ownerId}`, [
+          'date',
+          'date',
+          'string',
+        ]),
+      ).toEqual([visitedOn, createdAt, 'a']);
+    });
+
+    it('rejects a cursor whose post ID is not a UUID', async () => {
+      const visitedOn = parseDateOnly('2026-10-13');
+      const cursor = encodeCursor(`user-posts:${ownerId}`, [
+        visitedOn,
+        visitedOn,
+        'not-a-uuid',
+      ]);
+      await expect(
+        service.listForUser(ownerId, ownerId, { cursor }),
+      ).rejects.toThrow('Invalid cursor');
+      expect(prisma.post.findMany).not.toHaveBeenCalled();
+    });
+
+    it("rejects a cursor from another user's posts", async () => {
+      const visitedOn = parseDateOnly('2026-10-13');
+      const cursor = encodeCursor('user-posts:someone_else', [
+        visitedOn,
+        visitedOn,
+        postId,
+      ]);
+      await expect(
+        service.listForUser('user_other', ownerId, { cursor }),
+      ).rejects.toThrow('Invalid cursor');
+      expect(prisma.post.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('counts and viewer flags', () => {
+    it("returns like and save counts and whether you've liked or saved it", async () => {
+      prisma.post.findUnique.mockResolvedValue(
+        makePost({
+          _count: { likes: 7, saves: 2, comments: 5 },
+          likes: [{ userId: ownerId }],
+          saves: [],
+        }),
+      );
+
+      const post = await service.findOne(ownerId, postId);
+
+      const [args] = prisma.post.findUnique.mock.calls[0] as [
+        { include: Record<string, unknown> },
+      ];
+      expect(args.include).toMatchObject({
+        _count: { select: { likes: true, saves: true, comments: true } },
+        likes: { where: { userId: ownerId }, select: { userId: true } },
+        saves: { where: { userId: ownerId }, select: { userId: true } },
+      });
+      expect(post).toMatchObject({
+        likeCount: 7,
+        saveCount: 2,
+        commentCount: 5,
+        likedByMe: true,
+        savedByMe: false,
+      });
+    });
+  });
+
+  describe('listSaved', () => {
+    it("lists only the user's own visible saves, most recent first", async () => {
+      prisma.postSave.findMany.mockResolvedValue([
+        { postId, post: makePost({ saves: [{ userId: 'user_saver' }] }) },
+      ]);
+
+      const page = await service.listSaved('user_saver', {});
+
+      expect(prisma.postSave.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            userId: 'user_saver',
+            post: {
+              trip: {
+                OR: [{ status: 'published' }, { ownerId: 'user_saver' }],
+              },
+            },
+          },
+          orderBy: [{ createdAt: 'desc' }, { postId: 'desc' }],
+        }),
+      );
+      expect(page.items[0]).toMatchObject({ id: postId, savedByMe: true });
+      expect(page.nextCursor).toBeNull();
+    });
+
+    it('starts after the cursor and returns the next one', async () => {
+      const savedAt = new Date('2026-10-20T12:00:00Z');
+      const lastId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+      const cursor = encodeCursor('saved-posts:user_saver', [savedAt, lastId]);
+      prisma.postSave.findMany.mockResolvedValue([
+        { postId: 'b', createdAt: savedAt, post: makePost({ id: 'b' }) },
+        { postId: 'c', createdAt: savedAt, post: makePost({ id: 'c' }) },
+      ]);
+
+      const page = await service.listSaved('user_saver', { cursor, limit: 1 });
+
+      const [args] = prisma.postSave.findMany.mock.calls[0] as [
+        { where: { OR: unknown }; orderBy: unknown; take: number },
+      ];
+      expect(args.where.OR).toEqual([
+        { createdAt: { lt: savedAt } },
+        { createdAt: savedAt, postId: { lt: lastId } },
+      ]);
+      expect(args.orderBy).toEqual([{ createdAt: 'desc' }, { postId: 'desc' }]);
+      expect(args.take).toBe(2);
+      expect(page.items).toHaveLength(1);
+      expect(
+        decodeCursor(page.nextCursor!, 'saved-posts:user_saver', [
+          'date',
+          'string',
+        ]),
+      ).toEqual([savedAt, 'b']);
+    });
+
+    it('rejects a cursor whose post ID is not a UUID', async () => {
+      const cursor = encodeCursor('saved-posts:user_saver', [
+        new Date('2026-10-20T12:00:00Z'),
+        'not-a-uuid',
+      ]);
+      await expect(service.listSaved('user_saver', { cursor })).rejects.toThrow(
+        'Invalid cursor',
+      );
+      expect(prisma.postSave.findMany).not.toHaveBeenCalled();
+    });
+
+    it("rejects a cursor from someone else's list", async () => {
+      const cursor = encodeCursor('saved-posts:someone_else', [
+        new Date('2026-10-20T12:00:00Z'),
+        'a',
+      ]);
+      await expect(service.listSaved('user_saver', { cursor })).rejects.toThrow(
+        'Invalid cursor',
+      );
+      expect(prisma.postSave.findMany).not.toHaveBeenCalled();
     });
   });
 });

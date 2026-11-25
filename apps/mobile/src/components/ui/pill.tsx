@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
     borderWidth: 1,
     borderRadius: Radii.pill,
-    paddingHorizontal: 10,
+    paddingHorizontal: Spacing.two,
     paddingVertical: Spacing.one,
   },
   pressed: { opacity: 0.7 },

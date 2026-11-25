@@ -5,9 +5,8 @@ import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/ui/app-text';
 import { InputTokens } from '@/constants/input-tokens';
 import { Palette } from '@/constants/palette';
-import { Radii, Spacing } from '@/constants/theme';
-import { toIsoDate, todayLocalIso } from '@/utils/local-date';
-import { formatDate, monthName } from '@/utils/trip-dates';
+import { Radii, Spacing, Theme } from '@/constants/theme';
+import { formatDate, monthName, toIsoDate, todayLocalIso } from '@/utils/local-date';
 
 export type DateFieldProps = {
   label: string;
@@ -149,7 +148,7 @@ const styles = StyleSheet.create({
     minHeight: InputTokens.minHeight,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: Spacing.two,
     borderWidth: InputTokens.borderWidth,
     borderColor: InputTokens.border,
     borderRadius: InputTokens.borderRadius,
@@ -165,7 +164,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing.four,
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    backgroundColor: Theme.colors.scrim,
   },
   sheet: {
     width: '100%',

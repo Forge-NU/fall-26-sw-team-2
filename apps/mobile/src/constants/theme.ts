@@ -8,6 +8,7 @@ import { AvatarTokens } from './avatar-tokens';
 import { ToastTokens } from './toast-tokens';
 import { EmptyStateTokens } from './empty-state-tokens';
 import { SkeletonTokens } from './skeleton-tokens';
+import { RatingTokens } from './rating-tokens';
 
 const light = {
   text: Palette.black,
@@ -20,6 +21,8 @@ const light = {
   accent: Palette.teal,
   border: Palette.lightPink,
   notification: Palette.coral,
+  // Dimmed backdrop behind sheets and dialogs
+  scrim: 'rgba(0, 0, 0, 0.35)',
 } as const;
 export const Colors = { light, dark: light } as const;
 export type ThemeColor = keyof typeof light;
@@ -43,7 +46,7 @@ export const Theme = {
   fonts: Fonts,
   spacing: Spacing,
   radii: Radii,
-  components: { button: ButtonTokens, input: InputTokens, avatar: AvatarTokens, toast: ToastTokens, emptyState: EmptyStateTokens, skeleton: SkeletonTokens },
+  components: { button: ButtonTokens, input: InputTokens, avatar: AvatarTokens, toast: ToastTokens, emptyState: EmptyStateTokens, skeleton: SkeletonTokens, rating: RatingTokens },
 } as const;
 export { Palette, Typography };
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;

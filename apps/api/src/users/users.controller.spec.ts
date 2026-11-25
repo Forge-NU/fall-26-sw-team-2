@@ -3,7 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { FollowsService } from '../follows/follows.service';
-import { mapUserToResponse } from './utils/user.mapper';
+import { StorageService } from '../storage/storage.service';
 
 describe('UsersController', () => {
   let controller: UsersController;
@@ -28,6 +28,18 @@ describe('UsersController', () => {
 
   const userId = 'user_123';
 
+  const mockStorageService = {
+    getReadUrl: jest.fn((key: string) => Promise.resolve(`signed:${key}`)),
+  };
+
+  const toResponse = (user: typeof mockUser) => ({
+    id: user.id,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    username: user.username,
+    avatarUrl: user.avatarUrl,
+  });
+
   beforeEach(async () => {
     jest.clearAllMocks();
     mockFollowsService.getCounts.mockResolvedValue({
@@ -39,6 +51,7 @@ describe('UsersController', () => {
       controllers: [UsersController],
       providers: [
         { provide: FollowsService, useValue: mockFollowsService },
+        { provide: StorageService, useValue: mockStorageService },
         {
           provide: UsersService,
           useValue: mockUsersService,
@@ -60,7 +73,7 @@ describe('UsersController', () => {
       await expect(controller.getMe(userId)).resolves.toEqual({
         followerCount: 3,
         followingCount: 2,
-        ...mapUserToResponse(mockUser),
+        ...toResponse(mockUser),
       });
 
       expect(mockUsersService.findById).toHaveBeenCalledWith('user_123');
@@ -85,7 +98,7 @@ describe('UsersController', () => {
       await expect(controller.createProfile(userId, dto)).resolves.toEqual({
         followerCount: 3,
         followingCount: 2,
-        ...mapUserToResponse(mockUser),
+        ...toResponse(mockUser),
       });
 
       expect(mockUsersService.createProfile).toHaveBeenCalledWith(
@@ -160,6 +173,29 @@ describe('UsersController', () => {
     });
   });
 
+  it('sends a signed URL for an uploaded avatar', async () => {
+    const avatarKey = `users/${userId}/avatars/0f8b6c3e-1d2a-4b5c-9e7f-123456789abc.jpg`;
+    mockUsersService.findById.mockResolvedValue({
+      ...mockUser,
+      avatarUrl: avatarKey,
+    });
+
+    await expect(controller.getMe(userId)).resolves.toMatchObject({
+      avatarUrl: `signed:${avatarKey}`,
+    });
+  });
+
+  it('passes a Clerk image URL through unchanged', async () => {
+    mockUsersService.findById.mockResolvedValue({
+      ...mockUser,
+      avatarUrl: 'https://img.clerk.com/abc',
+    });
+
+    await expect(controller.getMe(userId)).resolves.toMatchObject({
+      avatarUrl: 'https://img.clerk.com/abc',
+    });
+  });
+
   describe('findById', () => {
     it('returns a user profile by ID', async () => {
       mockUsersService.findById.mockResolvedValue(mockUser);
@@ -167,7 +203,7 @@ describe('UsersController', () => {
       await expect(controller.findById('user_123')).resolves.toEqual({
         followerCount: 3,
         followingCount: 2,
-        ...mapUserToResponse(mockUser),
+        ...toResponse(mockUser),
       });
 
       expect(mockUsersService.findById).toHaveBeenCalledWith('user_123');
@@ -195,7 +231,7 @@ describe('UsersController', () => {
       });
 
       await expect(controller.listUsers({})).resolves.toEqual({
-        items: mockUsers.map(mapUserToResponse),
+        items: mockUsers.map(toResponse),
         nextCursor: 'dXNlcl80NTY=',
       });
 

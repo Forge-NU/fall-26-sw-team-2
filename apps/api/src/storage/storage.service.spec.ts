@@ -86,6 +86,43 @@ describe('StorageService', () => {
     });
   });
 
+  describe('listKeys', () => {
+    it('follows continuation tokens until the listing ends', async () => {
+      const send = jest
+        .spyOn(S3Client.prototype, 'send')
+        .mockResolvedValueOnce({
+          Contents: [{ Key: 'users/u/posts/a.jpg' }],
+          IsTruncated: true,
+          NextContinuationToken: 'next',
+        } as never)
+        .mockResolvedValueOnce({
+          Contents: [{ Key: 'users/u/stories/b.jpg' }],
+          IsTruncated: false,
+        } as never);
+      const service = new StorageService();
+
+      await expect(service.listKeys('users/u/')).resolves.toEqual([
+        'users/u/posts/a.jpg',
+        'users/u/stories/b.jpg',
+      ]);
+      expect(send).toHaveBeenCalledTimes(2);
+      const second = send.mock.calls[1][0] as { input: unknown };
+      expect(second.input).toMatchObject({
+        Prefix: 'users/u/',
+        ContinuationToken: 'next',
+      });
+    });
+
+    it('returns nothing without a bucket configured', async () => {
+      delete process.env['S3_BUCKET_NAME'];
+      const send = jest.spyOn(S3Client.prototype, 'send');
+      const service = new StorageService();
+
+      await expect(service.listKeys('users/u/')).resolves.toEqual([]);
+      expect(send).not.toHaveBeenCalled();
+    });
+  });
+
   describe('deleteObjects', () => {
     it("doesn't throw when S3 fails, and logs the keys", async () => {
       jest

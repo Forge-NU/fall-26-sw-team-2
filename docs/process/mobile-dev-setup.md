@@ -26,7 +26,7 @@ which picks versions that match the Expo SDK. Don't use
 | Variable | What it's for |
 |---|---|
 | `EXPO_PUBLIC_API_URL` | Base URL of the API, without `/api`. On a physical phone use your computer's LAN IP (e.g. `http://192.168.1.20:3000`), not `localhost`. |
-| `EXPO_PUBLIC_API_MOCKS` | `auto` (default), `all` or `none`. See [mobile-data-layer.md](mobile-data-layer.md#mocking-endpoints). |
+| `EXPO_PUBLIC_API_MOCKS` | `auto` (default), `all` or `none`. `all` also skips sign-in, so the trip, post and story screens run without a Clerk key or the API. See [mobile-data-layer.md](mobile-data-layer.md#mocking-endpoints). |
 
 `EXPO_PUBLIC_*` values are bundled into the app, so never put secrets in them.
 After changing `.env`, restart `npm start`.

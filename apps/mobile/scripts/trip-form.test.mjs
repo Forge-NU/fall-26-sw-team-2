@@ -6,7 +6,7 @@ import {
   toUpdateTripRequest,
   validateTripForm,
 } from '../src/lib/trip-form.ts';
-import { formatDateRange, tripDayCount, tripDays } from '../src/utils/trip-dates.ts';
+import { formatDateRange, tripDayCount, tripDays } from '../src/utils/local-date.ts';
 
 const valid = {
   title: 'Lisbon weekend',

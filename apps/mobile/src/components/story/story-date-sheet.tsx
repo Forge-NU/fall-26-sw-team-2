@@ -1,27 +1,27 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import type { TripResponse } from 'shared-types';
 
 import { AppText } from '@/components/ui/app-text';
 import { Button } from '@/components/ui/button';
 import { BottomSheet } from '@/components/bottom-sheet';
 import { Icon } from '@/components/icon';
-import { Palette, Radii } from '@/constants/theme';
-import type { ActiveTrip } from '@/data/mock';
+import { Palette, Radii, Spacing } from '@/constants/theme';
 import {
-  formatDay,
+  formatDate,
+  formatDateRange,
   formatMonth,
-  formatRange,
-  isWithin,
+  isDateWithin,
   monthGrid,
   parseIsoDate,
-} from '@/utils/dates';
+} from '@/utils/local-date';
 
 const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 type StoryDateSheetProps = {
   visible: boolean;
   /** When set, only the trip's dates can be picked. */
-  trip: ActiveTrip | null;
+  trip: Pick<TripResponse, 'title' | 'startDate' | 'endDate'> | null;
   value: string;
   /** When the photo was taken. The "From photo" suggestion only shows when set. */
   capturedAt?: { date: string; time: string };
@@ -38,15 +38,15 @@ function StoryDateSheetContent({ trip, value, capturedAt, onConfirm, onClose }: 
   const [pending, setPending] = useState(value);
   const [visibleMonth, setVisibleMonth] = useState(() => {
     const date = parseIsoDate(value);
-    return { year: date.getFullYear(), month: date.getMonth() };
+    return { year: date.getFullYear(), month: date.getMonth() + 1 };
   });
 
-  const isSelectable = (iso: string) => !trip || isWithin(iso, trip.startDate, trip.endDate);
+  const isSelectable = (iso: string) => !trip || isDateWithin(iso, trip.startDate, trip.endDate);
 
   const shiftMonth = (delta: number) =>
     setVisibleMonth(({ year, month }) => {
-      const next = new Date(year, month + delta, 1);
-      return { year: next.getFullYear(), month: next.getMonth() };
+      const next = new Date(year, month - 1 + delta, 1);
+      return { year: next.getFullYear(), month: next.getMonth() + 1 };
     });
 
   return (
@@ -55,10 +55,10 @@ function StoryDateSheetContent({ trip, value, capturedAt, onConfirm, onClose }: 
       onClose={onClose}
       title="Choose story date"
       closeSize={28}
-      gap={8}>
+      gap={Spacing.two}>
       {trip && (
         <AppText variant="caption" color="placeholderGray">
-          {trip.title} · {formatRange(trip.startDate, trip.endDate)}
+          {trip.title} · {formatDateRange(trip.startDate, trip.endDate)}
         </AppText>
       )}
 
@@ -67,7 +67,7 @@ function StoryDateSheetContent({ trip, value, capturedAt, onConfirm, onClose }: 
           <Icon name="sparkle" size={14} color="coral" />
           <View style={styles.suggestionText}>
             <AppText variant="caption">
-              From photo · {formatDay(capturedAt.date)}, {capturedAt.time}
+              From photo · {formatDate(capturedAt.date)}, {capturedAt.time}
             </AppText>
             <AppText variant="caption" color="placeholderGray">
               Suggested date. Pick another date to change it.
@@ -107,7 +107,7 @@ function StoryDateSheetContent({ trip, value, capturedAt, onConfirm, onClose }: 
                   key={iso}
                   disabled={!selectable}
                   accessibilityRole="button"
-                  accessibilityLabel={formatDay(iso)}
+                  accessibilityLabel={formatDate(iso)}
                   accessibilityState={{ selected, disabled: !selectable }}
                   onPress={() => setPending(iso)}
                   style={[
@@ -154,15 +154,15 @@ const styles = StyleSheet.create({
   suggestion: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.two,
     borderRadius: Radii.small,
     backgroundColor: Palette.peach,
   },
   suggestionText: {
     flex: 1,
-    gap: 2,
+    gap: Spacing.half,
   },
   monthNav: {
     // Grows with the heading text so the month name never clips.
@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   calendar: {
-    gap: 2,
+    gap: Spacing.half,
   },
   weekdays: {
     height: 20,
@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
   week: {
     height: 30,
     flexDirection: 'row',
-    gap: 2,
+    gap: Spacing.half,
   },
   cell: {
     flex: 1,
@@ -208,16 +208,16 @@ const styles = StyleSheet.create({
   keyItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: Spacing.one,
   },
   swatch: {
     width: 8,
     height: 8,
-    borderRadius: 2,
+    borderRadius: Spacing.half,
     backgroundColor: Palette.teal,
   },
   confirm: {
     alignSelf: 'stretch',
-    marginBottom: 4,
+    marginBottom: Spacing.one,
   },
 });

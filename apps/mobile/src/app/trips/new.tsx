@@ -1,12 +1,13 @@
 import { router } from 'expo-router';
 
+import { getErrorMessage } from '@/api/client';
 import { TripForm } from '@/components/trips/trip-form';
 import { useToast } from '@/components/ui/toast-provider';
 import { Screen } from '@/components/ui/screen';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useCreateTrip } from '@/hooks/use-trips';
-import { describeError } from '@/lib/api-errors';
 import { toCreateTripRequest } from '@/lib/trip-form';
+import { TRIP_ERROR_FALLBACKS } from '@/lib/trips';
 import { todayLocalIso } from '@/utils/local-date';
 
 export default function NewTripScreen() {
@@ -14,11 +15,13 @@ export default function NewTripScreen() {
   const { showToast } = useToast();
 
   return (
-    <Screen>
-      <ScreenHeader
-        title="New trip"
-        left={{ icon: 'close', label: 'Close', onPress: () => router.back() }}
-      />
+    <Screen
+      header={
+        <ScreenHeader
+          title="New trip"
+          left={{ icon: 'x', label: 'Close', onPress: () => router.back() }}
+        />
+      }>
       <TripForm
         initialValues={{
           title: '',
@@ -29,7 +32,7 @@ export default function NewTripScreen() {
         }}
         submitLabel="Create trip"
         submitting={createTrip.isPending}
-        formError={createTrip.error ? describeError(createTrip.error, "Couldn't create the trip. Try again.") : null}
+        formError={createTrip.error ? getErrorMessage(createTrip.error, { ...TRIP_ERROR_FALLBACKS, other: "Couldn't create the trip. Try again." }) : null}
         onSubmit={(values) =>
           createTrip.mutate(toCreateTripRequest(values), {
             onSuccess: (trip) => {

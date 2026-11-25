@@ -8,7 +8,6 @@
     "scheme": "mobile",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon",
       "bundleIdentifier": "com.forgenu.yuji"
     },
     "android": {
@@ -37,17 +36,19 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Yuji uses your location to show places near you on the map."
+          "locationWhenInUsePermission": "Yuji uses your location to show places near you on the map and to start a dropped pin where you are."
         }
       ],
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "backgroundColor": "#FFFCFA",
+          "image": "./assets/images/yuji/wordmark@3x.png",
+          "imageWidth": 120
         }
-      ]
+      ],
+      "@clerk/expo",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,

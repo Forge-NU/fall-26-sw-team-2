@@ -1,30 +1,34 @@
 // STAND-IN for APP-1 (#30): uses React Query directly until its data layer lands.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { CreateTripRequest, PostResponse, TripResponse, UpdateTripRequest } from 'shared-types';
 
 import { getTripPosts } from '@/api/posts';
 import { queryKeys } from '@/api/query-keys';
 import { createTrip, deleteTrip, getTrip, getUserTrips, publishTrip, updateTrip } from '@/api/trips';
-import type { CreateTripRequest, PostResponse, TripResponse, UpdateTripRequest } from '@/api/types';
 import { useCurrentUser } from '@/lib/current-user';
 
 export function useTrip(id: string) {
   return useQuery({ queryKey: queryKeys.trip(id), queryFn: () => getTrip(id) });
 }
 
+// Every page of a trip's posts. Shared by useTripPosts and anything that reads
+// the same cache entry with queryClient.fetchQuery.
+export async function fetchAllTripPosts(tripId: string): Promise<PostResponse[]> {
+  const items: PostResponse[] = [];
+  let cursor: string | null = null;
+  do {
+    const page = await getTripPosts(tripId, cursor);
+    items.push(...page.items);
+    cursor = page.nextCursor;
+  } while (cursor);
+  return items;
+}
+
 // The trip page groups posts by day, so it loads every page up front
 export function useTripPosts(tripId: string) {
   return useQuery({
     queryKey: queryKeys.tripPosts(tripId),
-    queryFn: async () => {
-      const items: PostResponse[] = [];
-      let cursor: string | null = null;
-      do {
-        const page = await getTripPosts(tripId, cursor);
-        items.push(...page.items);
-        cursor = page.nextCursor;
-      } while (cursor);
-      return items;
-    },
+    queryFn: () => fetchAllTripPosts(tripId),
   });
 }
 
@@ -90,6 +94,8 @@ export function useDeleteTrip(id: string) {
         trips?.filter((trip) => trip.id !== id),
       );
       void queryClient.invalidateQueries({ queryKey: queryKeys.userTrips(user.id) });
+      // Its posts go with it
+      void queryClient.invalidateQueries({ queryKey: queryKeys.userPosts(user.id) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.activeTrips });
     },
   });

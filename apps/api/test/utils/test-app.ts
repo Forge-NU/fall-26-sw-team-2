@@ -28,6 +28,8 @@ export const storageMock = {
     }),
   ),
   deleteObjects: jest.fn(() => Promise.resolve()),
+  deleteObjectsStrict: jest.fn(() => Promise.resolve()),
+  listKeys: jest.fn(() => Promise.resolve([] as string[])),
 };
 
 const fakeAuthGuard = {
@@ -48,7 +50,10 @@ export async function createTestApp() {
     .useValue(storageMock)
     .compile();
 
-  const app: INestApplication = moduleRef.createNestApplication();
+  // rawBody, like main.ts, so the Clerk webhook can verify its signature
+  const app: INestApplication = moduleRef.createNestApplication({
+    rawBody: true,
+  });
   // Same prefix, pipe and filter as main.ts
   app.setGlobalPrefix('api');
   app.useGlobalPipes(

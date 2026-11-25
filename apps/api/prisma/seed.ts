@@ -2,10 +2,13 @@
 // Every row has a fixed ID and is upserted, so running this twice doesn't
 // duplicate anything. #45 (DEV-1) owns the seed script overall; this covers
 // the users the trips need plus the #3 tables (trips, posts, post_media,
-// locations), follow relationships for #10, and stories (#23).
+// locations), follow relationships for #10, stories (#23), likes and saves
+// (#49), comments (#50), place ratings (RATE-1), a dropped pin (LOC-2), and
+// shared trips, buckets, saved places and notifications (#131 COLLAB-1).
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client';
+import { refreshLocationRatings } from '../src/locations/location-ratings';
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env['DATABASE_URL'] }),
@@ -135,6 +138,20 @@ const locations = [
   },
 ];
 
+// A pin Maya dropped (#94 LOC-2): a beach Mapbox doesn't list, so it's a
+// custom locations row that only her post uses. It shows on the map and in
+// radius search, and her rating is its rating.
+const pins = [
+  {
+    id: '00000000-0000-4000-a000-000000000009',
+    providerPlaceId: 'seed.pin.praia-da-ursa-cove',
+    name: 'Hidden cove below Praia da Ursa',
+    latitude: 38.789811,
+    longitude: -9.499287,
+    createdBy: 'user_seed_maya',
+  },
+];
+
 // UTC midnight, `offset` days from today. Used for the active trip so it
 // stays active whenever the seed is run.
 function daysFromToday(offset: number) {
@@ -197,6 +214,29 @@ const trips = [
     status: 'draft' as const,
     publishedAt: null,
   },
+  {
+    // Published; adds a second and third rating to places in Maya's Lisbon trip
+    id: '00000000-0000-4000-b000-000000000005',
+    ownerId: 'user_seed_priya',
+    title: 'Lisbon layover',
+    destination: 'Lisbon, Portugal',
+    description: 'Two days between flights, spent mostly in Belém.',
+    startDate: new Date('2026-10-02'),
+    endDate: new Date('2026-10-03'),
+    status: 'published' as const,
+    publishedAt: new Date('2026-10-04T09:00:00Z'),
+  },
+  {
+    id: '00000000-0000-4000-b000-000000000006',
+    ownerId: 'user_seed_alex',
+    title: 'A day in Belém',
+    destination: 'Lisbon, Portugal',
+    description: null,
+    startDate: new Date('2026-10-10'),
+    endDate: new Date('2026-10-10'),
+    status: 'published' as const,
+    publishedAt: new Date('2026-10-11T08:00:00Z'),
+  },
 ];
 
 type SeedPost = {
@@ -207,9 +247,15 @@ type SeedPost = {
   caption: string | null;
   locationId?: string;
   customLocationName?: string;
+  // 1-5 stars, only with a locationId
+  rating?: number;
   mediaCount: number;
 };
 
+// Place ratings this gives, counting only published trips:
+// Pastéis de Belém 4.3 (3), Belém Tower 4.0 (2), Pena Palace 4.0 (1; Alex's
+// draft rating doesn't count), Miradouro de Santa Luzia, Nyhavn and Tivoli
+// one each, LX Factory and Torvehallerne none, and Maya's pin 5.0 (1).
 const posts: SeedPost[] = [
   {
     id: '00000000-0000-4000-9000-000000000001',
@@ -218,6 +264,7 @@ const posts: SeedPost[] = [
     visitedOn: new Date('2026-09-12'),
     caption: 'Got here right at opening and still had to queue. Worth it.',
     locationId: locations[0].id,
+    rating: 5,
     mediaCount: 3,
   },
   {
@@ -227,6 +274,7 @@ const posts: SeedPost[] = [
     visitedOn: new Date('2026-09-12'),
     caption: 'Six pastéis between the two of us. No regrets.',
     locationId: locations[1].id,
+    rating: 5,
     mediaCount: 2,
   },
   {
@@ -236,6 +284,7 @@ const posts: SeedPost[] = [
     visitedOn: new Date('2026-09-13'),
     caption: 'Sunset, right on schedule.',
     locationId: locations[2].id,
+    rating: 5,
     mediaCount: 1,
   },
   {
@@ -254,10 +303,11 @@ const posts: SeedPost[] = [
     visitedOn: new Date('2026-09-15'),
     caption: 'Took the early train out to Sintra to beat the crowds.',
     locationId: locations[4].id,
+    rating: 4,
     mediaCount: 3,
   },
   {
-    // Custom location (no Mapbox place), so it shows on the post but not the map
+    // Custom name only (no pin), so it shows on the post but not the map
     id: '00000000-0000-4000-9000-000000000006',
     tripId: trips[0].id,
     ownerId: 'user_seed_maya',
@@ -282,6 +332,7 @@ const posts: SeedPost[] = [
     visitedOn: new Date('2026-09-25'),
     caption: 'Obligatory Nyhavn photo.',
     locationId: locations[5].id,
+    rating: 3,
     mediaCount: 2,
   },
   {
@@ -300,6 +351,7 @@ const posts: SeedPost[] = [
     visitedOn: new Date('2026-09-26'),
     caption: 'Tivoli at night is something else.',
     locationId: locations[6].id,
+    rating: 5,
     mediaCount: 2,
   },
   {
@@ -309,6 +361,48 @@ const posts: SeedPost[] = [
     visitedOn: daysFromToday(-1),
     caption: 'Made it up the hill before the fog rolled in.',
     locationId: locations[4].id,
+    rating: 5,
+    mediaCount: 2,
+  },
+  {
+    id: '00000000-0000-4000-9000-000000000012',
+    tripId: trips[4].id,
+    ownerId: 'user_seed_priya',
+    visitedOn: new Date('2026-10-02'),
+    caption: 'Everyone said to come here. Everyone was right.',
+    locationId: locations[1].id,
+    rating: 4,
+    mediaCount: 1,
+  },
+  {
+    id: '00000000-0000-4000-9000-000000000013',
+    tripId: trips[4].id,
+    ownerId: 'user_seed_priya',
+    visitedOn: new Date('2026-10-03'),
+    caption: 'Smaller than I expected, but the river views are great.',
+    locationId: locations[0].id,
+    rating: 3,
+    mediaCount: 2,
+  },
+  {
+    id: '00000000-0000-4000-9000-000000000014',
+    tripId: trips[5].id,
+    ownerId: 'user_seed_alex',
+    visitedOn: new Date('2026-10-10'),
+    caption: 'Ate three standing at the counter.',
+    locationId: locations[1].id,
+    rating: 4,
+    mediaCount: 1,
+  },
+  {
+    // On the pin above
+    id: '00000000-0000-4000-9000-000000000015',
+    tripId: trips[0].id,
+    ownerId: 'user_seed_maya',
+    visitedOn: new Date('2026-09-15'),
+    caption: 'Scrambled down from Praia da Ursa. Had the cove to ourselves.',
+    locationId: pins[0].id,
+    rating: 5,
     mediaCount: 2,
   },
 ];
@@ -378,6 +472,213 @@ const stories: SeedStory[] = [
   },
 ];
 
+// Likes and saves (#49 INT-1). Only on published trips, since nobody else can
+// see a draft. Maya's Lisbon posts get likes from both followers, and Priya's
+// Copenhagen trip gets a couple back. Maya saves her own post too, which is
+// allowed.
+const postLikes = [
+  { userId: 'user_seed_priya', postId: posts[0].id },
+  { userId: 'user_seed_alex', postId: posts[0].id },
+  { userId: 'user_seed_priya', postId: posts[1].id },
+  { userId: 'user_seed_alex', postId: posts[2].id },
+  { userId: 'user_seed_priya', postId: posts[4].id },
+  { userId: 'user_seed_maya', postId: posts[7].id },
+  { userId: 'user_seed_maya', postId: posts[9].id },
+  { userId: 'user_seed_alex', postId: posts[9].id },
+];
+
+const tripSaves = [
+  { userId: 'user_seed_priya', tripId: trips[0].id },
+  { userId: 'user_seed_alex', tripId: trips[0].id },
+  { userId: 'user_seed_maya', tripId: trips[2].id },
+];
+
+const postSaves = [
+  { userId: 'user_seed_alex', postId: posts[1].id },
+  { userId: 'user_seed_alex', postId: posts[4].id },
+  { userId: 'user_seed_priya', postId: posts[2].id },
+  { userId: 'user_seed_maya', postId: posts[8].id },
+  { userId: 'user_seed_maya', postId: posts[5].id },
+];
+
+// Comments (#50 INT-2), on published trips. The first is a reply thread:
+// Priya comments, Maya replies, and Alex replies to Maya's reply, which the
+// API stores under Priya's comment with an @mention of Maya.
+type SeedComment = {
+  id: string;
+  postId: string;
+  authorId: string;
+  body: string;
+  parentCommentId?: string;
+  replyToUserId?: string;
+  createdAt: Date;
+};
+
+const comments: SeedComment[] = [
+  {
+    id: '00000000-0000-4000-d000-000000000001',
+    postId: posts[0].id,
+    authorId: 'user_seed_priya',
+    body: 'How long was the queue? Thinking of going in December.',
+    createdAt: new Date('2026-09-18T16:00:00Z'),
+  },
+  {
+    id: '00000000-0000-4000-d000-000000000002',
+    postId: posts[0].id,
+    authorId: 'user_seed_maya',
+    body: 'About 40 minutes at opening. Get there 15 minutes early!',
+    parentCommentId: '00000000-0000-4000-d000-000000000001',
+    createdAt: new Date('2026-09-18T16:20:00Z'),
+  },
+  {
+    id: '00000000-0000-4000-d000-000000000003',
+    postId: posts[0].id,
+    authorId: 'user_seed_alex',
+    body: 'Good tip, adding it to my list.',
+    parentCommentId: '00000000-0000-4000-d000-000000000001',
+    replyToUserId: 'user_seed_maya',
+    createdAt: new Date('2026-09-18T17:05:00Z'),
+  },
+  {
+    id: '00000000-0000-4000-d000-000000000004',
+    postId: posts[1].id,
+    authorId: 'user_seed_alex',
+    body: 'Six is the correct number.',
+    createdAt: new Date('2026-09-18T18:00:00Z'),
+  },
+  {
+    id: '00000000-0000-4000-d000-000000000005',
+    postId: posts[9].id,
+    authorId: 'user_seed_maya',
+    body: 'Tivoli at night is on my list now.',
+    createdAt: new Date('2026-09-28T12:00:00Z'),
+  },
+];
+
+// Shared trips (#131 COLLAB-1). Alex's Sintra draft is shared: Maya joined,
+// Priya's invite is still pending, and both of them have added places to its
+// bucket. Maya invited Alex to Porto, and he declined.
+const SINTRA = '00000000-0000-4000-b000-000000000004';
+const PORTO = '00000000-0000-4000-b000-000000000002';
+
+const tripMembers = [
+  { tripId: SINTRA, userId: 'user_seed_maya', joinedAt: hoursAgo(30) },
+];
+
+const tripInvites = [
+  {
+    id: '00000000-0000-4000-e000-000000000001',
+    tripId: SINTRA,
+    inviterId: 'user_seed_alex',
+    inviteeId: 'user_seed_maya',
+    status: 'accepted' as const,
+    createdAt: hoursAgo(32),
+    respondedAt: hoursAgo(30),
+  },
+  {
+    id: '00000000-0000-4000-e000-000000000002',
+    tripId: SINTRA,
+    inviterId: 'user_seed_alex',
+    inviteeId: 'user_seed_priya',
+    status: 'pending' as const,
+    createdAt: hoursAgo(5),
+    respondedAt: null,
+  },
+  {
+    id: '00000000-0000-4000-e000-000000000003',
+    tripId: PORTO,
+    inviterId: 'user_seed_maya',
+    inviteeId: 'user_seed_alex',
+    status: 'declined' as const,
+    createdAt: hoursAgo(72),
+    respondedAt: hoursAgo(70),
+  },
+];
+
+const notifications = [
+  {
+    id: '00000000-0000-4000-f000-000000000001',
+    recipientId: 'user_seed_maya',
+    actorId: 'user_seed_alex',
+    type: 'trip_invite' as const,
+    tripId: SINTRA,
+    inviteId: tripInvites[0].id,
+    readAt: hoursAgo(30),
+    createdAt: hoursAgo(32),
+  },
+  {
+    id: '00000000-0000-4000-f000-000000000002',
+    recipientId: 'user_seed_alex',
+    actorId: 'user_seed_maya',
+    type: 'trip_invite_accepted' as const,
+    tripId: SINTRA,
+    inviteId: null,
+    readAt: null,
+    createdAt: hoursAgo(30),
+  },
+  {
+    id: '00000000-0000-4000-f000-000000000003',
+    recipientId: 'user_seed_priya',
+    actorId: 'user_seed_alex',
+    type: 'trip_invite' as const,
+    tripId: SINTRA,
+    inviteId: tripInvites[1].id,
+    readAt: null,
+    createdAt: hoursAgo(5),
+  },
+  {
+    id: '00000000-0000-4000-f000-000000000004',
+    recipientId: 'user_seed_alex',
+    actorId: 'user_seed_maya',
+    type: 'trip_invite' as const,
+    tripId: PORTO,
+    inviteId: tripInvites[2].id,
+    readAt: hoursAgo(70),
+    createdAt: hoursAgo(72),
+  },
+];
+
+const bucketItems = [
+  {
+    id: '00000000-0000-4000-6000-000000000001',
+    tripId: SINTRA,
+    // Pena Palace
+    locationId: '00000000-0000-4000-a000-000000000005',
+    addedById: 'user_seed_alex',
+    note: 'Book the first entry slot, it gets packed by 11',
+    createdAt: hoursAgo(31),
+  },
+  {
+    id: '00000000-0000-4000-6000-000000000002',
+    tripId: SINTRA,
+    // Belém Tower, on the way back to Lisbon
+    locationId: '00000000-0000-4000-a000-000000000001',
+    addedById: 'user_seed_maya',
+    note: null,
+    createdAt: hoursAgo(29),
+  },
+];
+
+const placeSaves = [
+  // Nyhavn and Torvehallerne
+  {
+    userId: 'user_seed_maya',
+    locationId: '00000000-0000-4000-a000-000000000006',
+    createdAt: hoursAgo(48),
+  },
+  {
+    userId: 'user_seed_maya',
+    locationId: '00000000-0000-4000-a000-000000000008',
+    createdAt: hoursAgo(20),
+  },
+  // LX Factory
+  {
+    userId: 'user_seed_priya',
+    locationId: '00000000-0000-4000-a000-000000000004',
+    createdAt: hoursAgo(10),
+  },
+];
+
 async function main() {
   for (const user of users) {
     await prisma.user.upsert({
@@ -404,6 +705,15 @@ async function main() {
     });
   }
 
+  for (const { id, ...pin } of pins) {
+    const data = { ...pin, provider: 'custom' };
+    await prisma.location.upsert({
+      where: { id },
+      update: data,
+      create: { id, ...data },
+    });
+  }
+
   for (const { id, ...trip } of trips) {
     await prisma.trip.upsert({
       where: { id },
@@ -417,6 +727,7 @@ async function main() {
       ...post,
       locationId: post.locationId ?? null,
       customLocationName: post.customLocationName ?? null,
+      rating: post.rating ?? null,
     };
     await prisma.post.upsert({
       where: { id },
@@ -464,8 +775,64 @@ async function main() {
     });
   }
 
+  // Keyed by (user, post) or (user, trip), so rerunning skips existing rows
+  await prisma.postLike.createMany({ data: postLikes, skipDuplicates: true });
+  await prisma.tripSave.createMany({ data: tripSaves, skipDuplicates: true });
+  await prisma.postSave.createMany({ data: postSaves, skipDuplicates: true });
+
+  // In order, so each reply's parent is already there
+  for (const { id, ...comment } of comments) {
+    const data = {
+      ...comment,
+      parentCommentId: comment.parentCommentId ?? null,
+      replyToUserId: comment.replyToUserId ?? null,
+    };
+    await prisma.comment.upsert({
+      where: { id },
+      update: data,
+      create: { id, ...data },
+    });
+  }
+
+  // Shared trips. Keyed rows skip duplicates; rows with an id are upserted.
+  await prisma.tripMember.createMany({
+    data: tripMembers,
+    skipDuplicates: true,
+  });
+  for (const { id, ...invite } of tripInvites) {
+    await prisma.tripInvite.upsert({
+      where: { id },
+      update: invite,
+      create: { id, ...invite },
+    });
+  }
+  for (const { id, ...notification } of notifications) {
+    await prisma.notification.upsert({
+      where: { id },
+      update: notification,
+      create: { id, ...notification },
+    });
+  }
+  for (const { id, ...item } of bucketItems) {
+    await prisma.tripBucketItem.upsert({
+      where: { id },
+      update: item,
+      create: { id, ...item },
+    });
+  }
+  await prisma.placeSave.createMany({ data: placeSaves, skipDuplicates: true });
+
+  // The place totals are derived from the posts, so recompute them for every
+  // seeded place rather than seeding them
+  await prisma.$transaction((tx) =>
+    refreshLocationRatings(
+      tx,
+      [...locations, ...pins].map((l) => l.id),
+    ),
+  );
+
   console.log(
-    `Seeded ${users.length} users, ${follows.length} follows, ${locations.length} locations, ${trips.length} trips, ${posts.length} posts, ${stories.length} stories`,
+    `Seeded ${users.length} users, ${follows.length} follows, ${locations.length} locations, ${pins.length} pins, ${trips.length} trips, ${posts.length} posts, ${stories.length} stories, ${postLikes.length} likes, ${tripSaves.length + postSaves.length} saves, ${comments.length} comments, ${tripMembers.length} trip members, ${tripInvites.length} invites, ${notifications.length} notifications, ${bucketItems.length} bucket places, ${placeSaves.length} saved places`,
   );
 }
 
