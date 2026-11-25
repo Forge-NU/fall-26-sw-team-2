@@ -37,6 +37,8 @@ export type PlaceSuggestion = {
   name: string;
   /** e.g. "Sintra, Lisbon, Portugal" */
   description: string | null;
+  /** Mapbox feature_type, e.g. "country", "place" (a city), "poi" */
+  featureType?: string;
 };
 
 /** Body of POST /api/locations/resolve */
