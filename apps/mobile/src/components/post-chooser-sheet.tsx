@@ -28,13 +28,13 @@ export function PostChooserSheet({
         <PostOption
           label="Create itinerary"
           icon="route"
-          tone="coral"
+          tone="coral500"
           onPress={onCreateItinerary}
         />
         <PostOption
           label="Post story"
           icon="images"
-          tone="teal"
+          tone="neutral700"
           onPress={onPostStory}
         />
       </View>
@@ -50,7 +50,7 @@ function PostOption({
 }: {
   label: string;
   icon: IconName;
-  tone: 'coral' | 'teal';
+  tone: 'coral500' | 'neutral700';
   onPress: () => void;
 }) {
   return (
@@ -59,7 +59,7 @@ function PostOption({
       onPress={onPress}
       style={({ pressed }) => [
         styles.option,
-        { borderColor: tone === 'coral' ? Palette.lightPink : Palette.lightTeal },
+        { borderColor: tone === 'coral500' ? Palette.coral200 : Palette.neutral300 },
         pressed && styles.pressed,
       ]}>
       <View style={[styles.symbol, { backgroundColor: Palette[tone] }]}>

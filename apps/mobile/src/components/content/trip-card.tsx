@@ -120,7 +120,7 @@ export function TripCard({
         <View style={styles.metaRow}>
           <AppText
             variant="caption"
-            color={trip.status === "draft" ? "coral" : "teal"}
+            color={trip.status === "draft" ? "textAccent" : "textSecondary"}
           >
             {trip.status === "draft" ? "Draft itinerary" : "ITINERARY"}
           </AppText>

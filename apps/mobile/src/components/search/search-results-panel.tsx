@@ -88,7 +88,7 @@ function Person({ person, onPress }: { person: SearchPerson; onPress: () => void
   const follow = useFollow(person.id);
   const { isFollowing } = person;
   return <UserRow user={person} onPress={onPress} action={me.id === person.id ? undefined : {
-    title: isFollowing ? 'Following' : 'Follow', variant: isFollowing ? 'teal' : 'coral',
+    title: isFollowing ? 'Following' : 'Follow', variant: isFollowing ? 'secondary' : 'coral',
     loading: follow.isPending, onPress: () => follow.toggle(isFollowing),
   }} />;
 }

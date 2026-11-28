@@ -222,7 +222,7 @@ function TripBody({ dayParam, trip, posts, stories, isOwner, refreshing, onRefre
           {trip.status === 'draft' && posts.length > 0 ? (
             <Button
               title="Publish trip"
-              variant="teal"
+              variant="secondary"
               onPress={() => router.push({ pathname: '/trips/[id]/publish', params: { id: trip.id } })}
               style={styles.fullWidth}
             />
@@ -252,7 +252,7 @@ function Cover({ trip }: { trip: TripResponse }) {
   }
   return (
     <View style={[styles.cover, styles.coverEmpty]}>
-      <Ionicons name="map-outline" size={24} color={Palette.teal} />
+      <Ionicons name="map-outline" size={24} color={Palette.coral600} />
       <AppText variant="caption" style={styles.muted}>
         {trip.destination}
       </AppText>
@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
   center: { textAlign: 'center' },
   cover: { width: '100%', height: 140, borderRadius: Radii.medium },
   coverEmpty: {
-    backgroundColor: Palette.lightTeal,
+    backgroundColor: Palette.neutral100,
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.one,

@@ -73,7 +73,7 @@ export function SearchFiltersSheet({ visible, onClose, tab, value, onChange, cen
       </ScrollView>
       <View style={styles.footer}>
         <Button title="Reset" size="compact" onPress={() => onChange(defaultSearchFilters())} />
-        <Button title="Done" size="compact" variant="teal" onPress={onClose} />
+        <Button title="Done" size="compact" variant="secondary" onPress={onClose} />
       </View>
     </BottomSheet>
   );

@@ -37,15 +37,13 @@ const Primitives = {
 
 // The old names, kept so the screens that still import them compile. Each
 // redesign ticket moves its own screens to the roles, and the last one deletes
-// these. Teal is gone: its old uses point at coral or the feedback colors.
+// these. Teal is gone.
 const Deprecated = {
   warmWhite: Primitives.white,
   peach: Primitives.neutral100,
   lightPink: Primitives.neutral200,
   coralPink: Primitives.coral300,
   coral: Primitives.coral500,
-  lightTeal: Primitives.green50,
-  teal: Primitives.coral600,
   placeholderGray: Primitives.neutral500,
 } as const;
 

@@ -89,7 +89,7 @@ function Carousel({ items }: { items: readonly Photo[] }) {
                   {index > 0 ? (
                     <IconButton
                       icon="chevron-left"
-                      color="teal"
+                      color="black"
                       variant="surface"
                       accessibilityLabel="Previous photo"
                       onPress={() => move(index - 1)}
@@ -100,7 +100,7 @@ function Carousel({ items }: { items: readonly Photo[] }) {
                   {index < items.length - 1 ? (
                     <IconButton
                       icon="chevron-right"
-                      color="teal"
+                      color="black"
                       variant="surface"
                       accessibilityLabel="Next photo"
                       onPress={() => move(index + 1)}

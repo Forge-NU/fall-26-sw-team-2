@@ -41,7 +41,7 @@ export function FiltersMenu({ value, onApply }: Props) {
         );
       })}
       <View style={styles.actions}>
-        <Button title="Reset" variant="teal" onPress={() => onApply('all')} style={styles.reset} />
+        <Button title="Reset" variant="secondary" onPress={() => onApply('all')} style={styles.reset} />
         <Button title="Apply filters" filled onPress={() => onApply(pending)} style={styles.apply} />
       </View>
     </View>

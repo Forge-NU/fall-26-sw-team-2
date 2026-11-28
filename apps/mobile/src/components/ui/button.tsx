@@ -16,9 +16,9 @@ export type ButtonProps = Omit<PressableProps, 'children'> & {
   /**
    * primary: coral fill, bold white label. secondary: gray fill. tertiary: coral
    * text, no fill. tinted: coral text on a light coral fill.
-   * Old names: `coral` is tinted, or primary when `filled`; `teal` is secondary.
+   * Old name: `coral` is tinted, or primary when `filled`.
    */
-  variant?: ButtonType | 'coral' | 'teal';
+  variant?: ButtonType | 'coral';
   disabled?: boolean;
   loading?: boolean;
   /** large is 52 tall, small is 36. `default` and `compact` are the old names. */
@@ -29,7 +29,6 @@ export type ButtonProps = Omit<PressableProps, 'children'> & {
 
 function resolveType(variant: ButtonProps['variant'], filled: boolean): ButtonType {
   if (variant === 'coral') return filled ? 'primary' : 'tinted';
-  if (variant === 'teal') return 'secondary';
   return variant ?? 'primary';
 }
 

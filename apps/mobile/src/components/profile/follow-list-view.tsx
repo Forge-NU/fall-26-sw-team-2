@@ -85,7 +85,7 @@ function FollowRow({ user, isMe }: { user: FollowListUser; isMe: boolean }) {
           ? undefined
           : {
               title: user.isFollowing ? 'Following' : 'Follow',
-              variant: user.isFollowing ? 'teal' : 'coral',
+              variant: user.isFollowing ? 'secondary' : 'coral',
               onPress: () => toggle(user.isFollowing),
             }
       }

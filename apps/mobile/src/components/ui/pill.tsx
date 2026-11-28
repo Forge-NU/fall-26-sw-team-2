@@ -18,7 +18,7 @@ export type PillProps = {
 const variants = {
   default: { background: Palette.white, border: Palette.peach, text: Palette.placeholderGray },
   selected: { background: Palette.peach, border: Palette.coral, text: Palette.coral },
-  live: { background: Palette.lightTeal, border: Palette.teal, text: Palette.black },
+  live: { background: Palette.green50, border: Palette.green600, text: Palette.green800 },
 } as const;
 
 // Pill from the trip wireframes: day tabs, places and status badges

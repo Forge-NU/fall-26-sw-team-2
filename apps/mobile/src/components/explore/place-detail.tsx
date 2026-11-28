@@ -170,7 +170,7 @@ export function PlaceActions({ saved, onLogVisit, onToggleSave }: ActionProps) {
       <Button title="+ Log a visit" filled onPress={onLogVisit} style={styles.action} />
       <Button
         title={saved ? 'Saved' : 'Save place'}
-        variant="teal"
+        variant="secondary"
         filled={saved}
         onPress={onToggleSave}
         accessibilityState={{ selected: saved }}
@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
   meta: { ...Typography.body, color: Palette.placeholderGray },
   logs: { ...Typography.label, color: Palette.black },
   close: { marginRight: -Spacing.two },
-  tip: { padding: Spacing.three, gap: Spacing.one, borderRadius: Radii.pill, backgroundColor: Palette.lightTeal },
+  tip: { padding: Spacing.three, gap: Spacing.one, borderRadius: Radii.pill, backgroundColor: Palette.neutral100 },
   tipText: { ...Typography.label, fontWeight: Typography.body.fontWeight, color: Palette.black },
   tipSource: small,
   ratingCard: {
@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
   barRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   barStar: { ...small, width: Spacing.three - Spacing.one },
   barTrack: { flex: 1, height: MapTokens.barHeight, borderRadius: Radii.circle, backgroundColor: Palette.peach, overflow: 'hidden' },
-  barFill: { height: MapTokens.barHeight, borderRadius: Radii.circle, backgroundColor: Palette.teal },
+  barFill: { height: MapTokens.barHeight, borderRadius: Radii.circle, backgroundColor: Palette.coral500 },
   barCount: { ...small, width: Spacing.four + Spacing.one, textAlign: 'right' },
   section: { ...Typography.subheading, color: Palette.black, marginTop: Spacing.one },
   photos: { gap: Spacing.two },

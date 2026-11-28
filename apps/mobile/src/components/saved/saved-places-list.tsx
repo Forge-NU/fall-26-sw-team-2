@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
     borderRadius: Radii.medium,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Palette.lightTeal,
+    backgroundColor: Palette.neutral100,
   },
   text: { flex: 1, minWidth: 0, gap: Spacing.half },
   rating: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one },

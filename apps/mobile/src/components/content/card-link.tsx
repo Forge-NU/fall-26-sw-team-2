@@ -18,10 +18,10 @@ export function CardLink({
       onPress={onPress}
       style={({ pressed }) => [styles.link, pressed && styles.pressed]}
     >
-      <AppText variant="label" color="teal">
+      <AppText variant="label" color="textAccent">
         {title}
       </AppText>
-      <Icon name="arrow-right" color="teal" size={Spacing.three} />
+      <Icon name="arrow-right" color="coral600" size={Spacing.three} />
     </Pressable>
   );
 }

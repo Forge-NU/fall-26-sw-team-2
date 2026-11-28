@@ -68,7 +68,7 @@ export function NotificationRow({ notification, unread, onOpenTrip }: Notificati
           {status === 'pending' ? (
             <View style={styles.buttons}>
               <Button title="Accept" size="compact" filled onPress={() => respond('accepted')} />
-              <Button title="Decline" size="compact" variant="teal" onPress={() => respond('declined')} />
+              <Button title="Decline" size="compact" variant="secondary" onPress={() => respond('declined')} />
             </View>
           ) : status ? (
             <View style={styles.state}>
