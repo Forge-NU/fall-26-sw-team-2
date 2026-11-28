@@ -264,7 +264,7 @@ function statusPill(trip: TripResponse, active: boolean, today: string): { label
   if (trip.status === 'published') return { label: 'Published', state: 'default' };
   if (active) {
     const day = tripDayNumber(trip.startDate, today);
-    return { label: `Day ${day} of ${tripDayCount(trip.startDate, trip.endDate)}`, state: 'live' };
+    return { label: `Day ${day} of ${tripDayCount(trip.startDate, trip.endDate)}`, state: 'selected' };
   }
   return { label: 'In progress', state: 'default' };
 }

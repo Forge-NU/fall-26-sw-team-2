@@ -107,7 +107,7 @@ export function TripSelect({ trip, subtitle, trips, loading, disabled, onChange,
                     </View>
                     <Pill
                       label={item.status === 'published' ? 'Published' : 'Draft'}
-                      state={item.status === 'published' ? 'live' : 'default'}
+                      state="default"
                     />
                   </Pressable>
                 )}
