@@ -47,7 +47,12 @@
           "imageWidth": 120
         }
       ],
-      "@clerk/expo",
+      [
+        "@clerk/expo",
+        {
+          "appleSignIn": false
+        }
+      ],
       "expo-secure-store"
     ],
     "experiments": {
