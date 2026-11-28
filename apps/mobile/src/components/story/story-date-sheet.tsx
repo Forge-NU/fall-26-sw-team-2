@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
     borderRadius: Radii.small,
   },
   cellInTrip: {
-    backgroundColor: Palette.lightTeal,
+    backgroundColor: Palette.neutral100,
   },
   cellSelected: {
     backgroundColor: Palette.coral,
@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: Spacing.half,
-    backgroundColor: Palette.teal,
+    backgroundColor: Palette.coral500,
   },
   confirm: {
     alignSelf: 'stretch',

@@ -18,7 +18,7 @@ export const MapStyleColors = {
   highway: '#FBF6EA',
   highwayEdge: '#DDD2BC',
   transitLine: '#D9B99B',
-  water: Palette.lightTeal,
+  water: Palette.neutral200,
   waterLabel: '#6C9893',
 } as const;
 

@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Pressable, StyleSheet, type PressableProps } from "react-native";
+import { StyleSheet, type PressableProps } from "react-native";
 import { Icon, type IconName } from "@/components/icon";
 import { AppText } from "./app-text";
+import { AnimatedPressable, usePressScale } from "./press-scale";
 import { ButtonTokens } from "@/constants/button-tokens";
 import { Palette, Radii, Spacing } from "@/constants/theme";
 
@@ -35,12 +36,16 @@ export function IconButton({
   onBlur,
   onHoverIn,
   onHoverOut,
+  onPressIn,
+  onPressOut,
   ...props
 }: IconButtonProps) {
   const [focused, setFocused] = useState(false);
   const [hovered, setHovered] = useState(false);
+  const [pressed, setPressed] = useState(false);
+  const squish = usePressScale(!disabled);
   return (
-    <Pressable
+    <AnimatedPressable
       {...props}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
@@ -66,21 +71,32 @@ export function IconButton({
         setHovered(false);
         onHoverOut?.(event);
       }}
-      style={(state) => [
+      onPressIn={(event) => {
+        setPressed(true);
+        squish.pressIn();
+        onPressIn?.(event);
+      }}
+      onPressOut={(event) => {
+        setPressed(false);
+        squish.pressOut();
+        onPressOut?.(event);
+      }}
+      style={[
         styles.button,
         variant === "surface" && styles.surface,
         !disabled &&
-          (state.pressed || hovered) &&
+          (pressed || hovered) &&
           (variant === "surface" ? styles.activeSurface : styles.active),
         disabled && styles.disabled,
-        typeof style === "function" ? style(state) : style,
+        squish.animatedStyle,
+        typeof style === "function" ? style({ pressed, hovered }) : style,
       ]}
     >
       <Icon
         name={selected && selectedIcon ? selectedIcon : icon}
         color={
           selected || (!disabled && focused && variant === "plain")
-            ? "coral"
+            ? "coral500"
             : color
         }
         size={iconSize}
@@ -88,7 +104,7 @@ export function IconButton({
       {count !== undefined && (
         <AppText variant="label">{count.toLocaleString()}</AppText>
       )}
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -103,8 +119,8 @@ const styles = StyleSheet.create({
     padding: Spacing.two,
     borderRadius: Radii.circle,
   },
-  surface: { backgroundColor: Palette.warmWhite },
-  active: { backgroundColor: Palette.peach },
-  activeSurface: { backgroundColor: Palette.lightTeal },
+  surface: { backgroundColor: Palette.white },
+  active: { backgroundColor: Palette.neutral100 },
+  activeSurface: { backgroundColor: Palette.neutral200 },
   disabled: { opacity: ButtonTokens.disabledOpacity },
 });

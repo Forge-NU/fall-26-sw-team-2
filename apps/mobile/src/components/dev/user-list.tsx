@@ -70,7 +70,7 @@ function ListFooter({ list }: UserListProps) {
         <AppText variant="caption" color="placeholderGray">
           {getErrorMessage(list.error)}
         </AppText>
-        <Button title="Load more" variant="teal" onPress={() => void list.fetchNextPage()} />
+        <Button title="Load more" variant="secondary" onPress={() => void list.fetchNextPage()} />
       </View>
     );
   }

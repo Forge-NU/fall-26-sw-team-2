@@ -1,8 +1,8 @@
 import { Palette } from './palette';
 
-// Temporary loading treatment. 
+// Loading placeholders.
 export const SkeletonTokens = {
-  background: Palette.peach,
+  background: Palette.neutral100,
   height: 16,
   radius: 4,
   duration: 900,

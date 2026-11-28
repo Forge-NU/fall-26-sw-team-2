@@ -75,7 +75,7 @@ function LikerRow({ user, isMe }: { user: PostLikerResponse; isMe: boolean }) {
           ? undefined
           : {
               title: user.isFollowing ? 'Following' : 'Follow',
-              variant: user.isFollowing ? 'teal' : 'coral',
+              variant: user.isFollowing ? 'secondary' : 'coral',
               onPress: () => toggleFollow(user),
             }
       }

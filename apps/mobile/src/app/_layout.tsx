@@ -1,18 +1,9 @@
 import { QueryClientProvider, focusManager } from "@tanstack/react-query";
 import { DefaultTheme, Stack, ThemeProvider } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import { useFonts } from "expo-font";
-import { useEffect } from "react";
 import { AppState, Platform } from "react-native";
-import { Theme, Typography } from '@/constants/theme';
+import { Theme } from '@/constants/theme';
 import { ToastProvider } from "@/components/ui/toast-provider";
-
-import {
-  PlusJakartaSans_400Regular,
-  PlusJakartaSans_600SemiBold,
-  PlusJakartaSans_700Bold,
-} from "@expo-google-fonts/plus-jakarta-sans";
-import { BarlowCondensed_600SemiBold } from "@expo-google-fonts/barlow-condensed";
 
 import { ClerkProvider } from "@clerk/expo";
 import { tokenCache } from "@clerk/expo/token-cache";
@@ -59,31 +50,14 @@ const navigationTheme = {
     notification: Theme.colors.notification,
   },
   fonts: {
-    regular: { fontFamily: Typography.body.fontFamily, fontWeight: '400' as const },
-    medium: { fontFamily: Typography.subheading.fontFamily, fontWeight: '600' as const },
-    bold: { fontFamily: Typography.supporting.fontFamily, fontWeight: '700' as const },
-    heavy: { fontFamily: Typography.supporting.fontFamily, fontWeight: '700' as const },
+    regular: { fontFamily: 'System', fontWeight: '400' as const },
+    medium: { fontFamily: 'System', fontWeight: '600' as const },
+    bold: { fontFamily: 'System', fontWeight: '700' as const },
+    heavy: { fontFamily: 'System', fontWeight: '800' as const },
   },
 };
 
 export default function TabLayout() {
-
-  const [fontsLoaded, fontError] = useFonts({
-    PlusJakartaSans_400Regular,
-    PlusJakartaSans_600SemiBold,
-    PlusJakartaSans_700Bold,
-    BarlowCondensed_600SemiBold,
-  });
-
-  useEffect(() => {
-    if (fontError) {
-      console.error("Failed to load design fonts:", fontError);
-    }
-  }, [fontError]);
-
-  if (!fontsLoaded && !fontError) {
-    return null;
-  }
 
   return (
     <AuthProvider>

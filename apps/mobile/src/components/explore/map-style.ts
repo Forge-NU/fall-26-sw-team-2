@@ -2,7 +2,7 @@ import type { MapStyleElement } from 'react-native-maps';
 
 import { MapStyleColors as c } from '@/constants/map-tokens';
 
-// Matches the wireframe: cream land, white streets, sage parks, pale teal water,
+// Matches the wireframe: cream land, white streets, sage parks, pale gray water,
 // business POIs hidden. Applies to Google maps (always on Android; on iOS only with
 // PROVIDER_GOOGLE in a development build). Expo Go on iOS shows Apple Maps instead.
 export const mapStyle: MapStyleElement[] = [

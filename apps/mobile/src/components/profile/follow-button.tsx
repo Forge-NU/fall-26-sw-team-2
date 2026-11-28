@@ -9,13 +9,13 @@ type FollowButtonProps = {
   size?: 'default' | 'compact';
 };
 
-/** Coral "Follow", teal "Following". Callers leave it out on your own profile. */
+/** Coral "Follow", gray "Following". Callers leave it out on your own profile. */
 export function FollowButton({ userId, handle, isFollowing, size = 'default' }: FollowButtonProps) {
   const { toggle } = useFollow(userId);
   return (
     <Button
       title={isFollowing ? 'Following' : 'Follow'}
-      variant={isFollowing ? 'teal' : 'coral'}
+      variant={isFollowing ? 'secondary' : 'coral'}
       size={size}
       accessibilityLabel={isFollowing ? `Unfollow ${handle}` : `Follow ${handle}`}
       accessibilityState={{ selected: isFollowing }}

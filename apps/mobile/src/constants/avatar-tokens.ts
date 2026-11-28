@@ -1,8 +1,8 @@
 import { Palette } from './palette';
 
 export const AvatarTokens = {
-  background: Palette.lightPink,
-  iconColor: Palette.coral,
+  background: Palette.coral100, // bg/accent-subtle
+  iconColor: Palette.coral700, // text/accent-strong
 
   sizes: {
     compact: {

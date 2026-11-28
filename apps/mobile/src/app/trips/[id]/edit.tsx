@@ -1,12 +1,11 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 
 import { getErrorMessage } from '@/api/client';
 import { TripForm } from '@/components/trips/trip-form';
 import { tripErrorState } from '@/components/trips/trip-error-state';
 import { AppText } from '@/components/ui/app-text';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { confirmAction } from '@/lib/confirm';
 import { Screen } from '@/components/ui/screen';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useToast } from '@/components/ui/toast-provider';
@@ -23,7 +22,6 @@ export default function EditTripScreen() {
   const updateTrip = useUpdateTrip(id);
   const deleteTrip = useDeleteTrip(id);
   const { showToast } = useToast();
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const close = () => router.back();
 
@@ -62,39 +60,34 @@ export default function EditTripScreen() {
           footer={
             <Pressable
               accessibilityRole="button"
-              onPress={() => setConfirmingDelete(true)}
-              style={({ pressed }) => [styles.delete, pressed && styles.pressed]}>
+              disabled={deleteTrip.isPending}
+              onPress={() =>
+                confirmAction({
+                  title: 'Delete this trip?',
+                  message:
+                    postCount > 0
+                      ? `Its ${postCount} ${postCount === 1 ? 'post' : 'posts'} will be deleted too. You can't undo this.`
+                      : "You can't undo this.",
+                  confirmLabel: 'Delete',
+                  destructive: true,
+                  onConfirm: () =>
+                    deleteTrip.mutate(undefined, {
+                      onSuccess: () => {
+                        showToast({ message: 'Trip deleted', variant: 'success' });
+                        // Close this sheet and the deleted trip's page
+                        router.dismissAll();
+                      },
+                      onError: (error) => {
+                        showToast({ message: getErrorMessage(error, { ...TRIP_ERROR_FALLBACKS, other: "Couldn't delete the trip. Try again." }), variant: 'error' });
+                      },
+                    }),
+                })
+              }
+              style={({ pressed }) => [styles.delete, (pressed || deleteTrip.isPending) && styles.pressed]}>
               <AppText variant="label" style={styles.deleteText}>
                 Delete trip
               </AppText>
             </Pressable>
-          }
-        />
-        <ConfirmDialog
-          visible={confirmingDelete}
-          title="Delete this trip?"
-          message={
-            postCount > 0
-              ? `"${trip.data.title}" and its ${postCount} ${postCount === 1 ? 'post' : 'posts'} will be deleted for good. You can't undo this.`
-              : `"${trip.data.title}" will be deleted for good. You can't undo this.`
-          }
-          confirmLabel="Delete trip"
-          destructive
-          loading={deleteTrip.isPending}
-          onCancel={() => setConfirmingDelete(false)}
-          onConfirm={() =>
-            deleteTrip.mutate(undefined, {
-              onSuccess: () => {
-                setConfirmingDelete(false);
-                showToast({ message: 'Trip deleted', variant: 'success' });
-                // Close this sheet and the deleted trip's page
-                router.dismissAll();
-              },
-              onError: (error) => {
-                setConfirmingDelete(false);
-                showToast({ message: getErrorMessage(error, { ...TRIP_ERROR_FALLBACKS, other: "Couldn't delete the trip. Try again." }), variant: 'error' });
-              },
-            })
           }
         />
       </>

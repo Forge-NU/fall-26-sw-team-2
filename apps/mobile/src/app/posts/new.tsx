@@ -10,9 +10,9 @@ import { PhotoGrid } from '@/components/posts/photo-grid';
 import { TripSelect } from '@/components/posts/trip-select';
 import { AppText } from '@/components/ui/app-text';
 import { Button } from '@/components/ui/button';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
 import { Pill } from '@/components/ui/pill';
+import { confirmAction } from '@/lib/confirm';
 import { Screen } from '@/components/ui/screen';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { StarRating } from '@/components/ui/star-rating';
@@ -52,7 +52,6 @@ export default function NewPostScreen() {
   const [progress, setProgress] = useState<UploadProgress | null>(null);
   const [failedDraft, setFailedDraft] = useState<PostDraft | null>(null);
   const [errors, setErrors] = useState<PostFormErrors>({});
-  const [confirmClose, setConfirmClose] = useState(false);
 
   // No trip passed in (Create tab): suggest one until the user picks
   const trip: TripResponse | null = tripId
@@ -176,7 +175,16 @@ export default function NewPostScreen() {
           left={{
             icon: 'x',
             label: 'Close',
-            onPress: () => (photos.length > 0 && !failedDraft && !uploading ? setConfirmClose(true) : close()),
+            onPress: () =>
+              photos.length > 0 && !failedDraft && !uploading
+                ? confirmAction({
+                    title: 'Discard this post?',
+                    confirmLabel: 'Discard',
+                    cancelLabel: 'Keep editing',
+                    destructive: true,
+                    onConfirm: close,
+                  })
+                : close(),
           }}
         />
       }>
@@ -314,19 +322,6 @@ export default function NewPostScreen() {
           style={styles.submit}
         />
       </View>
-
-      <ConfirmDialog
-        visible={confirmClose}
-        title="Discard this post?"
-        message="Your photos and caption won't be saved."
-        confirmLabel="Discard"
-        cancelLabel="Keep editing"
-        onConfirm={() => {
-          setConfirmClose(false);
-          close();
-        }}
-        onCancel={() => setConfirmClose(false)}
-      />
     </Screen>
   );
 }

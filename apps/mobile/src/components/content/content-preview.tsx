@@ -125,7 +125,7 @@ export function ContentPreview() {
         />
         <IconButton
           icon="chevron-right"
-          color="teal"
+          color="black"
           variant="surface"
           accessibilityLabel="Next example"
           onPress={notify("Next selected.")}
@@ -168,7 +168,7 @@ export function ContentPreview() {
         onPress={notify("Maya profile selected.")}
         action={{
           title: following ? "Following" : "Follow",
-          variant: "teal",
+          variant: "secondary",
           onPress: () => setFollowing((value) => !value),
         }}
       />
@@ -308,7 +308,7 @@ export function ContentPreview() {
       </AppText>
       <Button
         title={many ? "Switch to 1 photo" : "Switch to 30 photos"}
-        variant="teal"
+        variant="secondary"
         onPress={() => setMany((value) => !value)}
       />
       <MediaCarousel items={many ? photos : photos.slice(0, 1)} />

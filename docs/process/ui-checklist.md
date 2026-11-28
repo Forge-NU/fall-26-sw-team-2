@@ -10,8 +10,11 @@ linked from the PR template. Background is in
 - [ ] The screen uses `Screen` from `@/components/ui/screen`, with its header in
   the `header` prop (usually a `ScreenHeader`). No hand-rolled `SafeAreaView`,
   background color or side padding.
-- [ ] Sheets use `BottomSheet`, and confirmations use `ConfirmDialog`
-  (`Alert.alert` does nothing on web).
+- [ ] Sheets use `BottomSheet`, and confirmations use `confirmAction` from
+  `lib/confirm.ts` (the iOS system alert). Its message only adds a fact the
+  title doesn't, and destructive actions pass `destructive`.
+- [ ] A load failure uses `LoadError` ("Couldn't load …" and "Try again"),
+  never the raw error text.
 
 ## Components
 

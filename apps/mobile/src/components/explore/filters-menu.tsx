@@ -41,7 +41,7 @@ export function FiltersMenu({ value, onApply }: Props) {
         );
       })}
       <View style={styles.actions}>
-        <Button title="Reset" variant="teal" onPress={() => onApply('all')} style={styles.reset} />
+        <Button title="Reset" variant="secondary" onPress={() => onApply('all')} style={styles.reset} />
         <Button title="Apply filters" filled onPress={() => onApply(pending)} style={styles.apply} />
       </View>
     </View>
@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
   },
   rowActive: { backgroundColor: Palette.peach },
   label: { ...Typography.body, color: Palette.black },
-  labelActive: { fontFamily: Typography.label.fontFamily },
+  labelActive: { fontWeight: Typography.label.fontWeight },
   actions: { flexDirection: 'row', gap: Spacing.two, marginTop: Spacing.three },
   reset: { flex: 1, minWidth: 0 },
   apply: { flex: 2, minWidth: 0 },

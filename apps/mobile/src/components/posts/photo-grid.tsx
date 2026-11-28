@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   remove: { backgroundColor: `${Palette.black}8C` },
-  uploaded: { backgroundColor: Palette.teal },
+  uploaded: { backgroundColor: Palette.green600 },
   failed: { backgroundColor: Palette.coral },
   add: {
     alignItems: 'center',

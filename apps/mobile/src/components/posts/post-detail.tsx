@@ -101,6 +101,6 @@ const styles = StyleSheet.create({
   placeName: { flexShrink: 1 },
   average: { marginLeft: Spacing.one },
   rating: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  caption: { fontFamily: Typography.body.fontFamily, color: Palette.black },
+  caption: { fontWeight: Typography.body.fontWeight, color: Palette.black },
   commentsTitle: { marginTop: Spacing.two },
 });

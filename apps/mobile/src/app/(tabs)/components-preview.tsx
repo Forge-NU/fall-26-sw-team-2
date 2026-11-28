@@ -57,21 +57,21 @@ export default function ComponentsPreview() {
         <Button title="Saving…" loading={loading} onPress={() => setLoading(true)} />
         <Button
           title={loading ? "Reset loading" : "Preview loading"}
-          variant="teal"
+          variant="secondary"
           onPress={() => setLoading((value) => !value)}
         />
 
-        <AppText variant="subheading" color="teal">
-          Teal Button
+        <AppText variant="subheading" color="textAccent">
+          Accent text
         </AppText>
 
         <Button
-          variant="teal"
+          variant="secondary"
           title="About Us"
           onPress={() => setPressCount((count) => count + 1)}
         />
 
-        <Button title="Disabled teal" variant="teal" disabled onPress={() => {}} />
+        <Button title="Disabled secondary" variant="secondary" disabled onPress={() => {}} />
 
         <AppText>Pressed {pressCount} times</AppText>
 
@@ -121,7 +121,7 @@ export default function ComponentsPreview() {
 
         <Button
           title="Show success"
-          variant="teal"
+          variant="secondary"
           onPress={() =>
             showToast({
               message: "Your changes have been saved.",
@@ -142,7 +142,7 @@ export default function ComponentsPreview() {
 
         <Button
           title="Show info"
-          variant="teal"
+          variant="secondary"
           onPress={() =>
             showToast({
               message: "You are viewing the component preview.",
@@ -152,14 +152,14 @@ export default function ComponentsPreview() {
         />
         <Button
           title="Persistent toast"
-          variant="teal"
+          variant="secondary"
           onPress={() => showToast({
             message: "Tap this notification or Hide toast to dismiss.",
             duration: 0,
           })}
         />
-        <Button title="Hide toast" variant="teal" onPress={hideToast} />
-        <Button title="API notification" variant="teal" onPress={() => {
+        <Button title="Hide toast" variant="secondary" onPress={hideToast} />
+        <Button title="API notification" variant="secondary" onPress={() => {
           showApiToast({ message: 'API client notification preview.', variant: 'error' });
         }} />
 
@@ -171,7 +171,7 @@ export default function ComponentsPreview() {
           icon="search-outline"
           action={{
             title: 'Clear search',
-            variant: 'teal',
+            variant: 'secondary',
             onPress: () => {
               setUsername('');
               showToast({ message: 'Search cleared.', variant: 'info' });

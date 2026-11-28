@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
   },
   reviews: {
     ...Typography.caption,
-    fontFamily: Typography.body.fontFamily,
+    fontWeight: Typography.body.fontWeight,
     fontSize: MapTokens.pin.reviewsSize,
     height: REVIEWS_H,
     lineHeight: REVIEWS_H - Spacing.one,
@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Palette.lightPink,
   },
-  rating: { fontFamily: Typography.button.fontFamily, color: Palette.black },
+  rating: { fontWeight: Typography.button.fontWeight, color: Palette.black },
   tail: {
     width: TAIL_H * 2,
     height: TAIL_H * 2,
@@ -161,6 +161,6 @@ const styles = StyleSheet.create({
   },
   calloutTitle: { ...Typography.label, fontSize: Typography.body.fontSize, lineHeight: MapTokens.pin.calloutLineHeight, color: Palette.black },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one },
-  calloutRating: { ...Typography.subheading, fontFamily: Typography.button.fontFamily, color: Palette.black },
-  calloutMeta: { ...Typography.label, fontFamily: Typography.body.fontFamily, flexShrink: 1, color: Palette.placeholderGray, marginLeft: Spacing.half },
+  calloutRating: { ...Typography.subheading, fontWeight: Typography.button.fontWeight, color: Palette.black },
+  calloutMeta: { ...Typography.label, fontWeight: Typography.body.fontWeight, flexShrink: 1, color: Palette.placeholderGray, marginLeft: Spacing.half },
 });

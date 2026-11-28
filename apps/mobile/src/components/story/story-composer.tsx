@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
   },
   textInput: {
-    fontFamily: StoryTokens.overlayText.fontFamily,
+    fontWeight: StoryTokens.overlayText.fontWeight,
     fontSize: StoryTokens.overlayText.fontSize,
     lineHeight: StoryTokens.overlayText.lineHeight,
     color: Palette.warmWhite,

@@ -1,12 +1,12 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, type TextInputInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ApiError, getErrorMessage } from '@/api/client';
 import { CommentsView } from '@/components/comments/comments-view';
 import { PostDetail } from '@/components/posts/post-detail';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { confirmAction } from '@/lib/confirm';
 import { IconButton } from '@/components/ui/icon-button';
 import { Screen } from '@/components/ui/screen';
 import { ScreenHeader } from '@/components/ui/screen-header';
@@ -31,7 +31,6 @@ export default function PostDetailScreen() {
   const { showToast } = useToast();
   const insets = useSafeAreaInsets();
   const composer = useRef<TextInputInstance>(null);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const isOwner = post.data?.author.id === user.id;
   const gone = post.error instanceof ApiError && post.error.status === 404;
@@ -65,7 +64,29 @@ export default function PostDetailScreen() {
                   accessibilityLabel="Edit post"
                   onPress={() => router.push({ pathname: '/posts/[id]/edit', params: { id } })}
                 />
-                <IconButton icon="trash" accessibilityLabel="Delete post" onPress={() => setConfirmingDelete(true)} />
+                <IconButton
+                  icon="trash"
+                  accessibilityLabel="Delete post"
+                  disabled={deletePost.isPending}
+                  onPress={() =>
+                    confirmAction({
+                      title: 'Delete this post?',
+                      message: "Its photos, likes and comments go too. You can't undo this.",
+                      confirmLabel: 'Delete',
+                      destructive: true,
+                      onConfirm: () =>
+                        deletePost.mutate(undefined, {
+                          onSuccess: () => {
+                            showToast({ message: 'Post deleted', variant: 'success' });
+                            back();
+                          },
+                          onError: (error) => {
+                            showToast({ message: getErrorMessage(error, POST_ERRORS), variant: 'error' });
+                          },
+                        }),
+                    })
+                  }
+                />
               </>
             ) : null
           }
@@ -91,28 +112,6 @@ export default function PostDetailScreen() {
           />
         </KeyboardAvoidingView>
       ) : null}
-      <ConfirmDialog
-        visible={confirmingDelete}
-        title="Delete this post?"
-        message="Its photos, likes and comments will be deleted for good. You can't undo this."
-        confirmLabel="Delete post"
-        destructive
-        loading={deletePost.isPending}
-        onCancel={() => setConfirmingDelete(false)}
-        onConfirm={() =>
-          deletePost.mutate(undefined, {
-            onSuccess: () => {
-              setConfirmingDelete(false);
-              showToast({ message: 'Post deleted', variant: 'success' });
-              back();
-            },
-            onError: (error) => {
-              setConfirmingDelete(false);
-              showToast({ message: getErrorMessage(error, POST_ERRORS), variant: 'error' });
-            },
-          })
-        }
-      />
     </Screen>
   );
 }

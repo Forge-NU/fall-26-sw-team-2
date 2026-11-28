@@ -2,8 +2,8 @@ import type { ReactNode } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 
-import { getErrorMessage } from '@/api/client';
 import { EmptyState, type EmptyStateProps } from '@/components/ui/empty-state';
+import { LoadError } from '@/components/ui/load-error';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MaxContentWidth, Spacing, Theme } from '@/constants/theme';
 
@@ -25,7 +25,9 @@ export type ScreenProps = {
   // refresh doesn't hide what already loaded.
   error?: unknown;
   onRetry?: () => void;
-  // Replaces parts of the default error state, e.g. a different title
+  // Finishes the default error's "Couldn't load …", e.g. "this trip"
+  errorWhat?: string;
+  // Replaces parts of the error state, e.g. "Trip not found" for a 404
   errorState?: Partial<EmptyStateProps>;
   // Shown instead of the content when set, e.g. `empty={trips.length === 0 && { title: 'No trips yet' }}`
   empty?: EmptyStateProps | false | null;
@@ -44,6 +46,7 @@ export function Screen({
   loadingFallback,
   error,
   onRetry,
+  errorWhat,
   errorState,
   empty,
 }: ScreenProps) {
@@ -57,13 +60,16 @@ export function Screen({
   } else if (error != null) {
     body = (
       <View style={styles.center}>
-        <EmptyState
-          icon="cloud-offline-outline"
-          title="Couldn't load this"
-          description={getErrorMessage(error)}
-          action={onRetry ? { title: 'Try again', onPress: onRetry } : undefined}
-          {...errorState}
-        />
+        {errorState ? (
+          <EmptyState
+            icon="cloud-offline-outline"
+            title={`Couldn't load ${errorWhat ?? 'this'}`}
+            action={onRetry ? { title: 'Try again', variant: 'secondary', onPress: onRetry } : undefined}
+            {...errorState}
+          />
+        ) : (
+          <LoadError what={errorWhat} onRetry={onRetry} />
+        )}
       </View>
     );
   } else if (empty) {

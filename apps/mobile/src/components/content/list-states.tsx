@@ -1,9 +1,9 @@
 import type { ComponentProps } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
-import { getErrorMessage } from "@/api/client";
 import { AppText } from "@/components/ui/app-text";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { LoadError } from "@/components/ui/load-error";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Palette, Spacing } from "@/constants/theme";
 import type { useInfiniteList } from "@/hooks/use-infinite-list";
@@ -29,10 +29,12 @@ type ListEmptyProps = {
   icon?: ComponentProps<typeof EmptyState>["icon"];
   /** Card-sized skeletons rather than user rows */
   cards?: boolean;
+  /** Finishes the error's "Couldn't load …", e.g. "your saved posts" */
+  errorWhat?: string;
 };
 
 /** What a list shows with no rows: skeletons, the first-load error, or empty. */
-export function ListEmpty({ list, title, description, icon, cards }: ListEmptyProps) {
+export function ListEmpty({ list, title, description, icon, cards, errorWhat }: ListEmptyProps) {
   if (list?.isPending) {
     return (
       <View style={styles.skeletons}>
@@ -51,13 +53,7 @@ export function ListEmpty({ list, title, description, icon, cards }: ListEmptyPr
   }
   if (list?.isError) {
     return (
-      <EmptyState
-        icon="cloud-offline-outline"
-        title="Couldn't load this"
-        description={getErrorMessage(list.error)}
-        action={{ title: "Try again", onPress: () => void list.refetch() }}
-        style={styles.centered}
-      />
+      <LoadError what={errorWhat} onRetry={() => void list.refetch()} style={styles.centered} />
     );
   }
   return <EmptyState icon={icon} title={title} description={description} style={styles.centered} />;
@@ -66,15 +62,15 @@ export function ListEmpty({ list, title, description, icon, cards }: ListEmptyPr
 /** Spinner while the next page loads, or a retry after it fails. */
 export function ListFooter({ list }: { list: List }) {
   if (list.isFetchingNextPage) {
-    return <ActivityIndicator color={Palette.coral} style={styles.footer} />;
+    return <ActivityIndicator color={Palette.neutral500} style={styles.footer} />;
   }
   if (list.isFetchNextPageError) {
     return (
       <View style={styles.footer}>
-        <AppText variant="caption" color="placeholderGray">
-          {getErrorMessage(list.error)}
+        <AppText variant="footnote" color="textSecondary">
+          {"Couldn't load more"}
         </AppText>
-        <Button title="Load more" variant="teal" size="compact" onPress={() => void list.fetchNextPage()} />
+        <Button title="Try again" variant="secondary" size="small" onPress={() => void list.fetchNextPage()} />
       </View>
     );
   }

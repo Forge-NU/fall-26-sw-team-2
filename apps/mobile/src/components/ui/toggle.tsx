@@ -32,16 +32,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   trackOn: {
-    backgroundColor: Palette.coral,
+    backgroundColor: Palette.coral500,
   },
   trackOff: {
-    backgroundColor: Palette.lightPink,
+    backgroundColor: Palette.neutral300,
   },
   knob: {
     width: 18,
     height: 18,
     borderRadius: Radii.circle,
-    backgroundColor: Palette.warmWhite,
+    backgroundColor: Palette.white,
   },
   knobOn: {
     alignSelf: 'flex-end',

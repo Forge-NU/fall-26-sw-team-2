@@ -75,7 +75,7 @@ function DestinationIcon({
 }) {
   const isPost = destination === 'post';
   // Only Feed changes color in the wireframes; the rest stay black.
-  const color = isPost ? 'warmWhite' : destination === 'feed' && isFocused ? 'teal' : 'black';
+  const color = isPost ? 'warmWhite' : destination === 'feed' && isFocused ? 'coral500' : 'black';
 
   return (
     <View style={[styles.tile, isPost && styles.postTile]}>

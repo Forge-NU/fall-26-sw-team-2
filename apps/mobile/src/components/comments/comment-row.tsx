@@ -91,7 +91,7 @@ function CommentRow({ comment, myId, onReply, onDelete }: CommentActions & { com
           </AppText>
         </View>
         <AppText>
-          {replyTo && <AppText color="teal">@{replyTo.username} </AppText>}
+          {replyTo && <AppText color="textAccent">@{replyTo.username} </AppText>}
           {comment.body}
         </AppText>
         <View style={styles.actions}>

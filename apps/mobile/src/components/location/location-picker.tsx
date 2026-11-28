@@ -285,7 +285,7 @@ function CustomRow({ name, tooLong, resolving, busy, onDropPin, onJustName }: Cu
             <Button
               title="Just the name"
               size="compact"
-              variant="teal"
+              variant="secondary"
               loading={resolving}
               disabled={busy}
               accessibilityLabel={`Use just the name ${name}`}

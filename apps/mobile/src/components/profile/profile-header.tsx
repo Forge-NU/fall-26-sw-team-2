@@ -48,7 +48,7 @@ export function ProfileHeader({ profile, isFollowing, isOwn = false }: ProfileHe
         </View>
       </View>
       {isOwn ? (
-        <Button title="Edit profile" variant="teal" onPress={() => router.push('/profile/edit')} />
+        <Button title="Edit profile" variant="secondary" onPress={() => router.push('/profile/edit')} />
       ) : null}
       {!isOwn && isFollowing !== null && (
         <FollowButton userId={profile.id} handle={handle} isFollowing={isFollowing} />

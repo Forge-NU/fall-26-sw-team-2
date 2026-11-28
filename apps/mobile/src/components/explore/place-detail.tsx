@@ -170,7 +170,7 @@ export function PlaceActions({ saved, onLogVisit, onToggleSave }: ActionProps) {
       <Button title="+ Log a visit" filled onPress={onLogVisit} style={styles.action} />
       <Button
         title={saved ? 'Saved' : 'Save place'}
-        variant="teal"
+        variant="secondary"
         filled={saved}
         onPress={onToggleSave}
         accessibilityState={{ selected: saved }}
@@ -180,8 +180,8 @@ export function PlaceActions({ saved, onLogVisit, onToggleSave }: ActionProps) {
   );
 }
 
-const muted = { ...Typography.label, fontFamily: Typography.body.fontFamily, color: Palette.placeholderGray };
-const small = { ...Typography.caption, fontFamily: Typography.body.fontFamily, color: Palette.placeholderGray };
+const muted = { ...Typography.label, fontWeight: Typography.body.fontWeight, color: Palette.placeholderGray };
+const small = { ...Typography.caption, fontWeight: Typography.body.fontWeight, color: Palette.placeholderGray };
 
 const styles = StyleSheet.create({
   content: { paddingHorizontal: Spacing.three, paddingBottom: Spacing.four, gap: Spacing.three },
@@ -191,8 +191,8 @@ const styles = StyleSheet.create({
   meta: { ...Typography.body, color: Palette.placeholderGray },
   logs: { ...Typography.label, color: Palette.black },
   close: { marginRight: -Spacing.two },
-  tip: { padding: Spacing.three, gap: Spacing.one, borderRadius: Radii.pill, backgroundColor: Palette.lightTeal },
-  tipText: { ...Typography.label, fontFamily: Typography.body.fontFamily, color: Palette.black },
+  tip: { padding: Spacing.three, gap: Spacing.one, borderRadius: Radii.pill, backgroundColor: Palette.neutral100 },
+  tipText: { ...Typography.label, fontWeight: Typography.body.fontWeight, color: Palette.black },
   tipSource: small,
   ratingCard: {
     flexDirection: 'row',
@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
   barRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   barStar: { ...small, width: Spacing.three - Spacing.one },
   barTrack: { flex: 1, height: MapTokens.barHeight, borderRadius: Radii.circle, backgroundColor: Palette.peach, overflow: 'hidden' },
-  barFill: { height: MapTokens.barHeight, borderRadius: Radii.circle, backgroundColor: Palette.teal },
+  barFill: { height: MapTokens.barHeight, borderRadius: Radii.circle, backgroundColor: Palette.coral500 },
   barCount: { ...small, width: Spacing.four + Spacing.one, textAlign: 'right' },
   section: { ...Typography.subheading, color: Palette.black, marginTop: Spacing.one },
   photos: { gap: Spacing.two },
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
   personName: { ...Typography.label, color: Palette.black },
   personStats: { ...Typography.caption, color: Palette.black },
   personTrip: muted,
-  quote: { ...Typography.label, fontFamily: Typography.body.fontFamily, color: Palette.black },
+  quote: { ...Typography.label, fontWeight: Typography.body.fontWeight, color: Palette.black },
   visited: { ...small, marginTop: -Spacing.two },
   actions: { flexDirection: 'row', gap: Spacing.two },
   action: { flex: 1, minWidth: 0 },
