@@ -6,6 +6,8 @@ import type {
   CreatePostRequest,
   CreateStoryRequest,
   CreateTripRequest,
+  FeedResponse,
+  FeedType,
   LocationResponse,
   PaginatedResponse,
   PlaceSuggestion,
@@ -22,7 +24,7 @@ import type {
   UpdateTripRequest,
 } from 'shared-types';
 
-import { mockDelay, mockError } from '@/api/mock';
+import { mockDelay, mockError, mockPage } from '@/api/mock';
 import type { CurrentUser } from '@/lib/current-user';
 import { addDays, isDateWithin, todayLocalIso } from '@/utils/local-date';
 
@@ -93,7 +95,8 @@ function mockPost(
   return {
     id: mockId('post'),
     tripId: trip.id,
-    author: me,
+    // A post's author is always its trip's owner
+    author: trip.owner,
     caption,
     visitedOn,
     location: typeof location === 'string' ? null : location,
@@ -235,6 +238,76 @@ export async function mockGetStoriesFeed(): Promise<StoriesFeedResponse> {
   const latest = (group: StoryGroup) => group.stories[group.stories.length - 1].createdAt;
   const items = [...byOwner.values()].sort((a, b) => latest(b).localeCompare(latest(a)));
   return { items, nextCursor: null };
+}
+
+// Friends feed (#26 FEED-1): Maya's and Priya's published trips, which open on
+// the trip page like any other trip
+let feedSeeded = false;
+
+function seedFeed() {
+  if (feedSeeded) return;
+  feedSeeded = true;
+  seed();
+  const today = todayLocalIso();
+  const daysAgoIso = (days: number) => new Date(Date.now() - days * 24 * HOUR_MS).toISOString();
+
+  const porto = mockOthersTrip(maya, 'Porto by the river', 'Porto, Portugal', addDays(today, -12), addDays(today, -10));
+  porto.description = 'Port lodges, azulejos and the best francesinha of my life.';
+  posts.push(
+    mockPost(porto, porto.startDate, 'Crossing Dom Luís I at sunset.', 'Ponte Luís I', [1040, 1039]),
+    mockPost(porto, addDays(porto.startDate, 1), 'Every wall is a painting here.', 'São Bento Station', [1047]),
+    mockPost(porto, addDays(porto.startDate, 2), null, 'Livraria Lello', [1018]),
+  );
+
+  const kyoto = mockOthersTrip(priya, 'Kyoto in autumn', 'Kyoto, Japan', addDays(today, -30), addDays(today, -26));
+  kyoto.description = 'Temples, maple leaves and too much matcha.';
+  posts.push(
+    mockPost(kyoto, kyoto.startDate, 'Fushimi Inari before 7am. Worth it.', 'Fushimi Inari Taisha', [1015, 1036]),
+    mockPost(kyoto, addDays(kyoto.startDate, 2), 'The bamboo grove is quieter than you think.', 'Arashiyama', [1043]),
+  );
+
+  porto.status = 'published';
+  porto.publishedAt = daysAgoIso(9);
+  kyoto.status = 'published';
+  kyoto.publishedAt = daysAgoIso(25);
+  [porto, kyoto].forEach(refreshDerived);
+}
+
+/** A stored trip, e.g. one saved from the feed, so other mocks can change its counts */
+export function mockFindTrip(id: string): TripResponse | undefined {
+  seed();
+  seedFeed();
+  return trips.find((trip) => trip.id === id);
+}
+
+// Everyone in the mocks is followed, so every published trip by someone else
+// is in the Friends feed, newest publish first. Local is empty, like the API.
+export async function mockGetFeed(type: FeedType, cursor: string | null, limit: number): Promise<FeedResponse> {
+  await mockDelay();
+  if (type === 'local') return { items: [], nextCursor: null };
+  seedFeed();
+  const items = trips
+    .filter((trip) => trip.owner.id !== me.id && trip.status === 'published')
+    .sort((a, b) => (b.publishedAt ?? '').localeCompare(a.publishedAt ?? ''))
+    .map((trip) => ({ trip: { ...trip }, posts: cardPosts(postsForTrip(trip.id)).map((post) => ({ ...post })) }));
+  return mockPage(items, cursor, limit);
+}
+
+// Only the posts a feed card's day previews use, like the API's pickCardPosts
+// (apps/api/src/posts/posts.service.ts): per day, the first post with a
+// location and the first with an image, or the day's first post if it has
+// neither. `tripPosts` is in trip order.
+function cardPosts(tripPosts: PostResponse[]): PostResponse[] {
+  const picked = new Set<PostResponse>();
+  for (const day of new Set(tripPosts.map((post) => post.visitedOn))) {
+    const posts = tripPosts.filter((post) => post.visitedOn === day);
+    const located = posts.find((post) => post.location !== null || post.customLocationName !== null);
+    const covered = posts.find((post) => post.media.some((media) => media.mediaType === 'image'));
+    if (located) picked.add(located);
+    if (covered) picked.add(covered);
+    if (!located && !covered) picked.add(posts[0]);
+  }
+  return tripPosts.filter((post) => picked.has(post));
 }
 
 export async function mockGetTripStories(tripId: string): Promise<TripStoriesResponse> {

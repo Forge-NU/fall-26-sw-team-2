@@ -24,7 +24,11 @@ import { assertCanAttachLocation } from '../locations/custom-locations';
 import { CreatePostDto } from './dto/create-post.dto';
 import { MediaItemDto } from './dto/media-item.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
-import type { PaginatedResponse, PostResponse } from 'shared-types';
+import type {
+  PaginatedResponse,
+  PostResponse,
+  UserSummary,
+} from 'shared-types';
 
 // `viewerId` is who's reading, for likedByMe and savedByMe. Each of those
 // relations has at most one row for them (it's the primary key).
@@ -363,6 +367,75 @@ export class PostsService {
     };
   }
 
+  // The posts a feed card needs for several trips, in trip order and keyed by
+  // trip id (#26 FEED-1; adapted from #59's listForTrips). Not every post: a
+  // card shows one preview per day (mobile TripCard), titled by the day's
+  // first post with a location and covered by the day's first image. So for
+  // each day this keeps the first post with a location and the first with an
+  // image, often the same post. The trip page pages through every post. If
+  // TripCard's previews change, change this to match.
+  //
+  // What's bounded is the response: the posts built (media URLs signed) and
+  // sent grow with a card's days, not its posts. The first query still reads
+  // a small row for every post of the page's trips, which is fine at MVP
+  // sizes. If trips grow to thousands of posts, pick the posts in SQL instead
+  // (DISTINCT ON trip and day).
+  //
+  // Posts in trips the viewer can't see are left out, and a trip with no
+  // visible posts isn't a key. Two queries for any number of trips.
+  async listCardPostsForTrips(
+    viewerId: string,
+    tripIds: readonly string[],
+  ): Promise<Map<string, PostResponse[]>> {
+    const byTrip = new Map<string, PostResponse[]>();
+    if (tripIds.length === 0) return byTrip;
+
+    // Just enough of every post to pick the ones the previews use
+    const candidates = await this.prisma.post.findMany({
+      where: {
+        tripId: { in: [...tripIds] },
+        trip: visibleTripWhere(viewerId),
+      },
+      orderBy: TRIP_POSTS.orderBy,
+      select: {
+        id: true,
+        tripId: true,
+        visitedOn: true,
+        locationId: true,
+        customLocationName: true,
+        media: { where: { mediaType: 'image' }, take: 1, select: { id: true } },
+      },
+    });
+    const ids = pickCardPosts(candidates);
+    if (ids.length === 0) return byTrip;
+
+    const posts = await this.prisma.post.findMany({
+      where: { id: { in: ids } },
+      orderBy: TRIP_POSTS.orderBy,
+      include: postInclude(viewerId),
+    });
+    // A trip's posts all have its owner as author: sign each avatar once
+    const authors = new Map<string, Promise<UserSummary>>();
+    const authorOf = (post: PostWithDetails) => {
+      let author = authors.get(post.trip.ownerId);
+      if (!author) {
+        author = toUserSummary(post.trip.owner, this.storage);
+        authors.set(post.trip.ownerId, author);
+      }
+      return author;
+    };
+    const items = await Promise.all(
+      posts.map(async (p) => this.toResponse(p, await authorOf(p))),
+    );
+
+    for (const post of items) {
+      const list = byTrip.get(post.tripId);
+      if (list) list.push(post);
+      else byTrip.set(post.tripId, [post]);
+    }
+    return byTrip;
+  }
+
   // A user's posts for the Posts tab on their profile, newest first. Same
   // visibility as their trips list: other people only see posts in published
   // trips, and the user also sees the posts in their own drafts.
@@ -532,11 +605,16 @@ export class PostsService {
     }
   }
 
-  private async toResponse(post: PostWithDetails): Promise<PostResponse> {
+  // `author` is the post's author already built, for callers that build many
+  // posts by the same owner
+  private async toResponse(
+    post: PostWithDetails,
+    author?: UserSummary,
+  ): Promise<PostResponse> {
     return {
       id: post.id,
       tripId: post.tripId,
-      author: await toUserSummary(post.trip.owner, this.storage),
+      author: author ?? (await toUserSummary(post.trip.owner, this.storage)),
       caption: post.caption,
       visitedOn: formatDateOnly(post.visitedOn),
       location: post.location ? toLocation(post.location) : null,
@@ -561,6 +639,47 @@ export class PostsService {
       updatedAt: post.updatedAt.toISOString(),
     };
   }
+}
+
+type CardPostCandidate = {
+  id: string;
+  tripId: string;
+  visitedOn: Date;
+  locationId: string | null;
+  customLocationName: string | null;
+  media: { id: string }[]; // at most one image
+};
+
+// The ids of the posts a feed card's day previews use (see
+// listCardPostsForTrips). `posts` must be in trip order, so "first" means
+// first in the day. A day with no location or image anywhere (only videos
+// without a place, say) keeps its first post, so the day still has a preview.
+// Exported for tests.
+export function pickCardPosts(posts: readonly CardPostCandidate[]): string[] {
+  const picked = new Set<string>();
+  // Keyed by trip and day
+  const firstOfDay = new Map<string, string>();
+  const located = new Set<string>();
+  const covered = new Set<string>();
+  for (const post of posts) {
+    const day = `${post.tripId}:${formatDateOnly(post.visitedOn)}`;
+    if (!firstOfDay.has(day)) firstOfDay.set(day, post.id);
+    if (
+      !located.has(day) &&
+      (post.locationId !== null || post.customLocationName !== null)
+    ) {
+      located.add(day);
+      picked.add(post.id);
+    }
+    if (!covered.has(day) && post.media.length > 0) {
+      covered.add(day);
+      picked.add(post.id);
+    }
+  }
+  for (const [day, id] of firstOfDay) {
+    if (!located.has(day) && !covered.has(day)) picked.add(id);
+  }
+  return [...picked];
 }
 
 function assertWithinTrip(

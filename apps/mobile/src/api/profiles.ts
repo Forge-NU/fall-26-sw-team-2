@@ -13,7 +13,7 @@ import type {
 
 import { apiGet, apiRequest } from '@/api/client';
 import { mockDelay, mockError, mockPage, withMock } from '@/api/mock';
-import { me as mockMe } from '@/api/mock-backend';
+import { maya, me as mockMe, priya } from '@/api/mock-backend';
 import { getMe } from '@/api/users';
 import { normalizeSearchText } from '@/utils/search-text';
 
@@ -157,17 +157,24 @@ const mockUsers: UserSummary[] = [
     username: `${FIRST_NAMES[(i + 1) % FIRST_NAMES.length].toLowerCase()}_${i + 1}`,
     avatarUrl: null,
   })),
+  // The stories bar and Friends feed's people (mock-backend.ts), so their
+  // profiles open from a story or a feed card
+  maya,
+  priya,
 ];
 
 const followKey = (followerId: string, followingId: string) => `${followerId}>${followingId}`;
 
-// You follow the first 16 travelers, and every third one follows you back
-const mockFollows = new Set<string>(
-  mockUsers.slice(1).flatMap((user, i) => [
+// You follow the first 16 travelers, and every third one follows you back.
+// You follow Maya and Priya too, since their trips are in your Friends feed.
+const mockFollows = new Set<string>([
+  ...mockUsers.slice(1, 31).flatMap((user, i) => [
     ...(i < 16 ? [followKey(MOCK_ME_ID, user.id)] : []),
     ...(i % 3 === 0 ? [followKey(user.id, MOCK_ME_ID)] : []),
   ]),
-);
+  followKey(MOCK_ME_ID, maya.id),
+  followKey(MOCK_ME_ID, priya.id),
+]);
 
 function mockUser(id: string): UserSummary {
   return mockUsers.find((user) => user.id === id) ?? mockError(404, 'User not found', userPath(id));

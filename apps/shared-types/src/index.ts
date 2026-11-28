@@ -56,6 +56,7 @@ export type { TripStatus, TripResponse, ActiveTripsResponse, CreateTripRequest, 
 export type { LocationProvider, LocationRating, LocationResponse, PlaceSuggestion, ResolveLocationRequest, ResolveLocationResponse } from './locations.js';
 export type { StoryResponse, StoryTrip, StoryGroup, StoriesFeedResponse, TripStoriesResponse, CreateStoryRequest } from './stories.js';
 export type { FollowListUser, FollowListPage, FollowStatus, FollowCounts } from './follows.js';
+export type { FeedType, FeedItem, FeedResponse } from './feed.js';
 export type { TripRole, TripMemberResponse, TripMembersResponse, PlanningTripResponse, TripInviteStatus, TripInviteResponse, TripInvitesResponse, CreateTripInviteRequest, NotificationType, NotificationTrip, NotificationInvite, NotificationResponse, UnreadCountResponse, SavedPlaceResponse, PlaceSaveStatusResponse, BucketItemResponse, CreateBucketItemRequest, UpdateBucketItemRequest, PlaceSavedInTrip, PlaceSavedInResponse } from './collaboration.js';
 
 /**

@@ -72,6 +72,10 @@ export function useFollow(userId: string) {
       // The search on screen refetches (a follow doesn't remove anyone from it); older ones on next use
       void queryClient.invalidateQueries({ queryKey: queryKeys.searchPeople });
       void queryClient.invalidateQueries({ queryKey: queryKeys.searchPreview });
+      // The Friends feed is the trips of who you follow (#27 FEED-2), so it
+      // gains or loses this person's trips. It refetches in the background
+      // while the feed tab is loaded, so it's current when you go back to it.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.feeds });
     },
   });
 
