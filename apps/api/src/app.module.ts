@@ -15,6 +15,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
 import { SearchModule } from './search/search.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { InvitesModule } from './invites/invites.module';
+import { FeedModule } from './feed/feed.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { InvitesModule } from './invites/invites.module';
     SearchModule,
     NotificationsModule,
     InvitesModule,
+    FeedModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -134,8 +134,9 @@ export class TripsService {
   }
 
   // Several trips in one query, keyed by id, for callers that already have
-  // the ids (search). Trips the viewer can't see, or that no longer exist,
-  // are left out rather than thrown.
+  // the ids (search, and the feed's cards). Trips the viewer can't see, or
+  // that no longer exist, are left out rather than thrown: the feed relies on
+  // this so a trip deleted mid-request doesn't fail the whole page.
   async findManyForViewer(
     viewerId: string,
     ids: string[],

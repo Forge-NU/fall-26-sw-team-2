@@ -13,7 +13,7 @@ import type {
 
 import { apiGet, apiRequest } from '@/api/client';
 import { mockDelay, mockError, mockPage, withMock } from '@/api/mock';
-import { mockFindTripPost } from '@/api/mock-backend';
+import { mockFindTrip, mockFindTripPost } from '@/api/mock-backend';
 import type { SaveTarget } from '@/lib/engagement-cache';
 
 const postPath = (id: string) => `/api/posts/${encodeURIComponent(id)}`;
@@ -68,7 +68,14 @@ export const listSavedTrips = withMock<
   real: (cursor, signal) => apiGet('/api/me/saved/trips', { cursor, limit: 20 }, { signal }),
   mock: async (cursor) => {
     await mockDelay();
-    return mockPage(mockTrips.filter((trip) => mockSaved.has(`trip:${trip.id}`)).map((trip) => ({ ...trip })), cursor);
+    // Trips saved from the mock backend (e.g. the feed), newest save first, then these mocks
+    const others = [...mockSaved]
+      .reverse()
+      .filter((key) => key.startsWith('trip:') && !mockTrips.some((trip) => `trip:${trip.id}` === key))
+      .map((key) => mockFindTrip(key.slice('trip:'.length)))
+      .filter((trip) => trip !== undefined);
+    const saved = [...others, ...mockTrips.filter((trip) => mockSaved.has(`trip:${trip.id}`))];
+    return mockPage(saved.map((trip) => ({ ...trip })), cursor);
   },
 });
 
@@ -211,7 +218,10 @@ async function mockSetSave(target: SaveTarget, id: string, saved: boolean): Prom
   const item: PostResponse | TripResponse =
     target === 'post'
       ? mockFindPost(id)
-      : (mockTrips.find((trip) => trip.id === id) ?? mockError(404, 'Trip not found', tripPath(id)));
+      : (mockTrips.find((trip) => trip.id === id) ??
+        // Trips in the mock backend, e.g. saved from the feed
+        mockFindTrip(id) ??
+        mockError(404, 'Trip not found', tripPath(id)));
   const key = `${target}:${id}`;
   if (mockSaved.has(key) !== saved) {
     if (saved) mockSaved.add(key);

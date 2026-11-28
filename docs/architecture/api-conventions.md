@@ -113,7 +113,7 @@ The `shared-types` package contains TypeScript types that are shared between the
 
 ### Location
 
-`apps/shared-types/src/`: users, pagination, errors and uploads in `index.ts`; trips and posts in `content.ts`; `locations.ts`, `stories.ts`, `follows.ts`, `search.ts`, and `collaboration.ts` for shared trips, buckets, saved places and notifications. Everything is exported from `index.ts`. This is the only copy of the contract: don't redeclare response types in `apps/api` or `apps/mobile`.
+`apps/shared-types/src/`: users, pagination, errors and uploads in `index.ts`; trips and posts in `content.ts`; `locations.ts`, `stories.ts`, `follows.ts`, `search.ts`, `feed.ts`, and `collaboration.ts` for shared trips, buckets, saved places and notifications. Everything is exported from `index.ts`. This is the only copy of the contract: don't redeclare response types in `apps/api` or `apps/mobile`.
 
 ### Adding New Types
 

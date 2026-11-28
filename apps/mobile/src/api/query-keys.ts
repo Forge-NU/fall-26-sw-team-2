@@ -16,6 +16,9 @@ export const queryKeys = {
   followStatus: (userId: string) => ['users', userId, 'follow-status'] as const,
   followList: (userId: string, list: 'followers' | 'following') => ['users', userId, list] as const,
   storiesFeed: ['stories', 'feed'] as const,
+  // One feed tab's pages (#27 FEED-2), and every tab together
+  feed: (type: 'friends' | 'local') => ['feed', type] as const,
+  feeds: ['feed'] as const,
   tripStories: (tripId: string) => ['trips', tripId, 'stories'] as const,
   notifications: ['me', 'notifications', 'list'] as const,
   unreadNotifications: ['me', 'notifications', 'unread-count'] as const,

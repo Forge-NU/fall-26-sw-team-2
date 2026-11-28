@@ -38,11 +38,15 @@ const users = [
   },
 ];
 
-// Priya and Alex follow Maya; Maya follows Priya back.
+// Priya and Alex follow Maya; Maya follows Priya back; Alex follows Priya.
+// Friends feeds this gives (#26 FEED-1): Alex sees three trips from two
+// people, Maya two and Priya one. Nobody follows Alex, so his published
+// Belém trip is in no one's feed, and drafts are in none.
 const follows = [
   { followerId: 'user_seed_priya', followingId: 'user_seed_maya' },
   { followerId: 'user_seed_alex', followingId: 'user_seed_maya' },
   { followerId: 'user_seed_maya', followingId: 'user_seed_priya' },
+  { followerId: 'user_seed_alex', followingId: 'user_seed_priya' },
 ];
 
 // Real places with approximate coordinates. The provider place IDs are
@@ -167,7 +171,7 @@ function daysFromToday(offset: number) {
 
 const trips = [
   {
-    // Published, shows up in Priya's and Alex's feeds
+    // Published, shows up in Priya's and Alex's Friends feeds
     id: '00000000-0000-4000-b000-000000000001',
     ownerId: 'user_seed_maya',
     title: '5 Days in Lisbon',
