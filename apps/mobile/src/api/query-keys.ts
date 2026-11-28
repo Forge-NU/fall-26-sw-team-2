@@ -17,6 +17,9 @@ export const queryKeys = {
   followList: (userId: string, list: 'followers' | 'following') => ['users', userId, list] as const,
   storiesFeed: ['stories', 'feed'] as const,
   tripStories: (tripId: string) => ['trips', tripId, 'stories'] as const,
+  // The owner's pending invites, and the people search on the invite screen (#138)
+  tripInvites: (tripId: string) => ['trips', tripId, 'invites'] as const,
+  inviteSearch: (tripId: string, q: string) => ['trips', tripId, 'invite-search', q] as const,
   notifications: ['me', 'notifications', 'list'] as const,
   unreadNotifications: ['me', 'notifications', 'unread-count'] as const,
   // One search: the "All" preview or one type's pages, for the text and the

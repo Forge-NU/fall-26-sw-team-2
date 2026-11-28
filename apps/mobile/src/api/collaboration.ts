@@ -1,8 +1,9 @@
 // Trip members, invites and the Planning list for #138 COLLAB-4 and #140
 // BUCKET-2, on #133 COLLAB-2's and #134 COLLAB-3's endpoints (contract in
-// #131 COLLAB-1, docs/architecture/shared-trips.md). Not built yet, so these
-// return mock data. Set `live: true` as each issue merges. Accepting and
-// declining an invite are live, in api/notifications.ts.
+// #131 COLLAB-1, docs/architecture/shared-trips.md). Sending, listing and
+// cancelling invites are live (#134); the rest return mock data until #133
+// COLLAB-2 merges. Accepting and declining an invite are live, in
+// api/notifications.ts.
 //
 // Rules (#129 DOC-3): a trip has one owner and up to 9 collaborators, 10 people
 // in all, counting pending invites. Only the owner invites, cancels invites and
@@ -89,7 +90,7 @@ export const listPlanningTrips = withMock<
  * already invited, or the trip is full.
  */
 export const sendTripInvite = withMock<[tripId: string, body: CreateTripInviteRequest], TripInviteResponse>({
-  live: false, // true once #134 COLLAB-3 merges
+  live: true, // #134 COLLAB-3
   real: (tripId, body) => apiRequest('POST', `${tripPath(tripId)}/invites`, body),
   mock: async (tripId, { username }) => {
     await mockDelay();
@@ -121,7 +122,7 @@ export const sendTripInvite = withMock<[tripId: string, body: CreateTripInviteRe
 
 /** A trip's pending invites, newest first. Owner only. */
 export const listTripInvites = withMock<[tripId: string, signal?: AbortSignal], TripInvitesResponse>({
-  live: false, // true once #134 COLLAB-3 merges
+  live: true, // #134 COLLAB-3
   real: (tripId, signal) => apiGet(`${tripPath(tripId)}/invites`, undefined, { signal }),
   mock: async (tripId) => {
     await mockDelay();
@@ -137,7 +138,7 @@ export const listTripInvites = withMock<[tripId: string, signal?: AbortSignal], 
  * anymore. The invite stays, as cancelled, like the real one.
  */
 export const cancelTripInvite = withMock<[inviteId: string], TripInviteResponse>({
-  live: false, // true once #134 COLLAB-3 merges
+  live: true, // #134 COLLAB-3
   real: (inviteId) => apiRequest('DELETE', invitePath(inviteId)),
   mock: async (inviteId) => {
     await mockDelay();
