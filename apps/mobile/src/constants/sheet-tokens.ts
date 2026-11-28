@@ -1,12 +1,12 @@
 import { Palette } from './palette';
 import { Radii, Spacing } from './theme';
 
-// One look for BottomSheet and the map's panel (UI-4 #98): corners, handle,
-// background and padding. The backdrop is Theme.colors.scrim.
+// One look for BottomSheet and the map's panel: corners, handle, background
+// and padding. The backdrop is Theme.colors.scrim.
 export const SheetTokens = {
-  radius: Radii.pill,
-  background: Palette.warmWhite,
+  radius: Radii.lg,
+  background: Palette.white,
   paddingHorizontal: Spacing.three,
   paddingTop: Spacing.two,
-  handle: { width: 36, height: Spacing.one, color: Palette.lightPink },
+  handle: { width: 36, height: 5, color: Palette.neutral300 },
 } as const;

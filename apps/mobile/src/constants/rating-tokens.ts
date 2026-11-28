@@ -12,9 +12,9 @@ export const RatingTokens = {
   /** Space between the stars and the "4.3 · 12" label */
   labelGap: 4,
   // Palette keys, not values: Icon and AppText take a key
-  filledColor: 'coral',
-  emptyColor: 'coral',
-  labelColor: 'placeholderGray',
+  filledColor: 'coral500',
+  emptyColor: 'coral500',
+  labelColor: 'neutral500',
   /** Each star in the input is at least this big to tap */
   inputTarget: ContentTokens.actionSize,
   pressedOpacity: 0.7,

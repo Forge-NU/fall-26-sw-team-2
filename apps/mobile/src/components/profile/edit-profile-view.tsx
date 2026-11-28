@@ -12,7 +12,7 @@ import { Icon } from '@/components/icon';
 import { AppText } from '@/components/ui/app-text';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { confirmAction } from '@/lib/confirm';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { Palette, Radii, Spacing } from '@/constants/theme';
@@ -66,7 +66,6 @@ function EditProfileForm({ profile }: { profile: UserResponse }) {
   });
   const [preparing, setPreparing] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const firstNameError = nameError(draft.firstName, true);
   const lastNameError = nameError(draft.lastName, false);
@@ -110,7 +109,6 @@ function EditProfileForm({ profile }: { profile: UserResponse }) {
     meta: { toast: false },
     mutationFn: deleteMe,
     onSuccess: async () => {
-      setConfirmingDelete(false);
       showToast({ message: 'Account deleted', variant: 'success' });
       // The same path as the profile's Sign out button: it ends the Clerk
       // session and clears the query cache, so AuthGate shows the sign-in screen.
@@ -120,7 +118,6 @@ function EditProfileForm({ profile }: { profile: UserResponse }) {
     },
     onError: (error) => {
       // The account is untouched, so stay signed in on this screen
-      setConfirmingDelete(false);
       showToast({
         message: getErrorMessage(error, { other: "Couldn't delete your account. Try again." }),
         variant: 'error',
@@ -251,7 +248,15 @@ function EditProfileForm({ profile }: { profile: UserResponse }) {
           <Pressable
             accessibilityRole="button"
             disabled={busy}
-            onPress={() => setConfirmingDelete(true)}
+            onPress={() =>
+              confirmAction({
+                title: 'Delete your account?',
+                message: "Your profile, trips, posts, stories, likes, saves and comments are deleted for good. You can't undo this.",
+                confirmLabel: 'Delete',
+                destructive: true,
+                onConfirm: () => deleteAccount.mutate(),
+              })
+            }
             style={({ pressed }) => [styles.delete, pressed && styles.pressed]}>
             <AppText variant="label" style={styles.deleteText}>
               Delete account
@@ -260,16 +265,6 @@ function EditProfileForm({ profile }: { profile: UserResponse }) {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <ConfirmDialog
-        visible={confirmingDelete}
-        title="Delete your account?"
-        message="This permanently deletes your profile, trips, posts, stories, likes, saves and comments. This can't be undone."
-        confirmLabel="Delete account"
-        destructive
-        loading={deleteAccount.isPending}
-        onCancel={() => setConfirmingDelete(false)}
-        onConfirm={() => deleteAccount.mutate()}
-      />
     </SafeAreaView>
   );
 }

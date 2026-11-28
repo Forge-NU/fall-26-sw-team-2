@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
   thumb: { width: THUMB, height: THUMB, borderRadius: Radii.small },
   thumbEmpty: { backgroundColor: Palette.lightPink },
   text: { flex: 1, gap: Spacing.half },
-  caption: { fontFamily: Typography.body.fontFamily },
+  caption: { fontWeight: Typography.body.fontWeight },
   muted: { color: Palette.placeholderGray },
   pressed: { opacity: 0.6 },
 });

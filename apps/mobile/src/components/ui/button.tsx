@@ -1,133 +1,116 @@
-import { useState } from "react";
+import { useState } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   StyleSheet,
   Text,
   type PressableProps,
-} from "react-native";
+  type PressableStateCallbackType,
+} from 'react-native';
 
-import { ButtonTokens } from "@/constants/button-tokens";
-import { Spacing, Typography } from "@/constants/theme";
+import { ButtonTokens, type ButtonType } from '@/constants/button-tokens';
+import { AnimatedPressable, usePressScale } from './press-scale';
 
 export type ButtonProps = Omit<PressableProps, 'children'> & {
   title: string;
   onPress: () => void;
-  variant?: "coral" | "teal";
+  /**
+   * primary: coral fill, bold white label. secondary: gray fill. tertiary: coral
+   * text, no fill. tinted: coral text on a light coral fill.
+   * Old names: `coral` is tinted, or primary when `filled`; `teal` is secondary.
+   */
+  variant?: ButtonType | 'coral' | 'teal';
   disabled?: boolean;
   loading?: boolean;
-  size?: "default" | "compact";
-  /** Shows the solid (pressed) colors at rest, e.g. once a form is ready to submit. */
+  /** large is 52 tall, small is 36. `default` and `compact` are the old names. */
+  size?: 'large' | 'small' | 'default' | 'compact';
+  /** Old prop: turns a `coral` button into primary, e.g. once a form is ready */
   filled?: boolean;
 };
+
+function resolveType(variant: ButtonProps['variant'], filled: boolean): ButtonType {
+  if (variant === 'coral') return filled ? 'primary' : 'tinted';
+  if (variant === 'teal') return 'secondary';
+  return variant ?? 'primary';
+}
 
 export function Button({
   title,
   onPress,
-  variant = "coral",
+  variant = 'coral',
   disabled = false,
   loading = false,
-  size = "default",
+  size = 'large',
   filled = false,
   style,
-  onHoverIn,
-  onHoverOut,
-  onFocus,
-  onBlur,
+  onPressIn,
+  onPressOut,
   accessibilityState,
   ...props
 }: ButtonProps) {
-  const [hovered, setHovered] = useState(false);
-  const [focused, setFocused] = useState(false);
+  const [pressed, setPressed] = useState(false);
   const isDisabled = disabled || loading;
-  const colors = ButtonTokens[variant];
+  const type = resolveType(variant, filled);
+  const small = size === 'small' || size === 'compact';
+  const sizeTokens = small ? ButtonTokens.sizes.small : ButtonTokens.sizes.large;
+  const colors = ButtonTokens[type];
+  const squish = usePressScale(!isDisabled);
+
+  // A disabled primary or secondary turns gray; tertiary and tinted just fade
+  const solidDisabled = isDisabled && (type === 'primary' || type === 'secondary');
+  const background = solidDisabled
+    ? ButtonTokens.disabled.background
+    : pressed ? colors.pressedBackground : colors.background;
+  const textColor = solidDisabled
+    ? ButtonTokens.disabled.text
+    : pressed ? colors.pressedText : colors.text;
+
+  const state: PressableStateCallbackType = { pressed, hovered: false };
 
   return (
-    <Pressable
-      hitSlop={size === "compact" ? (ButtonTokens.minHeight - Spacing.five) / 2 : undefined}
+    <AnimatedPressable
+      hitSlop={small ? (ButtonTokens.minHeight - sizeTokens.height) / 2 : undefined}
       {...props}
       accessibilityRole="button"
       accessibilityState={{ ...accessibilityState, disabled: isDisabled, busy: loading }}
       disabled={isDisabled}
       onPress={onPress}
-      onHoverIn={(event) => {
-        setHovered(true);
-        onHoverIn?.(event);
+      onPressIn={(event) => {
+        setPressed(true);
+        squish.pressIn();
+        onPressIn?.(event);
       }}
-      onHoverOut={(event) => {
-        setHovered(false);
-        onHoverOut?.(event);
+      onPressOut={(event) => {
+        setPressed(false);
+        squish.pressOut();
+        onPressOut?.(event);
       }}
-      onFocus={(event) => {
-        setFocused(true);
-        onFocus?.(event);
-      }}
-      onBlur={(event) => {
-        setFocused(false);
-        onBlur?.(event);
-      }}
-      style={(state) => {
-        const active = filled || (!isDisabled && (state.pressed || hovered || focused));
-
-        return [
-          styles.button,
-          size === "compact" && styles.compact,
-          {
-            backgroundColor: active
-              ? colors.activeBackground
-              : colors.defaultBackground,
-            borderWidth: active ? colors.activeBorderWidth : colors.borderWidth,
-            borderColor: colors.borderColor,
-          },
-          isDisabled && { opacity: ButtonTokens.disabledOpacity },
-          typeof style === 'function' ? style(state) : style,
-        ];
-      }}
-    >
-      {({ pressed }) => {
-        const active = filled || (!isDisabled && (pressed || hovered || focused));
-
-        return (
-          <>
-            {loading && (
-              <ActivityIndicator color={filled ? colors.activeText : colors.defaultText} accessible={false} />
-            )}
-            <Text
-              style={[
-                styles.label,
-                size === "compact" && Typography.label,
-                { color: active ? colors.activeText : colors.defaultText },
-              ]}
-            >
-              {title}
-            </Text>
-          </>
-        );
-      }}
-    </Pressable>
+      style={[
+        styles.button,
+        small && styles.small,
+        { minHeight: sizeTokens.height, backgroundColor: background },
+        isDisabled && !solidDisabled && { opacity: ButtonTokens.disabledOpacity },
+        squish.animatedStyle,
+        typeof style === 'function' ? style(state) : style,
+      ]}>
+      {loading && <ActivityIndicator color={textColor} accessible={false} />}
+      <Text style={[sizeTokens.typography, styles.label, { color: textColor }]}>{title}</Text>
+    </AnimatedPressable>
   );
 }
 
 const styles = StyleSheet.create({
-  compact: {
-    minWidth: 0,
-    minHeight: Spacing.five,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.one,
-  },
   button: {
     minWidth: ButtonTokens.minWidth,
-    minHeight: ButtonTokens.minHeight,
     borderRadius: ButtonTokens.borderRadius,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
     flexDirection: 'row',
     gap: ButtonTokens.gap,
     paddingHorizontal: ButtonTokens.paddingHorizontal,
-    paddingVertical: ButtonTokens.paddingVertical,
   },
-  label: {
-    ...ButtonTokens.typography,
-    textAlign: "center",
+  small: {
+    minWidth: 0,
+    paddingHorizontal: ButtonTokens.sizes.small.paddingHorizontal,
   },
+  label: { textAlign: 'center' },
 });

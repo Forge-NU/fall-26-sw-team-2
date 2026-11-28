@@ -282,7 +282,7 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   title: { flex: 1 },
   muted: { color: Palette.placeholderGray },
-  description: { fontFamily: Typography.body.fontFamily },
+  description: { fontWeight: Typography.body.fontWeight },
   center: { textAlign: 'center' },
   cover: { width: '100%', height: 140, borderRadius: Radii.medium },
   coverEmpty: {

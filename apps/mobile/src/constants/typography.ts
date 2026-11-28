@@ -1,46 +1,30 @@
+// The nine text styles, in SF Pro. On iOS the system font is SF Pro, so no
+// fontFamily is set: each style picks its weight. Sizes follow the iPhone's own
+// text styles. Letter spacing is in points (Figma's −2% of 34pt is −0.68).
+const display = { fontSize: 34, lineHeight: 41, fontWeight: '700', letterSpacing: -0.68 } as const;
+const title = { fontSize: 22, lineHeight: 28, fontWeight: '700', letterSpacing: -0.22 } as const;
+const headline = { fontSize: 17, lineHeight: 22, fontWeight: '600', letterSpacing: 0 } as const;
+const body = { fontSize: 17, lineHeight: 22, fontWeight: '400', letterSpacing: 0 } as const;
+const button = { fontSize: 17, lineHeight: 22, fontWeight: '700', letterSpacing: 0 } as const;
+const subhead = { fontSize: 15, lineHeight: 20, fontWeight: '400', letterSpacing: 0 } as const;
+const footnote = { fontSize: 13, lineHeight: 18, fontWeight: '400', letterSpacing: 0 } as const;
+const label = { fontSize: 13, lineHeight: 18, fontWeight: '700', letterSpacing: 0 } as const;
+const caption = { fontSize: 12, lineHeight: 16, fontWeight: '600', letterSpacing: 0 } as const;
+
 export const Typography = {
-  heading: {
-    fontFamily: "BarlowCondensed_600SemiBold",
-    fontSize: 32,
-    lineHeight: 40,
-    letterSpacing: 0,
-  },
-  supporting: {
-    fontFamily: "PlusJakartaSans_700Bold",
-    fontSize: 20,
-    lineHeight: 28,
-    letterSpacing: 0,
-  },
-  subheading: {
-    fontFamily: "PlusJakartaSans_600SemiBold",
-    fontSize: 18,
-    lineHeight: 26,
-    letterSpacing: 0,
-  },
-  body: {
-    fontFamily: "PlusJakartaSans_400Regular",
-    fontSize: 16,
-    lineHeight: 24,
-    letterSpacing: 0,
-  },
-  button: {
-    fontFamily: "PlusJakartaSans_700Bold",
-    fontSize: 16,
-    lineHeight: 24,
-    letterSpacing: 0,
-  },
-  label: {
-    fontFamily: 'PlusJakartaSans_600SemiBold',
-    fontSize: 14,
-    lineHeight: 20,
-    letterSpacing: 0,
-  },
-  caption: {
-    fontFamily: 'PlusJakartaSans_600SemiBold',
-    fontSize: 12,
-    lineHeight: 16,
-    letterSpacing: 0,
-  },
+  display,
+  title,
+  headline,
+  body,
+  button,
+  subhead,
+  footnote,
+  label,
+  caption,
+  // Old names, kept until the screens that use them move to the styles above
+  heading: display,
+  supporting: title,
+  subheading: headline,
 } as const;
 
 export type TypographyVariant = keyof typeof Typography;

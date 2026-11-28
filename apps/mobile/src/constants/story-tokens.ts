@@ -7,7 +7,7 @@ export const StoryTokens = {
     locations: [0, 0.5, 1],
   },
   overlayText: {
-    fontFamily: Typography.heading.fontFamily,
+    fontWeight: Typography.title.fontWeight,
     fontSize: 22,
     lineHeight: 28,
     placeholder: 'rgba(255,252,250,0.7)',

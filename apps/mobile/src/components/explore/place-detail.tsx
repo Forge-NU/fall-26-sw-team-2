@@ -180,8 +180,8 @@ export function PlaceActions({ saved, onLogVisit, onToggleSave }: ActionProps) {
   );
 }
 
-const muted = { ...Typography.label, fontFamily: Typography.body.fontFamily, color: Palette.placeholderGray };
-const small = { ...Typography.caption, fontFamily: Typography.body.fontFamily, color: Palette.placeholderGray };
+const muted = { ...Typography.label, fontWeight: Typography.body.fontWeight, color: Palette.placeholderGray };
+const small = { ...Typography.caption, fontWeight: Typography.body.fontWeight, color: Palette.placeholderGray };
 
 const styles = StyleSheet.create({
   content: { paddingHorizontal: Spacing.three, paddingBottom: Spacing.four, gap: Spacing.three },
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
   logs: { ...Typography.label, color: Palette.black },
   close: { marginRight: -Spacing.two },
   tip: { padding: Spacing.three, gap: Spacing.one, borderRadius: Radii.pill, backgroundColor: Palette.lightTeal },
-  tipText: { ...Typography.label, fontFamily: Typography.body.fontFamily, color: Palette.black },
+  tipText: { ...Typography.label, fontWeight: Typography.body.fontWeight, color: Palette.black },
   tipSource: small,
   ratingCard: {
     flexDirection: 'row',
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
   personName: { ...Typography.label, color: Palette.black },
   personStats: { ...Typography.caption, color: Palette.black },
   personTrip: muted,
-  quote: { ...Typography.label, fontFamily: Typography.body.fontFamily, color: Palette.black },
+  quote: { ...Typography.label, fontWeight: Typography.body.fontWeight, color: Palette.black },
   visited: { ...small, marginTop: -Spacing.two },
   actions: { flexDirection: 'row', gap: Spacing.two },
   action: { flex: 1, minWidth: 0 },

@@ -8,7 +8,7 @@ import type { StoryGroup } from 'shared-types';
 import { Icon } from '@/components/icon';
 import { AppText } from '@/components/ui/app-text';
 import { Avatar } from '@/components/ui/avatar';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { confirmAction } from '@/lib/confirm';
 import { StoryTokens } from '@/constants/story-tokens';
 import { Palette, Radii, Spacing } from '@/constants/theme';
 import { useDeleteStory } from '@/hooks/use-stories';
@@ -200,7 +200,18 @@ export function StoryViewer({
               accessibilityRole="button"
               accessibilityLabel="Delete story"
               hitSlop={Spacing.two}
-              onPress={() => setConfirmingDelete(true)}
+              onPress={() => {
+                // The story stays paused while the alert is up
+                setConfirmingDelete(true);
+                confirmAction({
+                  title: 'Delete story?',
+                  message: deleteMessage(story),
+                  confirmLabel: 'Delete',
+                  destructive: true,
+                  onConfirm: confirmDelete,
+                  onCancel: () => setConfirmingDelete(false),
+                });
+              }}
               style={styles.iconButton}>
               <Icon name="ellipsis" size={22} color="white" />
             </Pressable>
@@ -247,15 +258,6 @@ export function StoryViewer({
         </View>
       </View>
 
-      <ConfirmDialog
-        visible={confirmingDelete}
-        title="Delete story?"
-        message={deleteMessage(story)}
-        confirmLabel="Delete"
-        loading={deleteStory.isPending}
-        onConfirm={confirmDelete}
-        onCancel={() => setConfirmingDelete(false)}
-      />
     </View>
   );
 }

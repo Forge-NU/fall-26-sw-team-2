@@ -3,8 +3,8 @@ import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui/app-text';
 import { Button } from '@/components/ui/button';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DateField } from '@/components/ui/date-field';
+import { LoadError } from '@/components/ui/load-error';
 import { IconButton } from '@/components/ui/icon-button';
 import { Pill } from '@/components/ui/pill';
 import { Screen } from '@/components/ui/screen';
@@ -15,17 +15,20 @@ import { Toggle } from '@/components/ui/toggle';
 import { useToast } from '@/components/ui/toast-provider';
 import { RatingTokens, type RatingSize } from '@/constants/rating-tokens';
 import { Radii, Spacing, Theme } from '@/constants/theme';
+import { confirmAction } from '@/lib/confirm';
 import { ratingValueText } from '@/lib/rating';
 
 const SCREEN_STATES = ['content', 'loading', 'empty', 'error'] as const;
+const TEXT_STYLES = ['display', 'title', 'headline', 'body', 'button', 'subhead', 'footnote', 'label', 'caption'] as const;
+const BUTTON_TYPES = ['primary', 'secondary', 'tertiary', 'tinted'] as const;
 type ScreenState = (typeof SCREEN_STATES)[number];
 
-// UI-3 additions to the components preview: Screen, ScreenHeader, Pill,
-// ConfirmDialog, DateField and Toggle. UI-4 added TabBar, RATE-2 StarRating.
+// Components preview: Screen, ScreenHeader, Pill, DateField, Toggle, TabBar
+// and StarRating, plus the redesign kit: the text styles, Button types and
+// sizes, toasts, LoadError and the system alert from confirmAction.
 export function PrimitivesPreview() {
   const { showToast } = useToast();
   const [screenState, setScreenState] = useState<ScreenState>('content');
-  const [confirming, setConfirming] = useState(false);
   const [start, setStart] = useState<string | null>(null);
   const [end, setEnd] = useState<string | null>('2026-10-06');
   const [toggle, setToggle] = useState(true);
@@ -34,6 +37,52 @@ export function PrimitivesPreview() {
 
   return (
     <View style={styles.section}>
+      <AppText variant="title">Text styles</AppText>
+      <View style={styles.full}>
+        {TEXT_STYLES.map((variant) => (
+          <AppText key={variant} variant={variant}>
+            {variant}
+          </AppText>
+        ))}
+        <AppText variant="subhead" color="textSecondary">
+          textSecondary
+        </AppText>
+        <AppText variant="subhead" color="textAccent">
+          textAccent
+        </AppText>
+      </View>
+
+      <AppText variant="title">Buttons</AppText>
+      {BUTTON_TYPES.map((type) => (
+        <View key={type} style={styles.row}>
+          <Button title={type} variant={type} onPress={() => undefined} />
+          <Button title="Small" variant={type} size="small" onPress={() => undefined} />
+          <Button title="Off" variant={type} size="small" disabled onPress={() => undefined} />
+        </View>
+      ))}
+      <Button title="Loading" variant="primary" loading onPress={() => undefined} />
+
+      <AppText variant="title">Toasts</AppText>
+      <View style={styles.row}>
+        <Button title="Success" variant="secondary" size="small" onPress={() => showToast({ message: 'Trip deleted', variant: 'success' })} />
+        <Button title="Error" variant="secondary" size="small" onPress={() => showToast({ message: "Couldn't save. Try again.", variant: 'error' })} />
+        <Button
+          title="Undo, bottom"
+          variant="secondary"
+          size="small"
+          onPress={() =>
+            showToast({
+              message: 'Removed Kiyomizu-dera',
+              placement: 'bottom',
+              action: { label: 'Undo', onPress: () => showToast({ message: 'Back in your places', variant: 'success' }) },
+            })
+          }
+        />
+      </View>
+
+      <AppText variant="title">Load error</AppText>
+      <LoadError what="this trip" onRetry={() => showToast({ message: 'Trying again' })} />
+
       <AppText variant="supporting">Screen + ScreenHeader</AppText>
       <View style={styles.row}>
         {SCREEN_STATES.map((state) => (
@@ -130,18 +179,19 @@ export function PrimitivesPreview() {
         {ratingValueText(rating)} · tap the same star to clear
       </AppText>
 
-      <AppText variant="supporting">Confirm dialog</AppText>
-      <Button title="Delete trip" onPress={() => setConfirming(true)} />
-      <ConfirmDialog
-        visible={confirming}
-        title="Delete this trip?"
-        message={'"Lisbon weekend" and its 3 posts will be deleted for good. You can\'t undo this.'}
-        confirmLabel="Delete trip"
-        onCancel={() => setConfirming(false)}
-        onConfirm={() => {
-          setConfirming(false);
-          showToast({ message: 'Trip deleted', variant: 'success' });
-        }}
+      <AppText variant="supporting">Alert</AppText>
+      <Button
+        title="Delete trip"
+        variant="secondary"
+        onPress={() =>
+          confirmAction({
+            title: 'Delete this trip?',
+            message: "Its 3 posts will be deleted too. You can't undo this.",
+            confirmLabel: 'Delete',
+            destructive: true,
+            onConfirm: () => showToast({ message: 'Trip deleted', variant: 'success' }),
+          })
+        }
       />
     </View>
   );

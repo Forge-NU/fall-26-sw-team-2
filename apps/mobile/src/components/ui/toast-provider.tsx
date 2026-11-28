@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   createContext,
   useCallback,
@@ -5,11 +6,13 @@ import {
   useEffect,
   useRef,
   useState,
+  type ComponentProps,
   type ReactNode,
 } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BottomTabInset } from '@/constants/theme';
 import { ToastTokens } from '@/constants/toast-tokens';
 import { subscribeToToasts, type ToastOptions } from '@/lib/toast';
 
@@ -48,7 +51,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       clearTimer();
       setToast(options);
 
-      const duration = options.duration ?? ToastTokens.duration;
+      const duration =
+        options.duration ?? (options.action ? ToastTokens.actionDuration : ToastTokens.duration);
 
       if (duration > 0) {
         timer.current = setTimeout(hideToast, duration);
@@ -63,7 +67,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => subscribeToToasts(showToast), [showToast]);
 
-  const colors = ToastTokens.variants[toast?.variant ?? 'info'];
+  const variant = ToastTokens.variants[toast?.variant ?? 'info'];
+  const bottom = toast?.placement === 'bottom';
 
   return (
     <ToastContext.Provider value={{ showToast, hideToast }}>
@@ -75,24 +80,38 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             pointerEvents="box-none"
             style={[
               styles.overlay,
-              {
-                top: insets.top + ToastTokens.screenMargin,
-              },
+              bottom
+                ? { bottom: insets.bottom + BottomTabInset + ToastTokens.screenMargin }
+                : { top: insets.top + ToastTokens.screenMargin },
             ]}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`${toast.message}. Dismiss notification`}
+            <View
               accessibilityLiveRegion="polite"
-              onPress={hideToast}
-              style={[
-                styles.toast,
-                {
-                  backgroundColor: colors.background,
-                  borderColor: colors.border,
-                },
-              ]}>
-              <Text style={styles.message}>{toast.message}</Text>
-            </Pressable>
+              style={[styles.toast, { backgroundColor: variant.background }]}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`${toast.message}. Dismiss notification`}
+                onPress={hideToast}
+                style={styles.body}>
+                <Ionicons
+                  name={variant.glyph as ComponentProps<typeof Ionicons>['name']}
+                  size={ToastTokens.iconSize}
+                  color={variant.icon}
+                  accessible={false}
+                />
+                <Text style={[styles.message, { color: variant.text }]}>{toast.message}</Text>
+              </Pressable>
+              {toast.action && (
+                <Pressable
+                  accessibilityRole="button"
+                  hitSlop={ToastTokens.paddingVertical}
+                  onPress={() => {
+                    toast.action?.onPress();
+                    hideToast();
+                  }}>
+                  <Text style={styles.action}>{toast.action.label}</Text>
+                </Pressable>
+              )}
+            </View>
           </View>
         )}
       </View>
@@ -124,13 +143,25 @@ const styles = StyleSheet.create({
   toast: {
     width: '100%',
     maxWidth: ToastTokens.maxWidth,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ToastTokens.gap,
     borderRadius: ToastTokens.borderRadius,
-    borderWidth: ToastTokens.borderWidth,
     paddingHorizontal: ToastTokens.paddingHorizontal,
     paddingVertical: ToastTokens.paddingVertical,
   },
+  body: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ToastTokens.gap,
+  },
   message: {
     ...ToastTokens.typography,
-    color: ToastTokens.text,
+    flex: 1,
+  },
+  action: {
+    ...ToastTokens.actionTypography,
+    color: ToastTokens.actionText,
   },
 });

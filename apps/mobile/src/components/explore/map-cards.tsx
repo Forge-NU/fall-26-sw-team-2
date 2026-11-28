@@ -58,7 +58,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
   headerText: { flex: 1, gap: Spacing.half },
   title: { ...Typography.subheading, color: Palette.black },
-  subtitle: { ...Typography.label, fontFamily: Typography.body.fontFamily, color: Palette.placeholderGray },
+  subtitle: { ...Typography.label, fontWeight: Typography.body.fontWeight, color: Palette.placeholderGray },
   list: { marginTop: Spacing.three, paddingTop: Spacing.two, borderTopWidth: 1, borderTopColor: Palette.peach },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one, paddingVertical: Spacing.two },
   rowName: { flex: 1, ...Typography.body, color: Palette.black },

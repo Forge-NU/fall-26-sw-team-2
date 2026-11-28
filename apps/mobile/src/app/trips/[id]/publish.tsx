@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
     borderRadius: Radii.small,
     backgroundColor: Palette.white,
   },
-  noticeText: { flex: 1, fontFamily: Typography.body.fontFamily },
+  noticeText: { flex: 1, fontWeight: Typography.body.fontWeight },
   error: { color: Palette.coral },
   fullWidth: { width: '100%' },
 });

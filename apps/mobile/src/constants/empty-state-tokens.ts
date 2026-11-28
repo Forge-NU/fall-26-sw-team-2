@@ -9,7 +9,7 @@ export const EmptyStateTokens = {
   copyGap: 4,
   copyMaxWidth: 260,
   actionMarginTop: 4,
-  titleTypography: { ...Typography.supporting, fontFamily: Typography.subheading.fontFamily },
+  titleTypography: Typography.headline,
   iconSize: 20,
-  iconColor: Palette.teal,
+  iconColor: Palette.neutral500,
 } as const;

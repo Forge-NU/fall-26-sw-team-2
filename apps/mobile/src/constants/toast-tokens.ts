@@ -3,34 +3,25 @@ import { Typography } from './typography';
 
 export const ToastTokens = {
   duration: 4000,
+  // A toast with an action (like Undo) stays longer
+  actionDuration: 6000,
   maxWidth: 361,
-  borderRadius: 6,
-  borderWidth: 1,
-  paddingHorizontal: 10,
-  paddingVertical: 8,
+  borderRadius: 14, // radius/md
+  paddingHorizontal: 16,
+  paddingVertical: 12,
+  gap: 8,
+  iconSize: 20,
   screenMargin: 16,
 
-  typography: {
-    ...Typography.body,
-    fontSize: Typography.label.fontSize,
-    lineHeight: Typography.label.lineHeight,
-  },
-  text: Palette.black,
+  typography: Typography.subhead,
+  actionTypography: Typography.headline,
 
   variants: {
-    success: {
-      background: Palette.lightTeal,
-      border: Palette.teal,
-    },
-    error: {
-      background: Palette.peach,
-      border: Palette.coral,
-    },
-    info: {
-      background: Palette.warmWhite,
-      border: Palette.teal,
-    },
+    success: { background: Palette.green50, icon: Palette.green600, text: Palette.green800, glyph: 'checkmark-circle' },
+    error: { background: Palette.red50, icon: Palette.red600, text: Palette.red800, glyph: 'warning' },
+    info: { background: Palette.neutral100, icon: Palette.neutral500, text: Palette.black, glyph: 'information-circle' },
   },
+  actionText: Palette.coral600,
 } as const;
 
 export type ToastVariant = keyof typeof ToastTokens.variants;

@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.peach,
   },
   cardText: { flex: 1, minWidth: 0, gap: Spacing.half },
-  title: { fontFamily: Theme.typography.supporting.fontFamily },
+  title: { fontWeight: Theme.typography.title.fontWeight },
   secondary: { color: Palette.placeholderGray },
   sheet: { flex: 1, backgroundColor: Theme.colors.background },
   sheetContent: {
