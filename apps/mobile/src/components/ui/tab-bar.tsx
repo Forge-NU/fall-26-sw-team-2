@@ -25,7 +25,7 @@ export function TabBar<K extends string>({ items, value, onChange }: TabBarProps
             accessibilityState={{ selected: active }}
             onPress={() => onChange(item.key)}
             style={styles.tab}>
-            <AppText variant="label" color={active ? 'black' : 'placeholderGray'}>
+            <AppText variant="headline" color={active ? 'text' : 'textSecondary'}>
               {item.label}
             </AppText>
             {active && <View style={styles.indicator} />}
@@ -51,6 +51,6 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     height: Spacing.half,
-    backgroundColor: Theme.colors.accent,
+    backgroundColor: Theme.colors.primary,
   },
 });

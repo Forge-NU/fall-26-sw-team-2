@@ -3,12 +3,16 @@ import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui/app-text';
 import { Button } from '@/components/ui/button';
+import { Chip, GlassChip, MenuButton } from '@/components/ui/chip';
 import { DateField } from '@/components/ui/date-field';
 import { LoadError } from '@/components/ui/load-error';
+import { Material } from '@/components/ui/material';
+import { PlaceSave } from '@/components/ui/place-save';
 import { IconButton } from '@/components/ui/icon-button';
 import { Pill } from '@/components/ui/pill';
 import { Screen } from '@/components/ui/screen';
 import { ScreenHeader } from '@/components/ui/screen-header';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { StarRating } from '@/components/ui/star-rating';
 import { TabBar } from '@/components/ui/tab-bar';
 import { Toggle } from '@/components/ui/toggle';
@@ -34,6 +38,10 @@ export function PrimitivesPreview() {
   const [toggle, setToggle] = useState(true);
   const [tab, setTab] = useState<'trips' | 'posts' | 'places'>('trips');
   const [rating, setRating] = useState<number | null>(3);
+  const [category, setCategory] = useState<string | null>('Food');
+  const [side, setSide] = useState<'posts' | 'bucket'>('posts');
+  const [scope, setScope] = useState<'all' | 'people' | 'places' | 'trips' | 'posts'>('all');
+  const [saved, setSaved] = useState(false);
 
   return (
     <View style={styles.section}>
@@ -82,6 +90,66 @@ export function PrimitivesPreview() {
 
       <AppText variant="title">Load error</AppText>
       <LoadError what="this trip" onRetry={() => showToast({ message: 'Trying again' })} />
+
+      <AppText variant="title">Chips</AppText>
+      <View style={styles.row}>
+        {['Food', 'Hotels', 'Sightseeing'].map((c) => (
+          <Chip key={c} label={c} selected={category === c} onPress={() => setCategory(category === c ? null : c)} />
+        ))}
+        <Chip label="Belém" leadingIcon="map-pin" />
+      </View>
+      <Material style={styles.glassRow}>
+        <GlassChip label="Friends" menu onPress={() => undefined} />
+        <GlassChip label="Near me" nearIcon onPress={() => undefined} />
+        <GlassChip label="Food" selected onPress={() => undefined} />
+      </Material>
+      <View style={styles.row}>
+        <MenuButton label="Most relevant" onPress={() => undefined} />
+        <MenuButton label="Dec 4 – 6" on onPress={() => undefined} />
+      </View>
+
+      <AppText variant="title">Segmented control</AppText>
+      <View style={styles.full}>
+        <SegmentedControl
+          segments={[
+            { key: 'posts', label: 'Posts' },
+            { key: 'bucket', label: 'Bucket', leadingIcon: 'lock' },
+          ]}
+          value={side}
+          onChange={setSide}
+        />
+      </View>
+      <View style={styles.full}>
+        <SegmentedControl
+          segments={[
+            { key: 'all', label: 'All' },
+            { key: 'people', label: 'People' },
+            { key: 'places', label: 'Places' },
+            { key: 'trips', label: 'Trips' },
+            { key: 'posts', label: 'Posts' },
+          ]}
+          value={scope}
+          onChange={setScope}
+        />
+      </View>
+
+      <AppText variant="title">Place save</AppText>
+      <View style={styles.row}>
+        <AppText variant="headline">Time Out Market</AppText>
+        <PlaceSave saved={saved} placeName="Time Out Market" onPress={() => setSaved(!saved)} />
+      </View>
+
+      <AppText variant="title">Nav headers</AppText>
+      <View style={styles.full}>
+        <ScreenHeader largeTitle title="Your trips" right={<IconButton icon="plus" accessibilityLabel="New trip" />} />
+        <ScreenHeader title="Lisbon with the crew" left={{ icon: 'chevron-left', label: 'Back', onPress: () => undefined }} />
+        <ScreenHeader
+          title="Lisbon with the crew"
+          left={{ icon: 'chevron-left', label: 'Back', onPress: () => undefined }}
+          right={<IconButton icon="share" accessibilityLabel="Share" />}
+        />
+        <ScreenHeader hideTitle title="Lisbon" left={{ icon: 'chevron-left', label: 'Back', onPress: () => undefined }} />
+      </View>
 
       <AppText variant="supporting">Screen + ScreenHeader</AppText>
       <View style={styles.row}>
@@ -140,7 +208,7 @@ export function PrimitivesPreview() {
       <View style={styles.row}>
         <Pill label="Default" />
         <Pill label="Selected" state="selected" />
-        <Pill label="Day 3 of 4" state="live" />
+        <Pill label="Day 3 of 4" state="selected" />
         <Pill label="Belém" showPin />
       </View>
 
@@ -200,6 +268,7 @@ export function PrimitivesPreview() {
 const styles = StyleSheet.create({
   section: { width: '100%', maxWidth: 361, gap: Spacing.three, alignItems: 'center' },
   full: { width: '100%' },
+  glassRow: { width: '100%', flexDirection: 'row', gap: Spacing.two, padding: Spacing.two, borderRadius: Radii.md },
   ratings: { gap: Spacing.two, alignItems: 'flex-start' },
   ratingSize: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   row: { width: '100%', flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: Spacing.two },
