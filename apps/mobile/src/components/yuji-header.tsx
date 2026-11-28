@@ -2,7 +2,8 @@ import { Image } from 'expo-image';
 import { StyleSheet, View } from 'react-native';
 
 import { NotificationBell } from '@/components/notifications/notification-bell';
-import { AppText } from '@/components/ui/app-text';
+import { IconButton } from '@/components/ui/icon-button';
+import { Material } from '@/components/ui/material';
 import { Spacing } from '@/constants/theme';
 
 // Width ÷ height of the "yuji" wordmark (Figma: Main Design File › Logo v2)
@@ -20,18 +21,21 @@ export function YujiLogo({ size = 26 }: { size?: number }) {
   );
 }
 
-export function YujiHeader() {
+export type YujiHeaderProps = {
+  /** Shows a + next to the bell: the backup for when the Post tab can't open the sheet (#160 option B) */
+  onPost?: () => void;
+};
+
+// The feed's nav header: the wordmark and the bell, on the frosted material
+export function YujiHeader({ onPost }: YujiHeaderProps) {
   return (
-    <View style={styles.header}>
-      <View>
-        <YujiLogo />
-        <AppText variant="caption">GO SOMEWHERE</AppText>
-      </View>
+    <Material edge="bottom" style={styles.header}>
+      <YujiLogo />
       <View style={styles.actions}>
-        {/* The Leaderboard button goes here once leaderboards exist */}
+        {onPost ? <IconButton icon="plus" accessibilityLabel="Post" onPress={onPost} /> : null}
         <NotificationBell />
       </View>
-    </View>
+    </Material>
   );
 }
 
